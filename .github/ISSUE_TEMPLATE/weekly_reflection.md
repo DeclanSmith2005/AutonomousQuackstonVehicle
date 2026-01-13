@@ -1,0 +1,3 @@
+#TEAM MEMBER NAME#
+
+The failure of lane detection under fluorescent lighting exposed a limitation in our initial assumption that static HSV thresholds would generalize. This revealed a gap in our understanding of robustness under varying environmental conditions. As a result, we will validate perception algorithms under multiple lighting scenarios and assign a single owner for sensor testing to avoid duplicated effort.
