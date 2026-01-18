@@ -7,10 +7,6 @@ tags: [meeting]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 ---
 
-# Meeting Minutes Template
-
-> **Instructions**: Use this template to document team meetings, planning sessions, design reviews, or status updates. Save as: `logbook/week-XX/YYYY-MM-DD_meeting-[topic].md`
-
 ## Meeting Information
 
 **Date:** 2026-01-18  
@@ -45,7 +41,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 **Context:** Verification of kit components and basic functionality before designing the system architecture.
 **Key Points Discussed:**
 
--   Confirmed ultrasonic sensors are functional after testing.
+- Confirmed ultrasonic sensors are functional after testing.
 - Raspberry Pi connected successfully to establish a baseline for software integration.
 - Need for additional hardware: 2 ultrasonics (for reversing/passenger detection), an emergency stop button, and 5 extra LEDs for signals/indicators.
 **Decisions Made:**
@@ -61,7 +57,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 **Key Points Discussed:**
 
--   **Perception:** Camera-based lane detection is the primary guy. Use OpenCV and potentially Yolo for object detection (ducks/cars)
+- **Perception:** Camera-based lane detection is the primary guy. Use OpenCV and potentially Yolo for object detection (ducks/cars)
 - **Localization:** Utilize GPS coordinates (updated every 0.2–1s) and QR codes at nodes to confirm position.
 - **Path Planning:** Implement a node-based graph system using Dijkstra’s or A* algorithms to calculate the shortest path to fares.
 - **Control:** Implement PID loops for lane following. Speed will be dynamic—lowered for turns to improve PID stability and increased on straightaways
@@ -80,7 +76,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 **Key Points Discussed:**
 
--   **Recovery:** If the vehicle goes off-track, it will store the last 1–2 seconds of inputs and reverse the actions to return to the last known node.
+- **Recovery:** If the vehicle goes off-track, it will store the last 1–2 seconds of inputs and reverse the actions to return to the last known node.
 - **Obstacle Detection:** Use ultrasonic sensors as a fail-safe to prevent collisions with ducks or other vehicles
 
 ## ✅ Decisions & Outcomes
@@ -109,7 +105,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 - ### Immediate Actions (By Friday, Jan 23)
 
--   [ ] **Declan** - Draft the Executive Summary, Write Section 1: Proponent Background and Understanding of the Problem, Design the Pathing, Fare Selection, and Broad Decision-Making logic for Section 3.
+- [ ] **Declan** - Draft the Executive Summary, Write Section 1: Proponent Background and Understanding of the Problem, Design the Pathing, Fare Selection, and Broad Decision-Making logic for Section 3.
 - [ ] **Ishaan** - Write the Section 2 Technical Approach description, Develop the Lane Detection details for Section 3, Create the Project Management Plan, including the WBS, Gantt chart, and CPM (Section 4), Define Team Roles, Responsibilities, and Project Scheduling (Sections 4.1 & 4.2).
 - [ ] **Rafael** - Develop the Control system details for Section 3, Draft Section 6: Cost Proposal and Budget, Write Section 8: Deliverables and Anticipated Outcomes, , Prepare Appendix B: Team Operating Agreement.
 - [ ] **Nolan** - Create the High-Level Overview Visio for Section 2, Draft the Perception Overview for Section 3, Write Section 5: Decision-Making and Conflict Resolution, Write Section 7: Risk, Safety, and Ethical Considerations.
