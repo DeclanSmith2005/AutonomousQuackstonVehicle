@@ -13,7 +13,6 @@ contributors: [Nolan Su-Hackett, Ishaan Grewal, Rafael Costa, Declan Smith]
 
 ## Daily Summary
 
-Provide a brief overview of what the team collectively worked on today. Include the main focus areas, key achievements, and any cross-cutting issues or decisions.
 Control:
 Research on PID, finding out key information that might be necessary for implementation.
 
