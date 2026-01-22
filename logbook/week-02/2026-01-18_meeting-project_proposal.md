@@ -17,10 +17,10 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 ### Attendees
 
-- ✅ Rafael - Control
-- ✅ Nolan - He Who Perceives
-- ✅ Ishaan - Floater
-- ✅ Declan - Planner
+- ✅ Rafael
+- ✅ Nolan
+- ✅ Ishaan
+- ✅ Declan
 
 ---
 
@@ -46,7 +46,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 - Need for additional hardware: 2 ultrasonics (for reversing/passenger detection), an emergency stop button, and 5 extra LEDs for signals/indicators.
 **Decisions Made:**
 
--   Purchase or acquire extra sensors and LEDs using the $50 project budget.
+- Purchase or acquire extra sensors and LEDs using the $50 project budget.
 - Use Google Colab for CV training, acknowledging a possible monthly cost ($13.99 - $50) for compute units.
 ---
 
@@ -57,7 +57,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 **Key Points Discussed:**
 
-- **Perception:** Camera-based lane detection is the primary guy. Use OpenCV and potentially Yolo for object detection (ducks/cars)
+- **Perception:** Camera-based lane detection is the primary. Use OpenCV and potentially Yolo for object detection (ducks/cars)
 - **Localization:** Utilize GPS coordinates (updated every 0.2–1s) and QR codes at nodes to confirm position.
 - **Path Planning:** Implement a node-based graph system using Dijkstra’s or A* algorithms to calculate the shortest path to fares.
 - **Control:** Implement PID loops for lane following. Speed will be dynamic—lowered for turns to improve PID stability and increased on straightaways
@@ -65,7 +65,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 **Decisions Made:**
 
--   Adopt a node-based map where nodes have properties like "Max Speed" or "Risk Factor" (e.g., near schools) to influence pathing.
+- Adopt a node-based map where nodes have properties like "Max Speed" or "Risk Factor" (e.g., near schools) to influence pathing.
 - Use a "black box" approach for interfacing: Planning sends X,Y coordinates, and Control handles the movement.
 ---
 
@@ -77,7 +77,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 **Key Points Discussed:**
 
 - **Recovery:** If the vehicle goes off-track, it will store the last 1–2 seconds of inputs and reverse the actions to return to the last known node.
-- **Obstacle Detection:** Use ultrasonic sensors as a fail-safe to prevent collisions with ducks or other vehicles
+- **Obstacle Detection:** Use ultrasonic sensors as a fail-safe to prevent collisions with ducks or other vehicles while reversing.
 
 ## ✅ Decisions & Outcomes
 
@@ -107,7 +107,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 
 - [ ] **Declan** - Draft the Executive Summary, Write Section 1: Proponent Background and Understanding of the Problem, Design the Pathing, Fare Selection, and Broad Decision-Making logic for Section 3.
 - [ ] **Ishaan** - Write the Section 2 Technical Approach description, Develop the Lane Detection details for Section 3, Create the Project Management Plan, including the WBS, Gantt chart, and CPM (Section 4), Define Team Roles, Responsibilities, and Project Scheduling (Sections 4.1 & 4.2).
-- [ ] **Rafael** - Develop the Control system details for Section 3, Draft Section 6: Cost Proposal and Budget, Write Section 8: Deliverables and Anticipated Outcomes, , Prepare Appendix B: Team Operating Agreement.
+- [ ] **Rafael** - Develop the Control system details for Section 3, Draft Section 6: Cost Proposal and Budget, Write Section 8: Deliverables and Anticipated Outcomes, Prepare Appendix B: Team Operating Agreement.
 - [ ] **Nolan** - Create the High-Level Overview Visio for Section 2, Draft the Perception Overview for Section 3, Write Section 5: Decision-Making and Conflict Resolution, Write Section 7: Risk, Safety, and Ethical Considerations.
 - [ ]  **Team** - Collaborate on "Micro-Task Gating" for the Project Management section (e.g., sequencing training before testing).
 
@@ -116,6 +116,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 - [ ] **Team** - Review first full draft of the proposal on Sunday night. - **Due:** YYYY-MM-DD
 - [ ] **Nolan** - Begin researching/gathering datasets for sign and duck detection. - **Due:** YYYY-MM-DD
 - [ ] **Rafael** - Test base PID parameters on the car during Tuesday's lab.
+- [ ] **Ishaan** - Research image processing/object detection algorithms/strategies. Set up necessary libraries for Coral and attempt to get Yolo working. Run test code. 
 ---
 
 ## 📊 Project Status
@@ -160,4 +161,4 @@ N/A
 
 **Minutes prepared by:** Rafael Costa
 **Date submitted:** 2026-01-18
-**Reviewed by:** [Facilitator Name]
+**Reviewed by:** Ishaan Grewal
