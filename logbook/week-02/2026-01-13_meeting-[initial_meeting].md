@@ -2,7 +2,7 @@
 title: "First Team Meeting - Project Introduction, Getting Kits, Initial Setup"
 date: 2026-01-13
 week: 2
-hours: 2.0
+hours: 4.0
 tags: Meeting, Setup
 contributors: Ishaan Grewal, Rafael Costa
 ---
