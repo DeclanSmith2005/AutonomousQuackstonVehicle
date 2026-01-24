@@ -2,7 +2,7 @@
 title: "Project Proposal Meeting"
 date: 2026-01-18
 week: 2
-hours: 2.5
+hours: 10.0
 tags: [meeting]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan, Smith]
 ---
