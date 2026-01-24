@@ -2,7 +2,7 @@
 title: "Team Contributions - [Research and Setup Session]"
 date: 2025-01-20
 week: 3
-hours: 2.0
+hours: 8.0
 tags: [teamwork]
 contributors: [Nolan Su-Hackett, Ishaan Grewal, Rafael Costa, Declan Smith]
 ---
