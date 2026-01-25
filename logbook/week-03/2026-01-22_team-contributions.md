@@ -59,43 +59,72 @@ it would be beneficial to always include buffer space/padding in project schedul
 
 ---
 
-## Entry – [Team Member Name 2]
+## Entry – [Rafael Costa]
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:00-17:00  
+**Activity Type:** Design / Documentation  
+**Status:** In progress
+**Estimated Effort:** 3.0 h  
 
 ### Work Performed
 
-- 
-- 
+- Participated in the initial project proposal meeting to define system architecture for perception, localization, planning, and control.
+
+- Researched and proposed a cascaded PID control system for lane keeping, utilizing dual inputs from grayscale sensors (voltage level) and camera data (lateral distance from centerline).
+
+- Investigated speed control strategies, initially considering a constant speed approach with GPS for location redundancy.
+
+- Conducted hardware verification tests on ultrasonic sensors and established basic Raspberry Pi connectivity.
+
+- Identified and sourced 3D printing models for vehicle components, including a front bumper and LED mounts.
+
+- Contributed to the perception strategy by researching monocular camera distance estimation using pixel-to-length calibration and triangle-based distance calculations.
+
+- Delegated proposal report tasks, taking responsibility for the Control system details, Cost Proposal (Section 6), and Deliverables (Section 8).
 
 ### Decisions
 
-*Optional section - include if applicable*
+- Adopted a "black box" interface approach between Planning and Control modules.
 
-- 
+- Selected a node-based graph system for pathfinding using Dijkstra’s or A* algorithms.
+
+- Decided to utilize the $50 budget for extra hardware, specifically additional ultrasonic sensors and signaling LEDs.
+
+- Agreed to use Google Colab for CV training to bypass local machine speed limitations.
 
 ### Issues Encountered
 
-*Optional section - include if applicable*
+- Determined that current hardware is insufficient for full functionality; identified the need for two extra ultrasonic sensors and an emergency stop button.
 
-- 
+- Acknowledged that limited lab time necessitates a supplemental weekly meeting schedule to ensure progress.
 
 ### Next Steps
 
-*Optional section - include if applicable*
+- [ ] Develop the Control system technical details for Section 3 of the proposal.
 
-- [ ] 
+- [ ] Draft Section 6 (Cost Proposal and Budget) and Section 8 (Deliverables and Outcomes).
+
+- [ ] Prepare Appendix B (Team Operating Agreement).
+
+- [ ] Test base PID parameters on the PiCar-X during the upcoming Tuesday lab session.
 
 ### References
 
-- 
+- Tuning Cascade Loops: https://www.controlsoftinc.com/tuning-cascade-loops-2/
+
+- Cascade Control Benefits: https://www.watlow.com/blog/posts/benefits-of-cascade-control
+
+- MathWorks PID Design: https://www.mathworks.com/help/control/ug/designing-cascade-control-system-with-pi-controllers.html
+
+- Robot PID Example: https://projects.raspberrypi.org/en/projects/robotPID/0
+
+- PiCar-X 3D Model Resources: https://mischianti.org/building-and-programming-picar-x-getting-started-with-your-robot-car/
+
+- Sunfounder Bumper Model: https://www.printables.com/model/1288585-sunfounder-picar-x-front-bumper
 
 ### Reflection
 
-
+The initial transition from high-level goals to concrete system architecture highlighted the complexity of integrating diverse sensor inputs. Researching the cascaded PID system confirmed that decoupling the faster grayscale corrections from the slower camera-based environmental analysis is critical for stability. My focus for the upcoming week will be translating these technical research points into a formal proposal while preparing for physical hardware testing to validate our theoretical control model.
 
 ---
 
@@ -144,7 +173,7 @@ it would be beneficial to always include buffer space/padding in project schedul
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 3.17 h | ✅/⚠️/❌ | Installed necessary modules(✅), successfully ran SunFounder camera test scripts(✅), ran into issues/errors with Coral test scripts(⚠️/❌). |
-| Name 2 | X.X h | ✅/⚠️/❌ | Brief description |
+Rafael Costa|2.5 h|⚠️|Conducted hardware verification on ultrasonic sensors and Pi connectivity ; researched and proposed a cascaded PID control system and discrete state machine for dynamic speed ; delegated proposal report tasks for the control, cost, and deliverables sections.
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
