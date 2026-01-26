@@ -128,6 +128,35 @@ The initial transition from high-level goals to concrete system architecture hig
 
 ---
 
+## Entry – [Nolan Su-Hackett]
+
+**Time:** 13:45–17:00  
+**Activity Type:** [Testing/Setup]  
+**Status:** [Setup (Completed), Testing(in-Progress]  
+**Estimated Effort:** 3.0 h  
+
+### Work Performed
+
+- Finished downloading setup_coral.sh script file from last session
+- Explored coral directory to gain understanding of the file organization
+- Attempted to run basic coral tests in the aiy maker kit, discovered that our file organization is slightly different than that described in the gitbook
+- ran into errors and tested some solutions, like moving files directly next to the one we wanted to run to try to solve the import problems however this caused more errors as we chanaged the file organization
+- Ultimately reinstalled the coral script again from scratch to avoid convolution and to allow us to escalate the problem to TA's/Profs without a disorganized file structure.
+
+### Issues Encountered
+
+- the python file run_tests.py could not seem to find many files that was necessary for its operation. Traceback errors of note were related to importing the vision.py file as well as messages related to libedgetpu. Attempted moving files around and looking for files like vision, which we did find but could not figure out why it had trouble getting imported.
+
+### Next Steps
+
+- Escalated to Professor Araujo, who has kept contact with the team and suggests that there may be a problem with the CORAL TPU, he said to bring the question to the tuesday lab for further debugging.
+
+### Reflection
+The issues that the perception team is currently dealing with show the importance of setting things up immediately. Although setup may seem quick and easy there are often problems which MUST be resolved before the actual implementation of the project can even start. This session also taught us a valuable lesson, knowing when to escalate issues to those more experienced and when to spare our time to focus on other parts. After the perception team troubleshooted as much as possible we turned our attention to reading further documentation on the coral and machine learning to gain a headstart on project research while we waited for a response from professors.
+
+
+---
+
 ## Entry – [Team Member Name 3]
 
 **Time:** HH:MM–HH:MM  
