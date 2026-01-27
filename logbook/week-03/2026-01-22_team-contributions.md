@@ -2,7 +2,7 @@
 title: "Team Contributions - 2nd Weekly Work Session"
 date: 2026-01-22
 week: 3
-hours: X.X
+hours: 12.17 hrs
 tags: Perception, Planning, Localization, Control  
 contributors: Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith
 ---
@@ -157,42 +157,35 @@ The issues that the perception team is currently dealing with show the importanc
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – [Declan Smith]
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 13:45–17:00  
+**Activity Type:** [Design / Documentation]  
+**Status:** [Design(In progress), Documentation(Completed)]  
+**Estimated Effort:** 3 h  
 
 ### Work Performed
 
-- 
-- 
+- Report writing for the project proposal document. I was personally responsible for the section on the problem statement/understanding, as well as a description of the design choices for the planning subsystem and a description of the team's use of GitHub during the project.
+- I planned the implementation of a Python script which will output directions for the car to move based on a graph of the map layout. After planning was complete, I began working on the code, which is currently partially complete. 
 
 ### Decisions
+- Decided to use a sparsely populated graph to model the map environment for wayfinding purposes, as well as to use an implementation of Dijsktra's pathfinding algorithm to provide directions to the car for navigating the map.
+- Decided to implement graph design using a Python script reading out of a txt file.
+- Decided that the output of the algorithm would be waypoint coordinates to pass to other device subsystems, which the car will directly move toward.
 
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
 
 ### Next Steps
 
 *Optional section - include if applicable*
 
-- [ ] 
+- Continue to develop and test the path finding Python script.  
 
 ### References
-
-- 
+- https://www.geeksforgeeks.org/dsa/dijkstras-shortest-path-algorithm-greedy-algo-7/
 
 ### Reflection
-
+The team is working well and making good progress towards the development of the autonomous vehicle. The pathing subsystem feels well thought out for now. It's important to get a strong first attempt working so that integration with the other systems can begin and refinements can be made early in the development cycle to come to a strong finished product. 
 
 
 ---
@@ -203,7 +196,7 @@ The issues that the perception team is currently dealing with show the importanc
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 3.17 h | ✅/⚠️/❌ | Installed necessary modules(✅), successfully ran SunFounder camera test scripts(✅), ran into issues/errors with Coral test scripts(⚠️/❌). |
 Rafael Costa|2.5 h|⚠️|Conducted hardware verification on ultrasonic sensors and Pi connectivity ; researched and proposed a cascaded PID control system and discrete state machine for dynamic speed ; delegated proposal report tasks for the control, cost, and deliverables sections.
-| Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
+| Declan Smith | 3.0 h | ✅/⚠️ | worked on navigation python file(⚠️) and wrote project propsoal sections(✅) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
