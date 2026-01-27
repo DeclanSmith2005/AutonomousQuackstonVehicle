@@ -196,7 +196,7 @@ The team is working well and making good progress towards the development of the
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 3.17 h | ✅/⚠️/❌ | Installed necessary modules(✅), successfully ran SunFounder camera test scripts(✅), ran into issues/errors with Coral test scripts(⚠️/❌). |
 Rafael Costa|2.5 h|⚠️|Conducted hardware verification on ultrasonic sensors and Pi connectivity ; researched and proposed a cascaded PID control system and discrete state machine for dynamic speed ; delegated proposal report tasks for the control, cost, and deliverables sections.
-| Declan Smith | 3.0 h | ✅/⚠️/❌ | worked on navigation python file(⚠️) and wrote project propsoal sections(✅) |
+| Declan Smith | 3.0 h | ✅/⚠️ | worked on navigation python file(⚠️) and wrote project propsoal sections(✅) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
