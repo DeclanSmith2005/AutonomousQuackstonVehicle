@@ -132,7 +132,7 @@ The initial transition from high-level goals to concrete system architecture hig
 
 **Time:** 13:45–17:00  
 **Activity Type:** [Testing/Setup]  
-**Status:** [Setup (Completed), Testing(in-Progress]  
+**Status:** [Setup (Completed), Testing(in-Progress)]  
 **Estimated Effort:** 3.0 h  
 
 ### Work Performed
