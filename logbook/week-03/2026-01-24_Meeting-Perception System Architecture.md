@@ -2,7 +2,7 @@
 title: "Perception System Architecture Meeting"
 date: 2026-01-24
 week: 3
-hours: X.X
+hours: 8.0
 tags: Perception
 contributors: Ishaan Grewal, Nolan Su-Hackett
 ---
@@ -10,8 +10,8 @@ contributors: Ishaan Grewal, Nolan Su-Hackett
 ## Meeting Information
 
 **Date:** 2026-01-24  
-**Time:** HH:MM – HH:MM  
-**Duration:** X.X hours  
+**Time:** 18:00 – 22:00  
+**Duration:** 4.0 hours  
 **Location:** Microsoft Teams Call  
 **Meeting Type:** Design Review, Sprint Planning
 
