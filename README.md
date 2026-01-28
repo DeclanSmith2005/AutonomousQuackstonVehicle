@@ -19,7 +19,8 @@ elec392_project/
 │   ├── 03_sound.py                                # Robot Hat sound examples (use sudo)
 │   ├── 04_ultrasonic_obstacle_avoidance.py        # Obstacle avoidance example using ultrasonic sensor
 │   ├── 05_line_following.py                       # Line following demonstration
-│   └── 06_receive_detections_udp.py               # Receive object detections via UDP from remote detector
+│   ├── 06_send_detections_udp.py                  # Receive object detections via UDP from remote detector
+│   └── 07_receive_detections_udp.py               # Send sample detections via UDP (for testing)
 ├── images/                                        # Folder for project images referenced by logbook
 ├── logbook/                                       # Folder for log entries 
 │   ├── .templates
@@ -35,8 +36,13 @@ elec392_project/
 ├── utils/                                         # Autonomous driving utilities
 │   ├── __init__.py
 │   ├── actuator_calibration.py                    # Motor and servo calibration
+│   ├── camera_calibration.py                      # Camera calibration using chessboard pattern
+│   ├── capture_images.py                          # Capture images from Raspberry Pi camera
+│   ├── detection_receiver.py                      # UDP detection receiver class
+│   ├── detection_sender.py                        # UDP detection sender class
 │   ├── grayscale_calibration.py                   # Grayscale (line follower) sensor calibration
-│   └── servo_zeroing.py                           # Script to zero servos
+│   ├── servo_zeroing.py                           # Script to zero servos
+│   └── troubleshooting.md                         # Common issues and solutions
 ├── README.md                                      # This file
 ├── setup_coral.sh                                 # Bash script to install coral repos 
 ├── setup_picarx.sh                                # Bash script to isntall picar-x repos and dependencies
