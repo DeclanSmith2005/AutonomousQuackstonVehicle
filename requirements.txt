@@ -10,11 +10,14 @@ opencv-python>=4.8.0
 numpy>=1.24.0
 
 # Coral USB Accelerator / TensorFlow Lite
-pycoral>=2.0.0
-tflite-runtime>=2.14.0
+# pycoral>=2.0.0
+# tflite-runtime>=2.14.0
 
 # Optional: For development and testing
 pytest>=7.4.0
 
 # Required for logbook
 pyyaml>=5.4.1
+
+# Visuzlization
+matplotlib>=3.7.0
