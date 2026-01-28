@@ -31,7 +31,7 @@ elec392_project/
 │   ├── week-12/
 │   ├── generate_activity_report.py                # Auto-grader for logbook entries                                  
 │   └── README.md                                  # Logbook instructions
-├── sound/                                        # Sound files (.mp3, .wav)
+├── sound/                                         # Sound files (.mp3, .wav)
 ├── src/                                           # Where your code should go
 ├── utils/                                         # Autonomous driving utilities
 │   ├── __init__.py
