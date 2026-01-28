@@ -85,8 +85,6 @@ Next, the team focused on planning and defining the perception system architectu
 
 ---
 
----
-
-**Minutes prepared by:** [Note Taker Name]  
-**Date submitted:** YYYY-MM-DD  
+**Minutes prepared by:** Ishaan Grewal  
+**Date submitted:** 2026-01-27 
 **Reviewed by:** [Facilitator Name]
