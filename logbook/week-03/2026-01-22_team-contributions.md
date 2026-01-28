@@ -205,7 +205,8 @@ The team brainstormed and developed the following preliminary fare selection alg
 | Ishaan Grewal | 3.17 h | ✅/⚠️/❌ | Installed necessary modules(✅), successfully ran SunFounder camera test scripts(✅), ran into issues/errors with Coral test scripts(⚠️/❌). |
 Rafael Costa|2.5 h|⚠️|Conducted hardware verification on ultrasonic sensors and Pi connectivity ; researched and proposed a cascaded PID control system and discrete state machine for dynamic speed ; delegated proposal report tasks for the control, cost, and deliverables sections.
 | Declan Smith | 3.0 h | ✅/⚠️ | worked on navigation python file(⚠️) and wrote project propsoal sections(✅) |
+| Nolan | 3.0 h | ✅/⚠️/❌ | Installed Coral and picar setup ✅, ran camera ✅, coral TPU not working as intended, maybe error with TPU or wire? ⚠️/❌|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
-**Entry completed**: 2026-01-24 HH:MM
+**Entry completed**: 2026-01-27 7:43 PM
