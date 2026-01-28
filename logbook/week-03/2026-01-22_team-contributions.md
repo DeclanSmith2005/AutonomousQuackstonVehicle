@@ -190,6 +190,14 @@ The team is working well and making good progress towards the development of the
 
 ---
 
+## Key Team Decisions Made
+
+The team brainstormed and developed the following preliminary fare selection algorithm. The goal behind this algorithm is to identify the true benefit of a certain fare, which is accomplished by considering the cumulative distance between the vehicle's current position and the fare destination. In particular, this was chosen because the vehicle will rarely be close to the fare pickup location, and hence, must travel that distance initially. Furthermore, all distances (current vehicle location to pickup, and pickup to dropoff) are calculated using the team's pathfinding algorithm, which represents the true distance cost of the fare. By computing this distance for each available fare, the team will be able to find the $/distance earned for each fare and select the fare that generates the most profit per unit time. Below is the team's fare selection formula: 
+
+(Base Fare+(Distance Based Fare*Fare Distance))/(Cumulative Distance Between Current Position and Fare Completion)
+
+---
+
 ## Team Metrics
 
 | Member | Hours | Status | Key Contribution |
@@ -199,13 +207,5 @@ Rafael Costa|2.5 h|⚠️|Conducted hardware verification on ultrasonic sensors 
 | Declan Smith | 3.0 h | ✅/⚠️ | worked on navigation python file(⚠️) and wrote project propsoal sections(✅) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
-
----
-
-## Team Notes
-
-The team brainstormed and developed the following preliminary fare selection algorithm: 
-
----
 
 **Entry completed**: 2026-01-24 HH:MM
