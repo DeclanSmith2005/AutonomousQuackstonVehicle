@@ -21,13 +21,14 @@ def main():
     count = 0
     try: 
         px = Picarx()
-        music.music_set_volume(20)
+        music.music_set_volume(50)
         tts.lang("en-US")
 
         words = "Starting acceleration test in three... two... one..."
         print(f'{words}')
+        sleep(1)
         tts.say(words)
-        sleep(0.5)
+        sleep(1)
 
         px.forward(speed)
 
