@@ -44,5 +44,3 @@ if __name__ == "__main__":
     finally:
         px.stop()
         time.sleep(0.2)
-
-
