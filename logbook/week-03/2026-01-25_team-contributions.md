@@ -86,25 +86,24 @@ large planning and framework step that will allow the team to move forward with 
 
 ---
 
-## Entry – [Team Member Name 4]
+## Entry – Declan Smith
  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]   
-**Estimated Time Spent:** X.X h  
+**Activity Type:** Report Writing 
+**Estimated Time Spent:** 10 h  
 
 ### Work Performed
 **Sections Written/Work Completed:**
-- 
+- Section 1: Proponent Background and Understanding of the Problem
+- Section 3.2: Planning (description of the technical approach to the planning subsystem)
+- Section 4.3 Github based management
+  
 
 
 **Other Work/Sections Edited:**
-- 
+- Helped to edit/provide feedback on everyone's sections. 
 
 
 ### Reflection
+The team worked well together to produce a final report summarizing the intended approach to the project. Aside from the report itself, the level of integration of ideas amongst the team needed to coordinate writing the report was useful because everyone gained a strong level of understanding of one another's goals and intentions. Going forward, this will ease the process of integrating the project and ensure that no one designs a subsystem incompatible with the rest of the team. The team got along well and was efficient in separating who was responsible for which work. Overall, I was happy with the report writing process and look forward to the rest of the project.
 
-
----
-
----
-
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-01-25
