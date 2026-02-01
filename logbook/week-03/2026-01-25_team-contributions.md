@@ -43,22 +43,27 @@ of people are editing the report, as we believe this was the reason that the fil
 
 ---
 
-## Entry – [Team Member Name 2]
- 
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]   
-**Estimated Time Spent:** X.X h  
+## Entry – Nolan Su-Hackett
+
+**Activity Type:** Report Writing/Editing 
+**Estimated Time Spent:** 10.0 h   
 
 ### Work Performed
 **Sections Written/Work Completed:**
-- 
+- High Level system overview Flow chart
+- 3.2.1 Perception
+- 5. Decision Making and Conflict Resolution
+- 7. Risk, Safety and Ethical Considerations
 
 
 **Other Work/Sections Edited:**
-- 
+- Helped in reading and editing all sections
 
 
 ### Reflection
-
+Organization of the report was well thought out, multiple meetings took place within each sub group and overall as each team ran into issues (mostly with interfacing) to ensure that everything came together. The intention of the report was not just to get something down on paper but to get something down that was functional
+and would have real application for the project. The team was intentional about making realistic decisions especially when it came to interfacing and this report acted as a 
+large planning and framework step that will allow the team to move forward with a plan and well organized approach.
 
 ---
 
