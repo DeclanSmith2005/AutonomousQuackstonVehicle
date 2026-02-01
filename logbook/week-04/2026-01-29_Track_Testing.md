@@ -60,42 +60,52 @@ Testing on the actual Quackston track was invaluable for grounding our theoretic
 
 ---
 
-## Entry – [Team Member Name 2]
+## Entry – Ishaan Grewal
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 3:30-6:00  
+**Activity Type:** Testing / Prototyping / Perception  
+**Status:** In Progress  
+**Estimated Effort:** 2.5 h  
 
 ### Work Performed
 
-- 
-- 
+- Followed and completed the following steps of the European Road Sign Detector tutorial on Colab:
+    - Set up the virtual environment.
+    - Uploaded dataset to runtime.
+    - Train the model.
+    - Testing the model.
+    - Compiling the TFLite Model for Edge TPU.
+    - Download the Models
+- Reviewed the Python files used in Colab to familiarize myself with the code.
+- Working with Rafael, conducted controlled speed trials across ten PWM increments (10% to 100%) over a fixed distance on the Quackston track.
+- Collaborated with Rafael and Nolan to calibrate the steering servo center-point and the optimal vertical tilt angle for the camera.
+- Tested and verified camera functionality on the track at the calibrated vertical tilt angle using the SunFounder 7. Computer_Vision.py file.
+- Experimented with the built-in colour detection and measured its effectiveness in detecting the center blue line.
+
 
 ### Decisions
+- **Lane Detection Object Height Filter:** Based on preliminary results observed when tracking the blue center lane, the Perception team decided to include a filter in the Object Detection Pipeline which filters any blue detections that are above the horizon level of the camera. This was decided since we noticed that the camera was detecting background objects of the same colour. Hence, during competition, it may detect certain colours or objects on the buildings or in the background of the environment. By filtering to only consider objects at or below the camera's horizon, we can limit false detections.
+- **Camera Positioning:** Fixed the camera tilt angle at a level that balances long-range sign detection with short-range lane marker tracking. Also decided that during operation, we will not adjust the vertical tilt, since this needs to remain constant (also because the focal lengths that would be obtained from calibration are specific to this angle).
+- **Servo Calibration:** Established the exact PWM values for "Dead Center" steering to prevent lateral drift during CRUISE states. These are now the new "zero" values.
 
-*Optional section - include if applicable*
-
-- 
 
 ### Issues Encountered
 
-*Optional section - include if applicable*
+- **Deploying the Model on the RPi:** When attempting to complete the last step of the European Road Sign Detector tutorial, which is deploying the model to the Raspberry Pi, the Perception team encountered errors. Specifically, we noticed that the tutorial did not specify what to input for certain variables, such as "headless." As a result, we were unable to test the trained sign detection model on the PiCar.
+- **Traction Variability:** When assisting Rafael with conducting the controlled speed tests and calibrating the steering servo center-point, we noticed that there will always be some variability in traction, which sometimes causes lateral drift or variable speed. This is due to the wheels slipping and uneven surfaces on the track. The PID loop will help address/counter any impacts from this.
+- **Grayscale Sensor Calibration:** The team intended to calibrate the grayscale sensor during this work session, however, we were not given black electrical tape, so we were unable to do this.
 
-- 
 
 ### Next Steps
 
-*Optional section - include if applicable*
+- [ ] Work with Professor Paulo or TA Eric to help resolve the issue with deploying the trained model on the RPi. Once this is resolved, we need to test the model on the Pi by testing its ability to detect the stop signs.
+- [ ] Obtain black electrical tape and calibrate the grayscale sensor. Work with Rafael to experiment with this sensor and see what the outputs look like for the road surface, blue line, and white/yellow lane boundaries. Also, finalize with Rafael how he wants this information transmitted to control.
+- [ ] Calibrate the camera module to obtain the focal lengths and intrinsic parameters.
+- [ ] Implement Tailscale.
 
-- [ ] 
-
-### References
-
-- 
 
 ### Reflection
-
+Visiting the Quackston setup and seeing the map in person was immensely valuable in understanding key constraints and requirements. The Perception team is on track with their project roadmap. Although we were unable to test the model, going through the rest of the Colab tutorial steps and reading the provided Python scripts helped clarify the next steps for the Perception team, providing a great example framework to follow. I did notice that teams are not informed of which section of the track will be available on each Tuesday and Thursday, and I have mentioned this to a TA. I believe it is valuable for teams to know this because, for example, today there were no crosswalks on the map, and so if a team wants to test a specific part of the map, it would be helpful to know which submap will be out for testing on which day. Once the sensors and cameras are calibrated, we can begin collecting and annotating the data!
 
 
 ---
@@ -145,16 +155,10 @@ Testing on the actual Quackston track was invaluable for grounding our theoretic
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ⚠️ | Completed on-track speed trials (10%-100% PWM); successfully implemented Tailscale for remote access. |
-| Name 2 | X.X h | ✅/⚠️/❌ | Brief description |
+| Ishaan Grewal | 2.5 h | ⚠️ | Almost complete Google Colab tutorial on European road sign detection, completed on-track speed trials, tested camera functionality and colour detection algorithms |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
-
----
-
-## Team Notes
-
-Any collective observations, cross-functional issues, or team-level decisions that span multiple individual contributions.
 
 ---
 
