@@ -7,10 +7,6 @@ tags: Perception, Planning, Control, Hardware
 contributors: Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith
 ---
 
-# Team Contributions Log Template
-
-> **Instructions**: Use this template when multiple team members work on the same day and you want to track individual contributions. Save as: `logbook/week-XX/YYYY-MM-DD_team-contributions.md`
-
 ## Daily Summary
 
 In this session, the group focused on hardware troubleshooting and specific subsystem development. The Perception Team (Ishaan & Nolan) collaborated with Professor Paulo and Matthew to resolve persistent Coral TPU connectivity issues, which were ultimately traced to a faulty cable. Rafael (Control) developed and refined test scripts for steering and speed control, though environmental conditions in the studio prevented data collection. Declan (Planning) focused on the modeling of the Quackston map.
@@ -58,42 +54,31 @@ This session highlighted how physical environment variables like surface frictio
 
 ---
 
-## Entry – [Team Member Name 2]
+## Entry – Ishaan Grewal
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-16:30  
+**Activity Type:** Hardware Debugging / Implementation / Perception  
+**Status:** Completed/In Progress  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
+- Worked with Professor Paulo and Matthew to debug and resolve the TPU connectivity issues. The issue was found to be the use of the incorrect cable. TPU is now connected.
+- Set up FileZilla for file transfer to and from the Raspberry Pi.
+- Tested SunFounder object detection algorithm/code on a water bottle as an example.
+- Read through and familiarized myself with the Google Colab model training process.
+- Partially completed the European Road Sign Detector Tutorial in Colab since we ran out of time to train the model (it takes 20 minutes to train and another 20 minutes to test).
 
-- 
-- 
-
-### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
 
 ### Next Steps
 
-*Optional section - include if applicable*
+- [ ] Complete the European Road Sign Detector Tutorial in Colab, and run the trained model on the Raspberry Pi.
+- [ ] Calibrate and test the grayscale sensor.
+- [ ] Calibrate and determine the optimal camera tilt angle on the track.
+- [ ] Visit the Quackston map in person
 
-- [ ] 
-
-### References
-
-- 
 
 ### Reflection
-
+This session illustrated how small things (such as using the incorrect USB-C to USB-A) cable can cause large issues in development and testing. In the previous week, the Perception team spent many hours attempting to debug the errors they were getting when running object detection models on the Coral. During this debugging, the team was focused on software-related errors, while the true error was a minor hardware cable issue. Hence, a key takeaway from this session is that it is important to look at the complete picture of a problem. In retrospect, in the case of the TPU issue, the team should have checked to see if the TPU was connected properly/being recognized by the Pi first, rather than diving into the software issues in front of them. Additionally, the team did not know that there was a Python script to detect connected TPUs. Thus, it is important to explore all the provided debugging scripts since this would have revealed that the TPU wasn't being recognized and would have enabled quick identification of the cable issue. Going forward, these are key lessons/tips to keep in the back of our minds.
 
 
 ---
@@ -143,16 +128,10 @@ This session highlighted how physical environment variables like surface frictio
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ⚠️ | Developed precise servo and speed control test scripts; evaluated environmental impacts on traction. |
-| Name 2 | X.X h | ✅/⚠️/❌ | Brief description |
+| Ishaan Grewal | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
-
----
-
-## Team Notes
-
-Any collective observations, cross-functional issues, or team-level decisions that span multiple individual contributions.
 
 ---
 
