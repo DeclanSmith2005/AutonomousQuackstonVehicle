@@ -21,10 +21,10 @@ total number of hours they spent on the Project Proposal Report, and listed the 
 
 ### Work Performed
 **Sections Written/Work Completed:**
-- 2. Proposed Technical Approach - 2.1 Functional Requirements & Constraints & 2.2 High-Level Overview of Proposed System: Main Layers & Their Performance
+- (2. Proposed Technical Approach) - 2.1 Functional Requirements & Constraints & 2.2 High-Level Overview of Proposed System: Main Layers & Their Performance
 - 3.2.1 Perception - 3.2.1.1.1 Training Data & 3.2.1.2 Key Requirements & 3.2.1.3.1 Object Detection Pipeline & 3.2.1.3.2 Sense Pipeline
 - 3.2.2 Localization
-- 4. Project Management Plan - 4.1 Team Roles and Responsibilities & 4.2 Project Management & Scheduling
+- (4. Project Management Plan) - 4.1 Team Roles and Responsibilities & 4.2 Project Management & Scheduling
 - Created flowcharts for the Object Detection Pipeline and Sense Pipeline
 - Set up the team's Project Management Kanban and Gantt Chart in Github
 
