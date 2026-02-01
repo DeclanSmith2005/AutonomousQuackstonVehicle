@@ -2,7 +2,7 @@
 title: "Team Contributions - 4th Weekly Work Session"
 date: 2026-01-29
 week: 4
-hours: X.X
+hours: 10
 tags: Perception, Control, Infrastructure, Planning
 contributors: Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith
 ---
@@ -144,43 +144,31 @@ on setup to see which can be repurposed for some applications like experimenting
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – Declan
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 3:30-6  
+**Activity Type:** writing code  
+**Status:** In progress
+**Estimated Effort:** 5 h  
 
 ### Work Performed
 
-- 
-- 
+- Continued work on developing the virtual graph for the map of Quackston. 
+- A first pass of the map is now fully functional, the graph of nodes provided to all teams is now visible using pyPlot.
 
-### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
 
 ### Next Steps
 
-*Optional section - include if applicable*
-
-- [ ] 
+- Increasing Graph Resolution.
+- Writing Dijkstra's algorithm to navigate the graph.
+- Adding additional information to graph nodes, such as stop sign locations, maximum speeds, etc
 
 ### References
-
-- 
+- https://matplotlib.org/3.5.3/api/_as_gen/matplotlib.pyplot.html
 
 ### Reflection
 
-
+Overall, this was a productive week of work. I expect the development of an informative graph to be the most difficult aspect of my section of the project, so having a solid first draft of at least the points provided to all teams means we are well on our way to accomplishing end goals. A major next step will be integrating the provided navigation Github file structure into my implementation and using the tools provided to go about navigating / route planning. Overall it's going well and the team is on pace for a successful project. 
 
 ---
 
@@ -190,11 +178,11 @@ on setup to see which can be repurposed for some applications like experimenting
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ⚠️ | Completed on-track speed trials (10%-100% PWM); successfully implemented Tailscale for remote access. |
 | Ishaan Grewal | 2.5 h | ✅/⚠️ | Almost complete Google Colab tutorial on European road sign detection (⚠️), completed on-track speed trials (✅), tested camera functionality and colour detection algorithms (✅) |
-| Ishaan Grewal | 2.5 h | ✅/⚠️ | Almost complete Google Colab tutorial on European road sign detection (⚠️), completed on-track speed trials (✅), tested camera functionality and colour detection algorithms (✅) |
-| Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
+| Nolan Su-Hackett | 2.5 h | ✅/⚠️ | Almost complete Google Colab tutorial on European road sign detection (⚠️), completed on-track speed trials (✅), tested camera functionality and colour detection algorithms (✅) |
+| Declan Smith | 2.5 h | ✅/⚠️ | First Draft of Map Graph Done (✅) | Need to Continue to Extend the Graph and Add Nodes / Functionality. |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-02-01
