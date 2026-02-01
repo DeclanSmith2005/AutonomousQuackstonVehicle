@@ -2,7 +2,7 @@
 title: "Team Contributions - 3rd Weekly Work Session"
 date: 2026-01-27
 week: 4
-hours: 12.0
+hours: 8.0
 tags: Perception, Planning, Control, Hardware
 contributors: Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith
 ---
@@ -15,10 +15,10 @@ In this session, the group focused on hardware troubleshooting and specific subs
 
 ## Entry – [Rafael]
 
-**Time:** 14:30-17:30 
+**Time:** 14:30-16:30 
 **Activity Type:** [Software Development / Testing]  
 **Status:** [In progress]  
-**Estimated Effort:** 3.0 h
+**Estimated Effort:** 2.0 h
 
 ### Work Performed
 
@@ -118,7 +118,7 @@ in figuring out the core issue. There are also other scripts in the car which pr
 **Time:** 14:30-16:30  
 **Activity Type:** Software Writing
 **Status:** In Progress
-**Estimated Effort:** 3 h
+**Estimated Effort:** 2 h
 
 ### Work Performed
 - Used Nodebook ++ to extend the current graph document to write more nodes and increase graph resolution for the map of Quackston. 
@@ -134,10 +134,10 @@ Overall, work on the graph is going well and improvements are being made. I need
 
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
-| Rafael Costa | 3.0 h | ⚠️ | Developed precise servo and speed control test scripts; evaluated environmental impacts on traction. |
+| Rafael Costa | 2.0 h | ⚠️ | Developed precise servo and speed control test scripts; evaluated environmental impacts on traction. |
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
 | Nolan Su-Hackett | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
-| Declan Smith | 2 h | ⚠️ | Continue to Improve and Extend Map Graph|
+| Declan Smith | 2.0 h | ⚠️ | Continue to Improve and Extend Map Graph|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
