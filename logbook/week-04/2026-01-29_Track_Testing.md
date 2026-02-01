@@ -155,7 +155,7 @@ Visiting the Quackston setup and seeing the map in person was immensely valuable
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ⚠️ | Completed on-track speed trials (10%-100% PWM); successfully implemented Tailscale for remote access. |
-| Ishaan Grewal | 2.5 h | ⚠️ | Almost complete Google Colab tutorial on European road sign detection, completed on-track speed trials, tested camera functionality and colour detection algorithms |
+| Ishaan Grewal | 2.5 h | ✅/⚠️ | Almost complete Google Colab tutorial on European road sign detection (⚠️), completed on-track speed trials (✅), tested camera functionality and colour detection algorithms (✅) |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
