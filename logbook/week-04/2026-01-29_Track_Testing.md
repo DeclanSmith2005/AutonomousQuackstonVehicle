@@ -110,6 +110,40 @@ Visiting the Quackston setup and seeing the map in person was immensely valuable
 
 ---
 
+## Entry – [Nolan Su-Hackett]
+
+**Time:** 3:30-6:00  
+**Activity Type:** Testing / Prototyping / Perception  
+**Status:** In Progress  
+**Estimated Effort:** 2.5 h  
+
+### Work Performed
+- Went to in-person Quackston Display in Bain
+- Downloaded Tailscale and added the Raspberry pi to list of devices, I can now connect to the Rpi without connecting to the same local Wi-Fi
+- Ran Calibration script with Rafael for servo camera tilt and the wheel servo angle. Successfully calibrated wheels so that when zero'd the car drives straight
+- Used Sunfounder Video streaming script to create a feedback loop to find the optimal camera angle with the car on the actual road with a placed stop sign
+- tested video streaming script to create bounding boxes to detect certain colors, maybe this can be used as a means to do lane detection, as guidelines are blue strips?
+- after Ishaan finished training the road sign model from google colab we attempted it but ran into some issues.
+
+### Issues Encountered
+- if there is dirt on the ground or dried salt, the wheels will pick it up and lose traction causing the wheels to slip
+- after following the steps in the google colab tutorial the model could not run, it said the parameters did not match those that are needed from the script.
+- no tape to calibrate grayscale sensor
+
+### Next Steps
+
+- Get black tape to calibrate grayscale sensor
+- calibrate grayscale sensor
+- Fix model loading issues with professor or TA
+
+### Reflection
+It is important to do as much testing and calibration on-site with the Quackston map as possible, as those will be the real conditions of the competition.
+It was very valuable to do calibration for the camera tilt there as we could observe from the cameras POV what sign's and ducks on the road would look like, allowing the team to calibrate the servo tilt with an iterative process. Also being in-person with the map allowed the perception team to test different scripts that were downloaded
+on setup to see which can be repurposed for some applications like experimenting with the colour deteciton script on the real road. 
+
+
+---
+
 ## Entry – [Team Member Name 3]
 
 **Time:** HH:MM–HH:MM  
@@ -155,6 +189,7 @@ Visiting the Quackston setup and seeing the map in person was immensely valuable
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ⚠️ | Completed on-track speed trials (10%-100% PWM); successfully implemented Tailscale for remote access. |
+| Ishaan Grewal | 2.5 h | ✅/⚠️ | Almost complete Google Colab tutorial on European road sign detection (⚠️), completed on-track speed trials (✅), tested camera functionality and colour detection algorithms (✅) |
 | Ishaan Grewal | 2.5 h | ✅/⚠️ | Almost complete Google Colab tutorial on European road sign detection (⚠️), completed on-track speed trials (✅), tested camera functionality and colour detection algorithms (✅) |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
