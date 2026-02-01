@@ -2,7 +2,7 @@
 title: "Full Team Review of Project Proposal Report"
 date: 2026-01-25
 week: 3
-hours: X.X
+hours: 8.0
 tags: Report
 contributors: Ishaan Grewal, Rafael Costa, Nolan Su-Hackett, Declan Smith
 ---
@@ -12,7 +12,7 @@ contributors: Ishaan Grewal, Rafael Costa, Nolan Su-Hackett, Declan Smith
 **Date:** 2026-01-25  
 **Time:** 5:30 - 7:30  
 **Duration:** 2.0 hours  
-**Location:** Microsft Teams Meeting  
+**Location:** Microsoft Teams Meeting  
 **Meeting Type:** Team Sync, Report Review
 
 ### Attendees
@@ -67,7 +67,7 @@ improve the quality of the report submitted. Furthermore, by standardizing good 
 written deliverables by ensuring that each member is on the same page with respect to how formatting and referencing should be completed. Consequently, this will 
 save valuable time when editing future written deliverables. Overall, it is important to edit/go through written deliverables as a team because it helps ensure cohesion
 in writing and helps identify areas of improvement that an individual may have neglected or missed when working by themselves.
-TLDR: Group editing is immensely valuable in identifying shortcomings.
+**TLDR:** Group editing is immensely valuable in identifying shortcomings.
 
 ---
 
