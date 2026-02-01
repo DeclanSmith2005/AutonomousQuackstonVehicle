@@ -83,7 +83,37 @@ This session illustrated how small things (such as using the incorrect USB-C to 
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – [Nolan Su-Hackett]
+
+**Time:** 14:30-16:30  
+**Activity Type:** Hardware Debugging / Implementation / Perception  
+**Status:** Completed/In Progress  
+**Estimated Effort:** 2.0 h   
+
+### Work Performed
+
+- Identified and corrected issue with Coral, after attempting another coral TPU it was identified that the new coral was not detected. This meant that the
+issue was not with the coral but with something else, so the Professor tried multiple cables and found the correct one, this was the problem.
+- Tested run_tests.py and classify_image.py while connecting to the classroom monitors through HDMI. Tested pretrained model on various objects like hands, water bottles and cans.
+- Read through and attempted Google Colab tutorial for road sign detection, however it was noted that it would take too much time to train the model on the spot so the team will continue this in the following session.
+- downloaded filezilla to assist in downloading road sign files and for future file transfers.
+
+### Next Steps
+
+- Complete the Road sign detector, boot model onto coral and attempt it on the stop sign
+- Calibrate grayscale sensor
+- Calibrate camera
+- Visit the Quackston map in person to get an idea of the actual competition.
+
+### Reflection
+There are many tools and pograms that are downloaded onto the picar with its setup, it is important that all members familiarize themselves with all tools provided as
+these scripts can greatly assist in debugging. An example of this was the list_tpus.py script that shows whether a coral tpu is connected or not, this could have helped 
+in figuring out the core issue. There are also other scripts in the car which provide useful code that the team can repurpose and modify to fit the needs of the project.
+
+
+---
+
+## Entry – [Team Member Name 4]
 
 **Time:** HH:MM–HH:MM  
 **Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
@@ -129,7 +159,8 @@ This session illustrated how small things (such as using the incorrect USB-C to 
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ⚠️ | Developed precise servo and speed control test scripts; evaluated environmental impacts on traction. |
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
-| Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
+| Nolan Su-Hackett | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
+| Name 4 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
