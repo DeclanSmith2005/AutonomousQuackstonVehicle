@@ -113,43 +113,20 @@ in figuring out the core issue. There are also other scripts in the car which pr
 
 ---
 
-## Entry – [Team Member Name 4]
+## Entry – Declan
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-16:30  
+**Activity Type:** Software Writing
+**Status:** In Progress
+**Estimated Effort:** 3 h
 
 ### Work Performed
+- Used Nodebook ++ to extend the current graph document to write more nodes and increase graph resolution for the map of Quackston. 
+- Map needs to be of high enough density that the robot can navigate to all points without crossing any road boundaries, which will require substantially more nodes than those provided by default to all teams. 
 
-- 
-- 
-
-### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
-
-### Next Steps
-
-*Optional section - include if applicable*
-
-- [ ] 
-
-### References
-
-- 
 
 ### Reflection
-
-
+Overall, work on the graph is going well and improvements are being made. I need to continue to add graph nodes as well start to work on navigation algorithms and integrating the provided navigation Github resources from the other project repository the course administrators have given us access to. Work is going steadily, ideally I plan to have a fully fleshed out graph completed before end of reading week, as well as preliminary navigation algorithms and some integration with the wifi module for determining current position.
 
 ---
 
@@ -160,10 +137,10 @@ in figuring out the core issue. There are also other scripts in the car which pr
 | Rafael Costa | 3.0 h | ⚠️ | Developed precise servo and speed control test scripts; evaluated environmental impacts on traction. |
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
 | Nolan Su-Hackett | 2.0 h | ✅/⚠️ | Debugged Coral TPU issue (✅), set up FileZilla (✅), tested SunFounder object detection (✅), started Colab sign detection tutorial (⚠️)  |
-| Name 4 | X.X h | ✅/⚠️/❌ | Brief description |
+| Declan Smith | 2 h | ⚠️ | Continue to Improve and Extend Map Graph|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-02-01
