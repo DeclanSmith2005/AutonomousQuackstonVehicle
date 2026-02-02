@@ -1,8 +1,8 @@
 ---
 title: "Team Contributions - Summary of Individual Contributions to the Project Proposal Report"
-date: 2026-01-25
+date: 2026-02-01
 week: 3
-hours: X.X
+hours: 46.0
 tags: Report
 contributors: Ishaan Grewal, Rafael Costa, Nolan Su-Hackett, Declan Smith
 ---
@@ -67,22 +67,30 @@ large planning and framework step that will allow the team to move forward with 
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – Rafael Costa
  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]   
-**Estimated Time Spent:** X.X h  
+**Activity Type:** Report Writing/Editing
+**Estimated Time Spent:** 12.0 h  
 
 ### Work Performed
 **Sections Written/Work Completed:**
-- 
+- High Level Control System flowcharts
+- 3.2.4 Control
+- 6. Const Proposal (Budget)
+- 8. Deliverables and Anticipated Outcomes
+- 10. Appendix C: Team Operating Agreement
 
 
 **Other Work/Sections Edited:**
-- 
+- Helped in reading and editing all sections
 
 
 ### Reflection
+Drafting this proposal served as a reality check for the project. While the initial lab sessions were focused on just getting the car to move, writing the Control and Budget sections forced me to think about the physical limits of our hardware and the precision required for a "Safety First" reputation score. I found that defining the Discrete State Machine was particularly helpful as it moved our strategy from a vague idea of "driving" to a structured plan for handling intersections and recovery.
 
+The collaborative process was also more useful than I anticipated. Working with the Perception and Planning leads to define the interfaces meant we were solving integration problems on paper before ever writing a line of code. It gave me a much clearer picture of how my PID loops need to ingest data from the vision pipeline.
+
+As Ishaan noted, we did run into some frustrating technical issues when converting the final document to PDF. Moving forward, I’m confident that the work we put into the Team Operating Agreement and the Cost Proposal has put us on track as we move into the high-pressure build phase.
 
 ---
 
@@ -106,4 +114,4 @@ large planning and framework step that will allow the team to move forward with 
 ### Reflection
 The team worked well together to produce a final report summarizing the intended approach to the project. Aside from the report itself, the level of integration of ideas amongst the team needed to coordinate writing the report was useful because everyone gained a strong level of understanding of one another's goals and intentions. Going forward, this will ease the process of integrating the project and ensure that no one designs a subsystem incompatible with the rest of the team. The team got along well and was efficient in separating who was responsible for which work. Overall, I was happy with the report writing process and look forward to the rest of the project.
 
-**Entry completed**: 2026-01-25
+**Entry completed**: 2026-02-01
