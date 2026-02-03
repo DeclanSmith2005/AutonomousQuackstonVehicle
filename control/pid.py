@@ -1,6 +1,21 @@
 import time
+import sys
+import threading
 import matplotlib.pyplot as plt
 from picarx import Picarx
+
+# Global flag for stopping the loop
+stop_flag = False
+
+def key_listener():
+    """Listen for 's' key press to stop the loop."""
+    global stop_flag
+    while not stop_flag:
+        user_input = input()
+        if user_input.lower() == 's':
+            stop_flag = True
+            print("\nStopping...")
+            break
 
 def line_position_error(values):
     # values: [left, center, right]
@@ -23,6 +38,8 @@ def main():
     setpoint = 0.0  # Desired distance to center line
     pv = 0  # Initial process variable
 
+    px = Picarx()
+
     kp = 40.0  # Proportional gain
     ki = 0.0  # Integral gain
     kd = 10.0  # Derivative gain
@@ -38,14 +55,19 @@ def main():
     steering_values = []
 
     start = time.time()
-    max_steps = 500
-    steps = 0
 
     base_speed = 50
     min_speed = 10
 
-    while True:
-        greyscale_values = Picarx.get_grayscale_data()
+    # Start keyboard listener thread
+    global stop_flag
+    stop_flag = False
+    listener_thread = threading.Thread(target=key_listener, daemon=True)
+    listener_thread.start()
+    print("PID controller running. Press 's' + Enter to stop.")
+
+    while not stop_flag:
+        greyscale_values = px.get_grayscale_data()
         pv = line_position_error(greyscale_values)
 
         control, error, integral = pid_controller(setpoint, pv, kp, ki, kd, 
@@ -56,8 +78,8 @@ def main():
         steering = clamp(control, -30, 30)
         speed = clamp(base_speed - abs(error) * 50, min_speed, base_speed)
 
-        Picarx.set_dir_servo_angle(steering)
-        Picarx.forward(speed)
+        px.set_dir_servo_angle(steering)
+        px.forward(speed)
 
         # log
         time_steps.append(time.time() - start)
@@ -66,13 +88,9 @@ def main():
         speed_values.append(speed)
         steering_values.append(steering)
 
-        step += 1
-        if step >= max_steps:
-            break
-
         time.sleep(dt)
     
-    Picarx.stop()
+    px.stop()
 
     plt.figure(figsize=(12, 8))
 
@@ -91,7 +109,8 @@ def main():
     plt.legend()
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f'pid_plot_{int(time.time())}.png', dpi=150)
+    print(f"Plot saved to pid_plot_{int(time.time())}.png")
 
 if __name__ == "__main__":
     main()
