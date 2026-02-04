@@ -1,116 +1,125 @@
 import time
-import sys
 import threading
 import matplotlib.pyplot as plt
 from picarx import Picarx
 
-# Global flag for stopping the loop
+# --- CALIBRATION ---
+OFFSET_L = 1439
+OFFSET_M = 1425
+OFFSET_R = 1419
+# Sensitivity: Ignore noise below this threshold
+NOISE_GATE = 50 
+
+# --- PID TUNING ---
+# If it avoids the line (tracks white), change POLARITY to -1
+POLARITY = -1 
+
+# Reduced KP to stop oscillation
+KP = 0.45   
+KI = 0.1   
+# Added KD to dampen the "jitter"
+KD = 0.2   
+
+BASE_SPEED = 15     
+MAX_STEER = 30
+LOOP_INTERVAL = 0.01
+
 stop_flag = False
+error_buffer = [0, 0, 0] 
 
 def key_listener():
-    """Listen for 's' key press to stop the loop."""
     global stop_flag
     while not stop_flag:
-        user_input = input()
-        if user_input.lower() == 's':
+        if input().lower() == 's':
             stop_flag = True
-            print("\nStopping...")
-            break
 
-def line_position_error(values):
-    # values: [left, center, right]
-    total = sum(values) + 1e-6
-    weights = [-1.0, 0.0, 1.0]
-    position = sum(w * v for w, v in zip(weights, values)) / total
-    return position
+def get_line_error(px):
+    raw_values = px.get_grayscale_data()
+    
+    # Normalize: High Value = Black Line
+    s_l = max(0, OFFSET_L - raw_values[0])
+    s_m = max(0, OFFSET_M - raw_values[1])
+    s_r = max(0, OFFSET_R - raw_values[2])
+    
+    # Noise Gate: If signals are very weak (all white), return 0
+    if s_l < NOISE_GATE and s_m < NOISE_GATE and s_r < NOISE_GATE:
+        return 0.0
 
-def clamp(x, lo, hi):
-    return max(lo, min(hi, x))
+    total_signal = s_l + s_m + s_r
+    if total_signal == 0: return 0.0
 
-def pid_controller(setpoint, pv, kp, ki, kd, previous_error, integral, dt):
-    error = setpoint - pv
-    integral += error * dt
-    derivative = (error - previous_error) / dt
-    control = kp * error + ki * integral + kd * derivative
-    return control, error, integral
+    # Weighted Average
+    numerator = (s_l * 1.0) + (s_r * -1.0)
+    error = (numerator / total_signal) * 100
+    
+    return error
+
+def clamp(n, minn, maxn):
+    return max(minn, min(maxn, n))
 
 def main():
-    setpoint = 0.0  # Desired distance to center line
-    pv = 0  # Initial process variable
-
-    px = Picarx()
-
-    kp = 40.0  # Proportional gain
-    ki = 0.0  # Integral gain
-    kd = 10.0  # Derivative gain
-    
-    previous_error = 0.0
-    integral = 0.0
-    dt = 0.05  # Time step
-
-    time_steps = []
-    pv_values = []
-    control_values = []
-    speed_values = []
-    steering_values = []
-
-    start = time.time()
-
-    base_speed = 50
-    min_speed = 10
-
-    # Start keyboard listener thread
     global stop_flag
-    stop_flag = False
-    listener_thread = threading.Thread(target=key_listener, daemon=True)
-    listener_thread.start()
-    print("PID controller running. Press 's' + Enter to stop.")
-
-    while not stop_flag:
-        greyscale_values = px.get_grayscale_data()
-        pv = line_position_error(greyscale_values)
-
-        control, error, integral = pid_controller(setpoint, pv, kp, ki, kd, 
-                                                  previous_error, integral, dt)
-
-        previous_error = error
-
-        steering = clamp(control, -30, 30)
-        speed = clamp(base_speed - abs(error) * 50, min_speed, base_speed)
-
-        px.set_dir_servo_angle(steering)
-        px.forward(speed)
-
-        # log
-        time_steps.append(time.time() - start)
-        pv_values.append(pv)
-        control_values.append(control)
-        speed_values.append(speed)
-        steering_values.append(steering)
-
-        time.sleep(dt)
+    px = Picarx()
     
-    px.stop()
+    last_error = 0
+    integral = 0
+    
+    # Logging
+    history_pv = []
+    history_steering = []
+    
+    threading.Thread(target=key_listener, daemon=True).start()
 
-    plt.figure(figsize=(12, 8))
+    try:
+        while not stop_flag:
+            # 1. Get Error
+            error = get_line_error(px)
 
-    plt.subplot(3, 1, 1)
-    plt.plot(time_steps, pv_values, label='PV (position)')
-    plt.axhline(setpoint, color='k', linestyle='--', label='Setpoint')
-    plt.legend()
+            # 2. Smooth Error (Moving Average)
+            error_buffer.pop(0)
+            error_buffer.append(error) # <--- FIXED: changed 'raw_error' to 'error'
+            smooth_error = sum(error_buffer) / 3.0
+            
+            # 3. PID Math
+            P = KP * smooth_error
+            
+            integral += smooth_error
+            integral = clamp(integral, -50, 50)
+            I = KI * integral
+            
+            D = KD * (smooth_error - last_error)
+            
+            # Apply Polarity here
+            output = POLARITY * (P + I + D)
+            
+            last_error = smooth_error
+            
+            # 4. Motor Control
+            steering_angle = clamp(output, -MAX_STEER, MAX_STEER)
+            px.set_dir_servo_angle(steering_angle)
+            
+            # Slow down on turns
+            speed_drop = abs(steering_angle) * 0.5
+            current_speed = max(BASE_SPEED - speed_drop, 5)
+            px.forward(current_speed)
+            
+            # Log
+            history_pv.append(smooth_error)
+            history_steering.append(steering_angle)
+            
+            time.sleep(LOOP_INTERVAL)
 
-    plt.subplot(3, 1, 2)
-    plt.plot(time_steps, control_values, label='Control')
-    plt.plot(time_steps, steering_values, label='Steering')
-    plt.legend()
-
-    plt.subplot(3, 1, 3)
-    plt.plot(time_steps, speed_values, label='Speed')
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig(f'pid_plot_{int(time.time())}.png', dpi=150)
-    print(f"Plot saved to pid_plot_{int(time.time())}.png")
+    finally:
+        px.stop()
+        print("Stopped.")
+        
+        plt.figure(figsize=(10,5))
+        plt.plot(history_pv, label='Error', color='blue')
+        plt.plot(history_steering, label='Steering', color='orange', alpha=0.5)
+        plt.axhline(0, color='black', linestyle='--')
+        plt.legend()
+        plt.savefig('pid_calibration.png')
+        print("Saved plot.")
 
 if __name__ == "__main__":
     main()

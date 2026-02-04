@@ -9,7 +9,8 @@ if geteuid() != 0:
 
 music = Music()
 tts = TTS()
-speed = 80
+speed = 1
+angle = -13.2
 
 manual = '''
 Input key to call the function!
@@ -21,15 +22,14 @@ def main():
     count = 0
     try: 
         px = Picarx()
-        music.music_set_volume(50)
+        music.music_set_volume(100)
+        tts.volume = 100
         tts.lang("en-US")
 
-        words = "Starting acceleration test in three... two... one..."
-        print(f'{words}')
-        sleep(1)
-        tts.say(words)
         sleep(1)
 
+        px.set_dir_servo_angle(angle)
+        sleep(1)
         px.forward(speed)
 
         while True:
