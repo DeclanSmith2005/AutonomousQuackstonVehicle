@@ -16,19 +16,22 @@ OFFSETS = [OFFSET_L, OFFSET_M, OFFSET_R]
 def get_error(px):
     raw_values = px.get_grayscale_data()
     
-    # Normalize: High Value = Black Line
+    # LOGIC FLIP: 
+    # We want "Signal" to represent "How much LINE do I see?"
+    # If Line is BRIGHTER than background, Signal = Raw - Background
+    
     s_l = max(0, raw_values[0] - OFFSET_L)
     s_m = max(0, raw_values[1] - OFFSET_M)
     s_r = max(0, raw_values[2] - OFFSET_R)
     
-    # Noise Gate: If signals are very weak (all white), return 0
-    if s_l < NOISE_GATE and s_m < NOISE_GATE and s_r < NOISE_GATE:
+    total_signal = s_l + s_m + s_r
+    
+    # Noise Gate: If we see nothing brighter than the floor, we are lost
+    if total_signal < 100:
         return 0.0
 
-    total_signal = s_l + s_m + s_r
-    if total_signal == 0: return 0.0
-
-    # Weighted Average
+    # The rest of the PID logic remains exactly the same!
+    # Left is still Left.
     numerator = (s_l * 1.0) + (s_r * -1.0)
     error = (numerator / total_signal) * 100
     
