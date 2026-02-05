@@ -19,7 +19,7 @@ KP = 0.45
 KI = 0.0 
 KD = 0.05  
 
-BASE_SPEED = 30     
+BASE_SPEED = 20    
 MAX_STEER = 30
 LOOP_INTERVAL = 0.01
 
@@ -111,14 +111,6 @@ def main():
     finally:
         px.stop()
         print("Stopped.")
-        
-        plt.figure(figsize=(10,5))
-        plt.plot(history_pv, label='Error', color='blue')
-        plt.plot(history_steering, label='Steering', color='orange', alpha=0.5)
-        plt.axhline(0, color='black', linestyle='--')
-        plt.legend()
-        plt.savefig('pid_calibration.png')
-        print("Saved plot.")
 
 if __name__ == "__main__":
     main()
