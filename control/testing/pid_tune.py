@@ -54,7 +54,7 @@ def main():
     while (time.time() - start_time) < 1.0:
         now = time.time() - start_time
         err = get_error(px)
-        data.append([now, 0, err]) # Input is 0
+        data.append([now, -13.9, err]) # Input is -13.9
         time.sleep(0.01)
         
     # Phase 2: THE STEP (Turn wheels to 20 degrees)

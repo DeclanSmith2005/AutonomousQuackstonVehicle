@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 from picarx import Picarx
 
 # --- CALIBRATION ---
-OFFSET_L = 1439
-OFFSET_M = 1425
-OFFSET_R = 1419
+OFFSET_L = 111
+OFFSET_M = 95
+OFFSET_R = 100
 # Sensitivity: Ignore noise below this threshold
 NOISE_GATE = 50 
 
@@ -14,13 +14,12 @@ NOISE_GATE = 50
 # If it avoids the line (tracks white), change POLARITY to -1
 POLARITY = -1 
 
-# Reduced KP to stop oscillation
+# Params
 KP = 0.45   
-KI = 0.1   
-# Added KD to dampen the "jitter"
-KD = 0.2   
+KI = 0.0 
+KD = 0.05  
 
-BASE_SPEED = 15     
+BASE_SPEED = 30     
 MAX_STEER = 30
 LOOP_INTERVAL = 0.01
 
@@ -37,9 +36,9 @@ def get_line_error(px):
     raw_values = px.get_grayscale_data()
     
     # Normalize: High Value = Black Line
-    s_l = max(0, OFFSET_L - raw_values[0])
-    s_m = max(0, OFFSET_M - raw_values[1])
-    s_r = max(0, OFFSET_R - raw_values[2])
+    s_l = max(0, raw_values[0] - OFFSET_L)
+    s_m = max(0, raw_values[1] - OFFSET_M)
+    s_r = max(0, raw_values[2] - OFFSET_R)
     
     # Noise Gate: If signals are very weak (all white), return 0
     if s_l < NOISE_GATE and s_m < NOISE_GATE and s_r < NOISE_GATE:
