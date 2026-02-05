@@ -8,18 +8,18 @@ STEP_ANGLE = 20      # Step input magnitude (degrees)
 DURATION = 2.0       # Seconds to record
 
 # CALIBRATION (Use your values)
-OFFSET_L = 1439
-OFFSET_M = 1425
-OFFSET_R = 1419
+OFFSET_L = 111
+OFFSET_M = 95
+OFFSET_R = 100
 OFFSETS = [OFFSET_L, OFFSET_M, OFFSET_R]
 
 def get_error(px):
     raw_values = px.get_grayscale_data()
     
     # Normalize: High Value = Black Line
-    s_l = max(0, OFFSET_L - raw_values[0])
-    s_m = max(0, OFFSET_M - raw_values[1])
-    s_r = max(0, OFFSET_R - raw_values[2])
+    s_l = max(0, raw_values[0] - OFFSET_L)
+    s_m = max(0, raw_values[1] - OFFSET_M)
+    s_r = max(0, raw_values[2] - OFFSET_R)
     
     # Noise Gate: If signals are very weak (all white), return 0
     if s_l < NOISE_GATE and s_m < NOISE_GATE and s_r < NOISE_GATE:
