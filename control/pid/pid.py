@@ -7,6 +7,12 @@ from picarx import Picarx
 OFFSET_L = 111
 OFFSET_M = 95
 OFFSET_R = 100
+
+BLUE_MIN = 500
+BLUE_MAX = 800
+
+WHITE_MIN = 1000
+
 # Sensitivity: Ignore noise below this threshold
 NOISE_GATE = 50 
 
@@ -15,7 +21,7 @@ NOISE_GATE = 50
 POLARITY = -1 
 
 # Params
-KP = 0.45   
+KP = 0.40   # was 0.45
 KI = 0.0 
 KD = 0.05  
 
@@ -25,32 +31,61 @@ LOOP_INTERVAL = 0.01
 
 stop_flag = False
 error_buffer = [0, 0, 0] 
+weights = [1, 0, -1]
+bias_mode = 'c'
+
+# Branch handling
+BRANCH_DETECT = 80
+BRANCH_BIAS = 20
 
 def key_listener():
-    global stop_flag
+    global stop_flag, bias_mode
     while not stop_flag:
-        if input().lower() == 's':
+        cmd = input().strip().lower()
+        if cmd == 's':
             stop_flag = True
+        elif cmd in ('r', 'l', 'c'):
+            bias_mode = cmd
+            print(f"Mode set to: {bias_mode}")
 
+# Only treat values in the blue range as line signal; ignore white/other colors.
+def blue_signal(raw, offset):
+    if raw >= WHITE_MIN:
+        return 0
+    if raw < BLUE_MIN or raw > BLUE_MAX:
+       return 0
+    return max(0, raw - offset)
+    
 def get_line_error(px):
     raw_values = px.get_grayscale_data()
-    
-    # Normalize: High Value = Black Line
-    s_l = max(0, raw_values[0] - OFFSET_L)
-    s_m = max(0, raw_values[1] - OFFSET_M)
-    s_r = max(0, raw_values[2] - OFFSET_R)
-    
-    # Noise Gate: If signals are very weak (all white), return 0
+
+    s_l = blue_signal(raw_values[0], OFFSET_L)
+    s_m = blue_signal(raw_values[1], OFFSET_M)
+    s_r = blue_signal(raw_values[2], OFFSET_R)
+
+    # Noise Gate: If signals are very weak (no blue detected), return 0
     if s_l < NOISE_GATE and s_m < NOISE_GATE and s_r < NOISE_GATE:
         return 0.0
 
     total_signal = s_l + s_m + s_r
-    if total_signal == 0: return 0.0
+    if total_signal == 0:
+        return 0.0
 
     # Weighted Average
-    numerator = (s_l * 1.0) + (s_r * -1.0)
+    numerator = (s_l * weights[0]) + (s_r * weights[2])
+
     error = (numerator / total_signal) * 100
-    
+
+    has_left = s_l > BRANCH_DETECT
+    has_mid = s_m > BRANCH_DETECT
+    has_right = s_r > BRANCH_DETECT
+
+    # Bias only when the center line is present (branch scenario)
+    if bias_mode == 'r' and has_mid and has_right:
+        error -= BRANCH_BIAS
+    elif bias_mode == 'l' and has_mid and has_left:
+        error += BRANCH_BIAS
+
     return error
 
 def clamp(n, minn, maxn):
@@ -76,7 +111,7 @@ def main():
 
             # 2. Smooth Error (Moving Average)
             error_buffer.pop(0)
-            error_buffer.append(error) # <--- FIXED: changed 'raw_error' to 'error'
+            error_buffer.append(error)
             smooth_error = sum(error_buffer) / 3.0
             
             # 3. PID Math
