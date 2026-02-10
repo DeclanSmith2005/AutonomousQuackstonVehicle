@@ -9,10 +9,14 @@ OFFSET_L = 111
 OFFSET_M = 95
 OFFSET_R = 100
 
-BLUE_MIN = 500
-BLUE_MAX = 800
+# Anything ABOVE this is a Wall/Border (White) -> Ignore it (return 0)
+WHITE_CUTOFF = 1240  
 
-WHITE_MIN = 1000
+# Anything BELOW this is the Floor (Black) -> Ignore it (return 0)
+LINE_THRESHOLD = 800 
+
+# Threshold for "seeing" a line for logic decisions (Stop/Branch)
+LOGIC_DETECT = 50 
 
 # Sensitivity: Ignore noise below this threshold
 NOISE_GATE = 50 
@@ -22,7 +26,7 @@ NOISE_GATE = 50
 POLARITY = -1 
 
 # Params
-KP = 0.40   # was 0.45
+KP = 0.45  
 KI = 0.0 
 KD = 0.05  
 
@@ -50,54 +54,78 @@ def key_listener():
             bias_mode = cmd
             print(f"Mode set to: {bias_mode}")
 
-# Only treat values in the blue range as line signal; ignore white/other colors.
-def blue_signal(raw, offset):
-    if raw >= WHITE_MIN:
-        return 0
-    if raw < BLUE_MIN or raw > BLUE_MAX:
-       return 0
+def color_signal(raw, offset):
+    """
+    Returns signal strength ONLY if it falls in the Green/Red range.
+    Ignores White (Border) and Black (Floor).
+    """
+    # 1. Reject White Borders
+    if raw > WHITE_CUTOFF:
+        return 0.0
+        
+    # 2. Reject Black Floor
+    if raw < LINE_THRESHOLD:
+        return 0.0
+        
+    # 3. Return Signal (High Value = Strong Line)
+    # We subtract offset (Black) to get magnitude
     return max(0, raw - offset)
-    
+
 def get_line_error(px):
     global last_line_seen
     raw_values = px.get_grayscale_data()
 
-    s_l = blue_signal(raw_values[0], OFFSET_L)
-    s_m = blue_signal(raw_values[1], OFFSET_M)
-    s_r = blue_signal(raw_values[2], OFFSET_R)
+    # 1. Convert raw readings to signal strength
+    s_l = color_signal(raw_values[0], OFFSET_L)
+    s_m = color_signal(raw_values[1], OFFSET_M)
+    s_r = color_signal(raw_values[2], OFFSET_R)
 
-    # Noise Gate: If signals are very weak (no blue detected), return 0
+    # 2. STOP LINE CHECK (Priority #1)
+    # If ALL THREE sensors see a line, it is a RED STOP LINE.
+    # (Green branches usually only trigger 2 sensors at once).
+    if s_l > LOGIC_DETECT and s_m > LOGIC_DETECT and s_r > LOGIC_DETECT:
+        print("!!! STOP LINE DETECTED !!!")
+        px.stop()
+        time.sleep(2.0) # Wait 2 seconds
+        
+        # ESCAPE MANEUVER: Drive blind to clear the red line
+        print("Clearing line...")
+        px.forward(BASE_SPEED)
+        time.sleep(0.1) # Adjust this time if it doesn't fully clear the line
+        return 0.0
+
+    # 3. Normal Line Tracking
     has_line = s_l > NOISE_GATE or s_m > NOISE_GATE or s_r > NOISE_GATE
     if not has_line:
         last_line_seen = False
         return 0.0
 
     total_signal = s_l + s_m + s_r
-    if total_signal == 0:
-        return 0.0
+    if total_signal == 0: return 0.0
 
-    # Weighted Average
+    # Weighted Average Error
     numerator = (s_l * weights[0]) + (s_r * weights[2])
-
     error = (numerator / total_signal) * 100
 
-    has_left = s_l > BRANCH_DETECT
-    has_mid = s_m > BRANCH_DETECT
-    has_right = s_r > BRANCH_DETECT
+    # 4. Branch Biasing (Priority #2)
+    # We only check this if we didn't Stop.
+    has_left = s_l > LOGIC_DETECT
+    has_mid = s_m > LOGIC_DETECT
+    has_right = s_r > LOGIC_DETECT
 
-    full_bar = has_left and has_mid and has_right
-
+    # Update state
     was_line = last_line_seen
     last_line_seen = True
 
-    # Bias only when the center line is present (branch scenario)
+    # Apply Bias for Branches
+    # Note: We removed 'full_bar' because that is now handled by the Stop Check above.
+    
+    # Right Branch Bias: Middle + Right are high
     if bias_mode == 'r' and has_mid and has_right:
         error -= BRANCH_BIAS
+        
+    # Left Branch Bias: Middle + Left are high
     elif bias_mode == 'l' and has_mid and has_left:
-        error += BRANCH_BIAS
-    elif bias_mode == 'r' and full_bar and not was_line:
-        error -= BRANCH_BIAS
-    elif bias_mode == 'l' and full_bar and not was_line:
         error += BRANCH_BIAS
 
     return error
@@ -147,7 +175,7 @@ def main():
             px.set_dir_servo_angle(steering_angle)
             
             # Slow down on turns
-            speed_drop = abs(steering_angle) * 0.5
+            speed_drop = abs(steering_angle) * 0.3
             current_speed = max(BASE_SPEED - speed_drop, 5)
             px.forward(current_speed)
             
