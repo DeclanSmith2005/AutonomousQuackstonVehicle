@@ -26,7 +26,7 @@ NOISE_GATE = 50
 POLARITY = -1 
 
 # Params
-KP = 0.45  
+KP = 0.40  
 KI = 0.0 
 KD = 0.05  
 
@@ -188,7 +188,7 @@ def main():
         px.stop()
 
         if history:
-            log_name = f"pid_log_{time.strftime('%Y%m%d_%H%M%S')}.csv"
+            log_name = f"logs/pid_log_{time.strftime('%Y%m%d_%H%M%S')}.csv"
             try:
                 with open(log_name, "w", newline="") as csvfile:
                     writer = csv.writer(csvfile)
