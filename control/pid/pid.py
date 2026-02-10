@@ -1,3 +1,4 @@
+import csv
 import time
 import threading
 import matplotlib.pyplot as plt
@@ -83,7 +84,9 @@ def get_line_error(px):
     has_left = s_l > BRANCH_DETECT
     has_mid = s_m > BRANCH_DETECT
     has_right = s_r > BRANCH_DETECT
+
     full_bar = has_left and has_mid and has_right
+
     was_line = last_line_seen
     last_line_seen = True
 
@@ -110,8 +113,8 @@ def main():
     integral = 0
     
     # Logging
-    history_pv = []
-    history_steering = []
+    history = []
+    start_time = time.time()
     
     threading.Thread(target=key_listener, daemon=True).start()
 
@@ -134,7 +137,7 @@ def main():
             
             D = KD * (smooth_error - last_error)
             
-            # Apply Polarity here
+            # Apply Polarity
             output = POLARITY * (P + I + D)
             
             last_error = smooth_error
@@ -149,13 +152,24 @@ def main():
             px.forward(current_speed)
             
             # Log
-            history_pv.append(smooth_error)
-            history_steering.append(steering_angle)
+            history.append((time.time() - start_time, smooth_error, steering_angle, current_speed))
             
             time.sleep(LOOP_INTERVAL)
 
     finally:
         px.stop()
+
+        if history:
+            log_name = f"pid_log_{time.strftime('%Y%m%d_%H%M%S')}.csv"
+            try:
+                with open(log_name, "w", newline="") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(["time_s", "error", "steering_angle", "speed"])
+                    writer.writerows(history)
+                print(f"Wrote log to {log_name}")
+            except OSError as exc:
+                print(f"Failed to write log: {exc}")
+
         print("Stopped.")
 
 if __name__ == "__main__":
