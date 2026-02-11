@@ -31,13 +31,14 @@ KI = 0.0
 KD = 0.05  
 
 BASE_SPEED = 20    
-MAX_STEER = 30
+MAX_STEER = 35
 LOOP_INTERVAL = 0.01
 
 stop_flag = False
-error_buffer = [0, 0, 0] 
+error_buffer = [0] * 5 
 weights = [1, 0, -1]
 bias_mode = 'c'
+current_base_speed = BASE_SPEED
 last_line_seen = False
 
 # --- LINE RECOVERY ---
@@ -47,7 +48,6 @@ last_line_direction = 0
 RECOVERY_STEER = 70  # Error magnitude injected during recovery (tune as needed)
 
 # Branch handling
-BRANCH_DETECT = 80
 BRANCH_BIAS = 20
 
 def key_listener():
@@ -59,6 +59,10 @@ def key_listener():
         elif cmd in ('r', 'l', 'c'):
             bias_mode = cmd
             print(f"Mode set to: {bias_mode}")
+        elif cmd == 'i':
+            print(f"Speed set to: {BASE_SPEED}")
+        elif cmd == 'd':
+            print(f"Speed set to: {BASE_SPEED}")
 
 def color_signal(raw, offset):
     """
@@ -78,7 +82,7 @@ def color_signal(raw, offset):
     return max(0, raw - offset)
 
 def get_line_error(px):
-    global last_line_seen, last_line_direction
+    global last_line_seen, last_line_direction, current_base_speed
     raw_values = px.get_grayscale_data()
 
     # 1. Convert raw readings to signal strength
@@ -86,30 +90,33 @@ def get_line_error(px):
     s_m = color_signal(raw_values[1], OFFSET_M)
     s_r = color_signal(raw_values[2], OFFSET_R)
 
+    # Reset speed to base each loop, unless branch logic changes it
+    current_base_speed = BASE_SPEED
+
     # 2. STOP LINE CHECK (Priority #1)
     # If ALL THREE sensors see a line, it is a RED STOP LINE.
     # (Green branches usually only trigger 2 sensors at once).
     if s_l > LOGIC_DETECT and s_m > LOGIC_DETECT and s_r > LOGIC_DETECT:
-        print("!!! STOP LINE DETECTED !!!")
+        print("STOP LINE DETECTED")
         px.stop()
         time.sleep(2.0) # Wait 2 seconds
         
         # ESCAPE MANEUVER: Drive blind to clear the red line
         print("Clearing line...")
         px.forward(BASE_SPEED)
-        time.sleep(0.1) # Adjust this time if it doesn't fully clear the line
+        time.sleep(0.5) # Adjust this time if it doesn't fully clear the line
         return 0.0
 
     # 3. Normal Line Tracking
     has_line = s_l > NOISE_GATE or s_m > NOISE_GATE or s_r > NOISE_GATE
     if not has_line:
-        # LINE LOST — steer toward last known direction to recover
+        # LINE LOST — steer toward the last known direction to recover
         last_line_seen = False
         if last_line_direction < 0:
-            print("Line lost — recovering LEFT")
+            # print("Line lost — recovering LEFT")
             return RECOVERY_STEER   # positive error steers left
         elif last_line_direction > 0:
-            print("Line lost — recovering RIGHT")
+            # print("Line lost — recovering RIGHT")
             return -RECOVERY_STEER  # negative error steers right
         else:
             # Line was centered; keep going straight
@@ -130,23 +137,23 @@ def get_line_error(px):
 
     # Update state — remember which side the line is on for recovery
     last_line_seen = True
-    if error > NOISE_GATE:
+    if error > 20:
         last_line_direction = -1   # line is to the LEFT
-    elif error < -NOISE_GATE:
+    elif error < -20:
         last_line_direction = 1    # line is to the RIGHT
     else:
         last_line_direction = 0    # line is centered
 
     # Apply Bias for Branches
-    # Note: We removed 'full_bar' because that is now handled by the Stop Check above.
-    
     # Right Branch Bias: Middle + Right are high
     if bias_mode == 'r' and has_mid and has_right:
         error -= BRANCH_BIAS
+        current_base_speed = 10
         
     # Left Branch Bias: Middle + Left are high
     elif bias_mode == 'l' and has_mid and has_left:
         error += BRANCH_BIAS
+        current_base_speed = 10
 
     return error
 
@@ -168,13 +175,14 @@ def main():
 
     try:
         while not stop_flag:
+            loop_start = time.time()
             # 1. Get Error
             error = get_line_error(px)
 
             # 2. Smooth Error (Moving Average)
             error_buffer.pop(0)
             error_buffer.append(error)
-            smooth_error = sum(error_buffer) / 3.0
+            smooth_error = sum(error_buffer) / len(error_buffer)
             
             # 3. PID Math
             P = KP * smooth_error
@@ -195,14 +203,18 @@ def main():
             px.set_dir_servo_angle(steering_angle)
             
             # Slow down on turns
-            speed_drop = abs(steering_angle) * 0.3
-            current_speed = max(BASE_SPEED - speed_drop, 5)
+            speed_drop = abs(steering_angle) * 0.4
+            current_speed = max(current_base_speed - speed_drop, 5)
             px.forward(current_speed)
             
             # Log
             history.append((time.time() - start_time, smooth_error, steering_angle, current_speed))
             
-            time.sleep(LOOP_INTERVAL)
+            # Wait for next loop
+            elapsed = time.time() - loop_start
+            wait_time = LOOP_INTERVAL - elapsed
+            if wait_time > 0:
+                time.sleep(wait_time)
 
     finally:
         px.stop()
