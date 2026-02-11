@@ -59,10 +59,6 @@ def key_listener():
         elif cmd in ('r', 'l', 'c'):
             bias_mode = cmd
             print(f"Mode set to: {bias_mode}")
-        elif cmd == 'i':
-            print(f"Speed set to: {BASE_SPEED}")
-        elif cmd == 'd':
-            print(f"Speed set to: {BASE_SPEED}")
 
 def color_signal(raw, offset):
     """
