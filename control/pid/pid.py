@@ -40,6 +40,12 @@ weights = [1, 0, -1]
 bias_mode = 'c'
 last_line_seen = False
 
+# --- LINE RECOVERY ---
+# When the line is lost, steer toward its last known direction.
+# last_line_direction: -1 = line was left, 0 = center, 1 = line was right
+last_line_direction = 0
+RECOVERY_STEER = 70  # Error magnitude injected during recovery (tune as needed)
+
 # Branch handling
 BRANCH_DETECT = 80
 BRANCH_BIAS = 20
@@ -72,7 +78,7 @@ def color_signal(raw, offset):
     return max(0, raw - offset)
 
 def get_line_error(px):
-    global last_line_seen
+    global last_line_seen, last_line_direction
     raw_values = px.get_grayscale_data()
 
     # 1. Convert raw readings to signal strength
@@ -97,8 +103,17 @@ def get_line_error(px):
     # 3. Normal Line Tracking
     has_line = s_l > NOISE_GATE or s_m > NOISE_GATE or s_r > NOISE_GATE
     if not has_line:
+        # LINE LOST — steer toward last known direction to recover
         last_line_seen = False
-        return 0.0
+        if last_line_direction < 0:
+            print("Line lost — recovering LEFT")
+            return RECOVERY_STEER   # positive error steers left
+        elif last_line_direction > 0:
+            print("Line lost — recovering RIGHT")
+            return -RECOVERY_STEER  # negative error steers right
+        else:
+            # Line was centered; keep going straight
+            return 0.0
 
     total_signal = s_l + s_m + s_r
     if total_signal == 0: return 0.0
@@ -113,9 +128,14 @@ def get_line_error(px):
     has_mid = s_m > LOGIC_DETECT
     has_right = s_r > LOGIC_DETECT
 
-    # Update state
-    was_line = last_line_seen
+    # Update state — remember which side the line is on for recovery
     last_line_seen = True
+    if error > NOISE_GATE:
+        last_line_direction = -1   # line is to the LEFT
+    elif error < -NOISE_GATE:
+        last_line_direction = 1    # line is to the RIGHT
+    else:
+        last_line_direction = 0    # line is centered
 
     # Apply Bias for Branches
     # Note: We removed 'full_bar' because that is now handled by the Stop Check above.
