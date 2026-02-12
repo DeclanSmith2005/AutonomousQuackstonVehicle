@@ -4,7 +4,7 @@ class LineSensor:
         self.offsets = offsets  # [L, M, R]
 
         # Signal gates and tuning
-        self.WHITE_CUTOFF = 1240
+        self.WHITE_CUTOFF = 1000
         self.LINE_THRESHOLD = 800
         self.LOGIC_DETECT = 50
         self.NOISE_GATE = 50
@@ -39,7 +39,6 @@ class LineSensor:
         )
 
     def analyze_pattern(self, raw_values):
-        """Keeps compatibility with the old API: stop/green/line/none."""
         l, m, r = raw_values
         if l > self.WHITE_CUTOFF and m > self.WHITE_CUTOFF and r > self.WHITE_CUTOFF:
             return "STOP_WHITE"

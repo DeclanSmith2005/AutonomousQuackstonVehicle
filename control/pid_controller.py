@@ -16,14 +16,12 @@ class PIDController:
         :param error: The current error (Target - Current)
         :param dt: Time elapsed since last update (seconds)
         """
+
         # P Term
         P = self.kp * error
         
-        # I Term (with anti-windup clamping)
-        self.integral += error * dt
-        # Clamp integral to avoid "windup" (e.g. +/- 50)
-        self.integral = max(-50, min(50, self.integral)) 
-        I = self.ki * self.integral
+        # I Term
+        I = self.ki * error
         
         # D Term
         if dt > 0:
