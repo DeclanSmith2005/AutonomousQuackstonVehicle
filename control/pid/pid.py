@@ -1,7 +1,6 @@
 import csv
 import time
 import threading
-import matplotlib.pyplot as plt
 from picarx import Picarx
 
 # --- CALIBRATION ---
@@ -46,6 +45,20 @@ last_line_seen = False
 # last_line_direction: -1 = line was left, 0 = center, 1 = line was right
 last_line_direction = 0
 RECOVERY_STEER = 70  # Error magnitude injected during recovery (tune as needed)
+
+# need to modify code to accomodate the following: in left turns at an intersection two solid green lines will be encountered on the
+# three greyscale sensors -- we want to ignore the first one and only consider the second line since the road will be two ways and we
+# dont want to turn onto oncoming traffic. That isn't for every left turn however. Some will encounter only one solid green line and the turn would be taken then.
+# Also, some turns will have the green line on only two of the sides, not all three. 
+# This means that we cannot rely on stopping only if the three sensors see something at the same time, as that could be a stop or a turn.
+# We will need for differentiation between white stop lines and green lane markings. 
+# For now, I want to create a state machine for the system, where keyboard inputs change the state. The states could be "APPROACHING_STOP"
+# where the base speed would lower and the system would stop the car if the three sensors see any line across it.
+# Another state would be "LEFT_TURN" where now, a line across all three sensors or on two of them would toggle a left turn -- since there are left turns where
+# there could be a need to skip the first line, the input could be "L1" if you should turn on the first one, and "L2" if the second line is
+# to be taken. Another state is "RIGHT_TURN" where once again inputs on three or two of the sensors would trigger a right turn.
+# A state called "STRAIGHT" would maintain its current line, ignoring lines spanning all across the three sensors and prioritizing the center
+# input. The current system of slowing down depending on the change in direction is good.
 
 # Branch handling
 BRANCH_BIAS = 20
