@@ -5,12 +5,12 @@ class LineSensor:
 
         # Signal gates and tuning
         self.WHITE_CUTOFF = 1000
-        self.LINE_THRESHOLD = 800
+        self.LINE_THRESHOLD = 700
         self.LOGIC_DETECT = 50
         self.NOISE_GATE = 50
         self.RECOVERY_STEER = 70
         self.BRANCH_BIAS = 20
-        self.BASE_SPEED = 20
+        self.BASE_SPEED = 30
 
         # Steering weights for weighted average
         self.weights = [1, 0, -1]

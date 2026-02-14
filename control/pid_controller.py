@@ -14,7 +14,7 @@ class PIDController:
         """
         Calculates the PID output.
         :param error: The current error (Target - Current)
-        :param dt: Time elapsed since last update (seconds)
+        :param dt: Time elapsed since the last update (seconds)
         """
 
         if dt <= 0:
@@ -36,7 +36,7 @@ class PIDController:
         # Calculate Output
         output = P + I + D
         
-        # Save error for next loop
+        # Save the error for the next loop
         self.last_error = error
         
         # Clamp output to servo limits

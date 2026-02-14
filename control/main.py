@@ -17,6 +17,7 @@ ERROR_BUFFER_LEN = 5
 # Turn / approach tuning
 APPROACH_SPEED = 10
 TURN_PWM = 20
+STRAIGHT_ANGLE = -13.9
 TURN_TIME = 0.6
 PASS_TIME = 0.4
 
@@ -71,20 +72,18 @@ def key_listener():
 
 def execute_turn(px, direction):
     """Blind turn for 90-deg intersections where PID would fail."""
-    steer = -35 if direction == "right" else 35
+    steer = -25 if direction == "right" else 25
     px.stop()
     px.set_dir_servo_angle(steer)
     px.forward(TURN_PWM)
     time.sleep(TURN_TIME)
-    px.set_dir_servo_angle(0)
-
+    px.set_dir_servo_angle(STRAIGHT_ANGLE)
 
 def ignore_intersection(px, speed):
     """Drive straight briefly to skip a crossing line."""
-    px.set_dir_servo_angle(0)
+    px.set_dir_servo_angle(STRAIGHT_ANGLE)
     px.forward(speed)
     time.sleep(PASS_TIME)
-
 
 def main():
     global stop_flag, current_state, crossings_seen
