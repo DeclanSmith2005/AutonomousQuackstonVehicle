@@ -39,22 +39,23 @@ class LineSensor:
         )
 
     def analyze_pattern(self, raw_values):
-        l, m, r = raw_values
-        if l > self.WHITE_CUTOFF and m > self.WHITE_CUTOFF and r > self.WHITE_CUTOFF:
+        s_l, s_m, s_r = self._signals(raw_values)
+        
+        if all(r > self.WHITE_CUTOFF for r in raw_values):
             return "STOP_WHITE"
 
-        is_l_green = self.LINE_THRESHOLD < l < self.WHITE_CUTOFF
-        is_m_green = self.LINE_THRESHOLD < m < self.WHITE_CUTOFF
-        is_r_green = self.LINE_THRESHOLD < r < self.WHITE_CUTOFF
+        is_l = s_l > self.LOGIC_DETECT
+        is_m = s_m > self.LOGIC_DETECT
+        is_r = s_r > self.LOGIC_DETECT
 
-        count = sum([is_l_green, is_m_green, is_r_green])
-        if count == 3 or (count == 2 and is_m_green):
+        count = sum([is_l, is_m, is_r])
+        if count == 3 or (count == 2 and is_m):
             return "CROSS_GREEN"
         if count > 0:
             return "LINE"
         return "NONE"
 
-    def compute_error(self, raw_values, bias_mode):
+    def compute_error(self, raw_values, bias_mode="c"):
         """
         Converts grayscale readings into a steering error.
 

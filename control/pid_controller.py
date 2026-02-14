@@ -17,17 +17,20 @@ class PIDController:
         :param dt: Time elapsed since last update (seconds)
         """
 
+        if dt <= 0:
+            return self.last_error
+
         # P Term
         P = self.kp * error
         
         # I Term
-        I = self.ki * error
+        self.integral += error * dt
+        # Anti-windup clamping (values chosen based on typical servo range)
+        self.integral = max(-20.0, min(20.0, self.integral))
+        I = self.ki * self.integral
         
         # D Term
-        if dt > 0:
-            derivative = (error - self.last_error) / dt
-        else:
-            derivative = 0
+        derivative = (error - self.last_error) / dt
         D = self.kd * derivative
         
         # Calculate Output

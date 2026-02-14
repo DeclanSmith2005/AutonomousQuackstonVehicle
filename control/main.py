@@ -8,18 +8,17 @@ from line_sensor import LineSensor
 
 # --- CONFIG (mirrors pid.py) ---
 OFFSETS = [111, 95, 100]
-KP, KI, KD = 0.40, 0.0, 0.05
-MAX_STEER = 35
+KP, KI, KD = 0.35, 0.0, 0.05
+MAX_STEER = 25
 POLARITY = -1
 LOOP_INTERVAL = 0.01
 ERROR_BUFFER_LEN = 5
 
 # Turn / approach tuning
 APPROACH_SPEED = 10
-TURN_PWM = 30
+TURN_PWM = 20
 TURN_TIME = 0.6
 PASS_TIME = 0.4
-
 
 class RobotState:
     STRAIGHT = "ST"
@@ -27,11 +26,12 @@ class RobotState:
     LEFT_1 = "L1"
     LEFT_2 = "L2"
     RIGHT = "R"
-
+    CALIBRATE = "CAL"
 
 stop_flag = False
 current_state = RobotState.STRAIGHT
 crossings_seen = 0
+bias_mode = "c"
 
 def key_listener():
     """Keyboard control for the state machine."""
@@ -60,6 +60,13 @@ def key_listener():
             current_state = RobotState.RIGHT
             crossings_seen = 0
             print("State: RIGHT TURN on first crossing")
+        elif cmd == "cal":
+            current_state = RobotState.CALIBRATE
+            print("State: CALIBRATE (Show sensor values)")
+        elif cmd in ("bc", "bl", "br"):
+            global bias_mode
+            bias_mode = cmd[1:]
+            print(f"Bias mode: {bias_mode}")
 
 
 def execute_turn(px, direction):
@@ -96,9 +103,20 @@ def main():
         while not stop_flag:
             loop_start = time.time()
 
-            raw = eyes.get_raw()
+            try:
+                raw = eyes.get_raw()
+            except Exception as e:
+                print(f"Sensor error: {e}")
+                time.sleep(LOOP_INTERVAL)
+                continue
+
+            if current_state == RobotState.CALIBRATE:
+                print(f"RAW: {raw}")
+                time.sleep(0.5)
+                continue
+
             pattern = eyes.analyze_pattern(raw)
-            error, stop_detected, base_speed = eyes.compute_error(raw)
+            error, stop_detected, base_speed = eyes.compute_error(raw, bias_mode=bias_mode)
 
             # Lower speed when approaching a possible stop
             if current_state == RobotState.APPROACH_STOP:
@@ -156,7 +174,11 @@ def main():
             error_buffer.append(error)
             smooth_error = sum(error_buffer) / len(error_buffer)
 
-            steering = pid.update(smooth_error * POLARITY, dt=LOOP_INTERVAL)
+            # Calculate actual dt
+            current_time = time.time()
+            dt = current_time - loop_start
+            
+            steering = pid.update(smooth_error * POLARITY, dt=dt)
             steering = max(-25, min(25, steering))
 
             speed_drop = abs(steering) * 0.4
