@@ -1,5 +1,10 @@
+import time
+
+
 class LineSensor:
     def __init__(self, px, offsets):
+        self.cal_max = 0
+        self.cal_min = 0
         self.px = px
         self.offsets = offsets  # [L, M, R]
 
@@ -102,3 +107,62 @@ class LineSensor:
             base_speed = 10
 
         return error, stop_detected, base_speed
+
+    def calibrate(self, straight_angle=0):
+        print("--- WIGGLE CALIBRATION START ---")
+        print("Robot will move! Clear the area.")
+        time.sleep(1)
+
+        # Initialize: Min = High Number, Max = Low Number
+        # We want to find the LOWEST value (Black) and HIGHEST value (Green/White)
+        self.cal_min = [4095, 4095, 4095]
+        self.cal_max = [0, 0, 0]
+
+        # Define the Wiggle Maneuver
+        # (Steering Angle, Speed, Duration)
+        maneuvers = [
+            (straight_angle - 30, 10, 0.5),   # Turn Left Forward
+            (straight_angle - 30, -10, 0.5),  # Turn Left Backward
+            (straight_angle + 30, 10, 0.5),   # Turn Right Forward
+            (straight_angle + 30, -10, 0.5),  # Turn Right Backward
+            (straight_angle, 0, 0.1)           # Stop
+        ]
+
+        for angle, speed, duration in maneuvers:
+            self.px.set_dir_servo_angle(angle)
+            self.px.forward(speed)
+
+            # Record data heavily during the maneuver
+            maneuver_start = time.time()
+            while (time.time() - maneuver_start) < duration:
+                raw = self.get_raw()
+                for i in range(3):
+                    # Capture the "Blackest" black (Minimum value)
+                    if raw[i] < self.cal_min[i]:
+                        self.cal_min[i] = raw[i]
+
+                    # Capture the "Whitest" white/green (Maximum value)
+                    if raw[i] > self.cal_max[i]:
+                        self.cal_max[i] = raw[i]
+                time.sleep(0.01)  # High frequency sampling
+
+        self.px.stop()
+
+        # Apply the Calibration
+        # Offset is the "Black" floor (Minimum read)
+        self.offsets = self.cal_min
+
+        # Calculate signal range (Max - Min)
+        ranges = [self.cal_max[i] - self.cal_min[i] for i in range(3)]
+        avg_range = sum(ranges) / 3
+
+        # Auto-Tune Thresholds based on the range we found
+        # If the range is huge (0 to 1200), a 50 threshold is too small.
+        # If the range is tiny (0 to 100), a 50 threshold is risky.
+        self.NOISE_GATE = avg_range * 0.1  # 10% of the signal is noise
+        self.LOGIC_DETECT = avg_range * 0.5  # 50% is a confirmed line
+
+        print(f"CALIBRATION COMPLETE")
+        print(f"Black Offsets: {self.offsets}")
+        print(f"Max Signals:   {self.cal_max}")
+        print(f"Detected Range: {ranges}")
