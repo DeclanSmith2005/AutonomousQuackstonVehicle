@@ -9,6 +9,7 @@ class PIDController:
         # Memory variables
         self.last_error = 0.0
         self.integral = 0.0
+        self.last_output = 0.0
         
     def update(self, error, dt):
         """
@@ -18,7 +19,7 @@ class PIDController:
         """
 
         if dt <= 0:
-            return self.last_error
+            return self.last_output
 
         # P Term
         P = self.kp * error
@@ -40,9 +41,11 @@ class PIDController:
         self.last_error = error
         
         # Clamp output to servo limits
-        return max(self.min_out, min(self.max_out, output))
+        self.last_output = max(self.min_out, min(self.max_out, output))
+        return self.last_output
 
     def reset(self):
         """Clears the memory (good for after a hard turn)"""
         self.last_error = 0.0
         self.integral = 0.0
+        self.last_output = 0.0

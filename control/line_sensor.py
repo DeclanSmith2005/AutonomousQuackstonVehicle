@@ -3,19 +3,28 @@ import time
 
 class LineSensor:
     def __init__(self, px, offsets):
-        self.cal_max = 0
-        self.cal_min = 0
+        self.cal_min = list(offsets)
+        self.cal_max = [offset + 1000 for offset in offsets]
         self.px = px
         self.offsets = offsets  # [L, M, R]
 
         # Signal gates and tuning
         self.WHITE_CUTOFF = 1000
-        self.LINE_THRESHOLD = 700
-        self.LOGIC_DETECT = 50
-        self.NOISE_GATE = 50
+        self.MIN_LINE_PERCENT = 5.0
+        self.NOISE_GATE = 10.0
+        self.LOGIC_DETECT = 50.0
         self.RECOVERY_STEER = 70
         self.BRANCH_BIAS = 20
         self.BASE_SPEED = 30
+        self.BRANCH_SPEED = 10
+
+        # Calibration/tuning constants
+        self.ADC_MAX = 4095
+        self.CAL_SAMPLE_INTERVAL = 0.01
+        self.CAL_TURN_ANGLE = 30
+        self.CAL_TURN_SPEED = 10
+        self.CAL_TURN_DURATION = 0.5
+        self.CAL_STOP_DURATION = 0.1
 
         # Steering weights for weighted average
         self.weights = [1, 0, -1]
@@ -28,19 +37,26 @@ class LineSensor:
     def get_raw(self):
         return self.px.get_grayscale_data()
 
-    def color_signal(self, raw, offset):
+    def color_signal(self, raw, sensor_index):
         if raw > self.WHITE_CUTOFF:
             return 0.0
-        if raw < self.LINE_THRESHOLD:
+
+        sensor_min = self.cal_min[sensor_index]
+        sensor_max = self.cal_max[sensor_index]
+        span = max(1.0, float(sensor_max - sensor_min))
+        normalized_percent = ((raw - sensor_min) / span) * 100.0
+
+        if normalized_percent < self.MIN_LINE_PERCENT:
             return 0.0
-        return max(0.0, raw - offset)
+        
+        return max(0.0, normalized_percent)
 
     def _signals(self, raw_values):
         l_raw, m_raw, r_raw = raw_values
         return (
-            self.color_signal(l_raw, self.offsets[0]),
-            self.color_signal(m_raw, self.offsets[1]),
-            self.color_signal(r_raw, self.offsets[2]),
+            self.color_signal(l_raw, 0),
+            self.color_signal(m_raw, 1),
+            self.color_signal(r_raw, 2),
         )
 
     def analyze_pattern(self, raw_values):
@@ -101,10 +117,10 @@ class LineSensor:
 
         if bias_mode == "r" and has_mid and has_right:
             error -= self.BRANCH_BIAS
-            base_speed = 10
+            base_speed = self.BRANCH_SPEED
         elif bias_mode == "l" and has_mid and has_left:
             error += self.BRANCH_BIAS
-            base_speed = 10
+            base_speed = self.BRANCH_SPEED
 
         return error, stop_detected, base_speed
 
@@ -115,17 +131,17 @@ class LineSensor:
 
         # Initialize: Min = High Number, Max = Low Number
         # We want to find the LOWEST value (Black) and HIGHEST value (Green/White)
-        self.cal_min = [4095, 4095, 4095]
+        self.cal_min = [self.ADC_MAX, self.ADC_MAX, self.ADC_MAX]
         self.cal_max = [0, 0, 0]
 
         # Define the Wiggle Maneuver
         # (Steering Angle, Speed, Duration)
         maneuvers = [
-            (straight_angle - 30, 10, 0.5),   # Turn Left Forward
-            (straight_angle - 30, -10, 0.5),  # Turn Left Backward
-            (straight_angle + 30, 10, 0.5),   # Turn Right Forward
-            (straight_angle + 30, -10, 0.5),  # Turn Right Backward
-            (straight_angle, 0, 0.1)           # Stop
+            (straight_angle - self.CAL_TURN_ANGLE, self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),    # Turn Left Forward
+            (straight_angle - self.CAL_TURN_ANGLE, -self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),   # Turn Left Backward
+            (straight_angle + self.CAL_TURN_ANGLE, self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),    # Turn Right Forward
+            (straight_angle + self.CAL_TURN_ANGLE, -self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),   # Turn Right Backward
+            (straight_angle, 0, self.CAL_STOP_DURATION)                                                # Stop
         ]
 
         for angle, speed, duration in maneuvers:
@@ -144,7 +160,7 @@ class LineSensor:
                     # Capture the "Whitest" white/green (Maximum value)
                     if raw[i] > self.cal_max[i]:
                         self.cal_max[i] = raw[i]
-                time.sleep(0.01)  # High frequency sampling
+                time.sleep(self.CAL_SAMPLE_INTERVAL)  # High frequency sampling
 
         self.px.stop()
 
@@ -156,11 +172,9 @@ class LineSensor:
         ranges = [self.cal_max[i] - self.cal_min[i] for i in range(3)]
         avg_range = sum(ranges) / 3
 
-        # Auto-Tune Thresholds based on the range we found
-        # If the range is huge (0 to 1200), a 50 threshold is too small.
-        # If the range is tiny (0 to 100), a 50 threshold is risky.
-        self.NOISE_GATE = avg_range * 0.1  # 10% of the signal is noise
-        self.LOGIC_DETECT = avg_range * 0.5  # 50% is a confirmed line
+        # Thresholds are now interpreted in normalized percent space (0-100).
+        self.NOISE_GATE = 10.0
+        self.LOGIC_DETECT = 50.0
 
         print(f"CALIBRATION COMPLETE")
         print(f"Black Offsets: {self.offsets}")

@@ -1,5 +1,6 @@
 import csv
 import os
+import threading
 import time
 from picarx import Picarx
 from pid_controller import PIDController
@@ -21,6 +22,20 @@ TURN_PWM = 20
 STRAIGHT_ANGLE = -13.9
 TURN_TIME = 0.6
 PASS_TIME = 0.5
+
+# Centralized timing/tuning constants
+LOST_LINE_TIMEOUT = 2.0
+TURN_BLIND_TIME = 0.3
+TURN_SCAN_TIMEOUT = 2.0
+TURN_SCAN_INTERVAL = 0.01
+TURN_RECOVERY_PWM = 12
+TURN_STABILIZE_TIME = 0.1
+STOP_HOLD_TIME = 2.0
+STOP_CLEAR_TIME = 0.5
+SPEED_RAMP_RATE = 2.0
+SPEED_DROP_GAIN = 0.4
+MIN_DRIVE_SPEED = 5
+MAX_STEER_CMD = 25
 
 class RobotState:
     STRAIGHT = "ST"
@@ -109,33 +124,60 @@ def key_listener():
 
 def execute_turn(px, eyes, direction, pid):
     """Turns until the line is actually seen, rather than guessing the time."""
-    global current_motor_speed
+    global current_motor_speed, current_state
     print(f"Executing Closed-Loop {direction} turn...")
 
     # 1. Blind Phase: Turn hard to clear the current intersection
-    steer = -25 if direction == "right" else 25
+    steer = -MAX_STEER_CMD if direction == "right" else MAX_STEER_CMD
     px.set_dir_servo_angle(steer)
     px.forward(TURN_PWM)
     current_motor_speed = TURN_PWM
-    time.sleep(0.3)  # Short blind duration just to leave the current line
+    time.sleep(TURN_BLIND_TIME)  # Short blind duration just to leave the current line
 
-    # 2. Scanning Phase: Keep turning until Middle Sensor sees black
-    # Timeout safety: If we don't see a line in 2 seconds, stop to prevent spinning forever
+    # 2. Scanning Phase: try intended direction first
+    line_found = False
     start_scan = time.time()
-    while (time.time() - start_scan) < 2.0:
+    while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
         raw = eyes.get_raw()
         # Check if the Center sensor sees the line (signal strength > threshold)
-        if eyes.color_signal(raw[1], eyes.offsets[1]) > eyes.LOGIC_DETECT:
+        if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
             print("Line Re-acquired!")
+            line_found = True
             break
-        time.sleep(0.01)
+        time.sleep(TURN_SCAN_INTERVAL)
 
-    # 3. Stabilization Phase
+    # 3. Fallback scanning phase: scan opposite direction slowly
+    if not line_found:
+        print("Turn scan timeout. Trying opposite-direction recovery scan...")
+        recovery_steer = MAX_STEER_CMD if direction == "right" else -MAX_STEER_CMD
+        px.set_dir_servo_angle(recovery_steer)
+        px.forward(TURN_RECOVERY_PWM)
+        current_motor_speed = TURN_RECOVERY_PWM
+
+        start_scan = time.time()
+        while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
+            raw = eyes.get_raw()
+            if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
+                print("Line Re-acquired during recovery scan!")
+                line_found = True
+                break
+            time.sleep(TURN_SCAN_INTERVAL)
+
+    if not line_found:
+        print("Turn recovery failed. Entering IDLE fail-safe state.")
+        px.stop()
+        current_motor_speed = 0
+        pid.reset()
+        current_state = RobotState.IDLE
+        return False
+
+    # 4. Stabilization Phase
     px.set_dir_servo_angle(STRAIGHT_ANGLE)  # Snap wheels straight
     px.stop()  # Briefly stop momentum
     current_motor_speed = 0
-    time.sleep(0.1)
+    time.sleep(TURN_STABILIZE_TIME)
     pid.reset()  # Clear PID errors
+    return True
 
 def ignore_intersection(px, speed):
     """Drive straight briefly to skip a crossing line."""
@@ -146,7 +188,7 @@ def ignore_intersection(px, speed):
     time.sleep(PASS_TIME)
 
 def main():
-    global stop_flag, current_state, crossings_seen
+    global stop_flag, current_state, crossings_seen, current_motor_speed
 
     px = Picarx()
     pid = PIDController(KP, KI, KD, min_out=-MAX_STEER, max_out=MAX_STEER)
@@ -167,6 +209,10 @@ def main():
 
     # Initialize failsafe timer
     last_valid_line_time = time.time()
+    last_pid_time = time.time()
+
+    listener = threading.Thread(target=key_listener, daemon=True)
+    listener.start()
 
     try:
         while not stop_flag:
@@ -195,7 +241,7 @@ def main():
 
             # Inside main loop
             if not eyes.last_line_seen:
-                if (time.time() - last_valid_line_time) > 2.0:
+                if (time.time() - last_valid_line_time) > LOST_LINE_TIMEOUT:
                     print("FAILSAFE: Line lost for > 2s. Emergency Stop.")
                     stop_flag = True
                     break
@@ -210,11 +256,11 @@ def main():
             if current_state == RobotState.APPROACH_STOP and pattern == "STOP_WHITE":
                 px.stop()
                 current_motor_speed = 0  # Reset smooth speed tracker
-                time.sleep(2.0)
+                time.sleep(STOP_HOLD_TIME)
                 print("Clearing line...")
                 px.forward(base_speed)
                 current_motor_speed = base_speed
-                time.sleep(0.5)
+                time.sleep(STOP_CLEAR_TIME)
                 pid.reset()
                 update_mission_state()
                 continue
@@ -223,7 +269,8 @@ def main():
             if pattern == "CROSS_GREEN":
                 if current_state == RobotState.LEFT_1:
                     print("Left turn on first crossing")
-                    execute_turn(px, eyes, "left", pid)
+                    if not execute_turn(px, eyes, "left", pid):
+                        continue
                     pid.reset()
                     update_mission_state()
                     crossings_seen = 0
@@ -237,7 +284,8 @@ def main():
                         pid.reset()
                         continue
                     print("Left turn on second crossing")
-                    execute_turn(px, eyes, "left", pid)
+                    if not execute_turn(px, eyes, "left", pid):
+                        continue
                     pid.reset()
                     update_mission_state()
                     crossings_seen = 0
@@ -245,7 +293,8 @@ def main():
 
                 if current_state == RobotState.RIGHT:
                     print("Right turn on crossing")
-                    execute_turn(px, eyes, "right", pid)
+                    if not execute_turn(px, eyes, "right", pid):
+                        continue
                     pid.reset()
                     update_mission_state()
                     crossings_seen = 0
@@ -264,20 +313,21 @@ def main():
             error_buffer.append(error)
             smooth_error = sum(error_buffer) / len(error_buffer)
 
-            # Calculate actual dt
+            # Calculate dt between PID updates
             current_time = time.time()
-            dt = current_time - loop_start
+            dt = current_time - last_pid_time
+            last_pid_time = current_time
             
             steering = pid.update(smooth_error * POLARITY, dt=dt)
             # Apply straight angle offset
             steering_with_offset = steering + STRAIGHT_ANGLE
-            steering_with_offset = max(-25, min(25, steering_with_offset))
+            steering_with_offset = max(-MAX_STEER_CMD, min(MAX_STEER_CMD, steering_with_offset))
 
-            speed_drop = abs(steering) * 0.4
-            current_speed = max(base_speed - speed_drop, 5)
+            speed_drop = abs(steering) * SPEED_DROP_GAIN
+            current_speed = max(base_speed - speed_drop, MIN_DRIVE_SPEED)
 
             px.set_dir_servo_angle(steering_with_offset)
-            set_speed_smooth(current_speed, px, ramp_rate=2.0)
+            set_speed_smooth(current_speed, px, ramp_rate=SPEED_RAMP_RATE)
 
             history.append((time.time() - start_time, smooth_error, steering, current_speed))
 
