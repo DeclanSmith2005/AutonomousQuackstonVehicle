@@ -25,15 +25,19 @@ PASS_TIME = 0.5
 
 # Centralized timing/tuning constants
 LOST_LINE_TIMEOUT = 2.0
-TURN_BLIND_TIME = 0.3
+
+TURN_BLIND_TIME = 0.5
 TURN_SCAN_TIMEOUT = 2.0
 TURN_SCAN_INTERVAL = 0.01
 TURN_RECOVERY_PWM = 12
 TURN_STABILIZE_TIME = 0.1
+
 STOP_HOLD_TIME = 2.0
 STOP_CLEAR_TIME = 0.5
+
 SPEED_RAMP_RATE = 2.0
 SPEED_DROP_GAIN = 0.4
+
 MIN_DRIVE_SPEED = 5
 MAX_STEER_CMD = 25
 
@@ -47,8 +51,8 @@ class RobotState:
     IDLE = "IDLE"
 
 # A list of states to execute in order.
-# "None" implies drive straight until next event.
-# Example mission: Straight -> Left at 1st cross -> Straight -> Right at next cross -> Stop
+# "None" implies driving straight until the next event.
+# Example mission: Straight -> Left at the 1st cross -> Straight -> Right at the next cross -> Stop
 MISSION_QUEUE = [
     RobotState.STRAIGHT,
     RobotState.LEFT_1,
@@ -134,7 +138,7 @@ def execute_turn(px, eyes, direction, pid):
     current_motor_speed = TURN_PWM
     time.sleep(TURN_BLIND_TIME)  # Short blind duration just to leave the current line
 
-    # 2. Scanning Phase: try intended direction first
+    # 2. Scanning Phase: try an intended direction first
     line_found = False
     start_scan = time.time()
     while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
@@ -146,7 +150,7 @@ def execute_turn(px, eyes, direction, pid):
             break
         time.sleep(TURN_SCAN_INTERVAL)
 
-    # 3. Fallback scanning phase: scan opposite direction slowly
+    # 3. Fallback scanning phase: scan an opposite direction slowly
     if not line_found:
         print("Turn scan timeout. Trying opposite-direction recovery scan...")
         recovery_steer = MAX_STEER_CMD if direction == "right" else -MAX_STEER_CMD
@@ -239,7 +243,7 @@ def main():
             pattern = eyes.analyze_pattern(raw)
             error, stop_detected, base_speed = eyes.compute_error(raw, bias_mode=bias_mode)
 
-            # Inside main loop
+            # Inside the main loop
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > LOST_LINE_TIMEOUT:
                     print("FAILSAFE: Line lost for > 2s. Emergency Stop.")

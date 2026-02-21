@@ -1,6 +1,5 @@
 import time
 
-
 class LineSensor:
     def __init__(self, px, offsets):
         self.cal_min = list(offsets)
@@ -160,7 +159,7 @@ class LineSensor:
                     # Capture the "Whitest" white/green (Maximum value)
                     if raw[i] > self.cal_max[i]:
                         self.cal_max[i] = raw[i]
-                time.sleep(self.CAL_SAMPLE_INTERVAL)  # High frequency sampling
+                time.sleep(self.CAL_SAMPLE_INTERVAL)  # High-frequency sampling
 
         self.px.stop()
 
@@ -180,3 +179,4 @@ class LineSensor:
         print(f"Black Offsets: {self.offsets}")
         print(f"Max Signals:   {self.cal_max}")
         print(f"Detected Range: {ranges}")
+        print(f"Average Range: {avg_range}")

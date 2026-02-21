@@ -24,7 +24,7 @@ class PIDController:
         # P Term
         P = self.kp * error
         
-        # I Term
+        # I Term - Will always be 0
         self.integral += error * dt
         # Anti-windup clamping (values chosen based on typical servo range)
         self.integral = max(-20.0, min(20.0, self.integral))
