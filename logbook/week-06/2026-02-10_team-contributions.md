@@ -60,41 +60,56 @@ implemented, and completed 87.5% of the data collection.
 
 ---
 
-## Entry – [Team Member Name 2]
+## Entry – Rafael Costa
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-17:30 (Feb 10), 16:30-17:30 (Feb 11 follow-up)  
+**Activity Type:** Implementation, Testing, Documentation  
+**Status:** In progress  
+**Estimated Effort:** 4.0 h  
 
 ### Work Performed
 
-- 
-- 
+- Added CSV telemetry logging to the PID controller in `control/pid/pid.py`, recording `time_s`, `error`, `steering_angle`, and `speed`, and generated run logs for post-test analysis.
+- Refactored line-sensor interpretation and control flow for readability and maintainability, including clearer signal gating (white border rejection, floor rejection), stop-line handling, and branch-bias behavior.
+- Reorganized PID artifacts into structured folders (`control/pid/logs/` and `control/pid/figures/`) and updated log-write paths accordingly.
+- Implemented line-loss recovery logic to steer toward the last known line direction, then tuned steering/speed behavior (`MAX_STEER`, smoothing window, turn speed drop, branch speed reduction) based on observed track behavior.
+- Performed cleanup to reduce noisy console output by removing redundant debug key-print branches.
 
 ### Decisions
 
 *Optional section - include if applicable*
 
-- 
+- Chose to log controller outputs to CSV each run so PID tuning can be data-driven rather than based only on subjective driving observations.
+- Prioritized deterministic handling order in control logic: stop-line detection first, then normal tracking, then line-loss recovery.
+- Selected a stronger recovery steer and dynamic speed adjustments on sharp turns/branch bias events to improve reacquisition stability.
 
 ### Issues Encountered
 
 *Optional section - include if applicable*
 
-- 
+- Occasional line loss produced unstable behavior (drift/hesitation) when no explicit recovery direction was available.
+- Speed and steering trade-offs required iterative tuning; aggressive steering could destabilize tracking unless speed was reduced on turns.
 
 ### Next Steps
 
 *Optional section - include if applicable*
 
-- [ ] 
+- [ ] Continue tuning `KP`, `KD`, `RECOVERY_STEER`, and branch bias under repeatable test conditions.
+- [ ] Use generated CSV logs to compare lap segments and quantify tracking error variance before/after each tuning change.
+- [ ] Integrate upcoming perception-derived CTE input once available and re-validate controller behavior end-to-end.
 
 ### References
 
-- 
+- `control/pid/pid.py`
+- `control/pid/logs/pid_log_20260210_154830.csv`
+- `control/pid/logs/pid_log_20260210_160629.csv`
+- `control/pid/logs/pid_log_20260210_160832.csv`
+- `control/pid/logs/pid_log_20260210_160922.csv`
+- `control/pid/logs/pid_log_20260210_161051.csv`
 
 ### Reflection
+
+This session reinforced the value of pairing control-code changes with telemetry and structured artifacts. Adding CSV logging and organizing logs/figures made each test run easier to interpret, and it became much clearer which adjustments improved behavior versus which only felt better subjectively. The follow-up line-recovery and speed/steering tuning on Feb 11 also showed that robustness depends on handling edge cases (especially temporary line loss), not only nominal PID behavior. Overall, this was productive progress toward a more testable and maintainable line-following controller, with remaining work focused on systematic parameter tuning and integration with Perception CTE inputs.
 
 
 
@@ -145,7 +160,7 @@ implemented, and completed 87.5% of the data collection.
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected 87.5% of data (⚠️) |
-| Name 2 | X.X h | ✅/⚠️/❌ | Brief description |
+| Rafael Costa | 4.0 h | ⚠️ | Implemented PID CSV logging (✅), Refactored control logic and artifact structure (✅), Added line-loss recovery and tuning updates (⚠️ ongoing tuning) |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues

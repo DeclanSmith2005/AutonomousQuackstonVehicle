@@ -47,41 +47,55 @@ Personal thoughts on the work performed. What went well? What could be improved?
 
 ---
 
-## Entry – [Team Member Name 2]
+## Entry – Rafael Costa
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-17:00 (Feb 12), 20:30-21:30 (Feb 13 follow-up)  
+**Activity Type:** Implementation, Testing, Design  
+**Status:** In progress  
+**Estimated Effort:** 3.5 h  
 
 ### Work Performed
 
-- 
-- 
+- Implemented a modular control architecture by creating `LineSensor` and `PIDController` classes and integrating them into a new `control/main.py` control loop.
+- Added robust line-processing behaviors including stop-line detection, branch biasing, last-seen-direction recovery, moving-average error smoothing, and CSV telemetry logging.
+- Implemented a keyboard-driven state machine in `control/main.py` (`STRAIGHT`, `APPROACH_STOP`, `LEFT_1`, `LEFT_2`, `RIGHT`, `CALIBRATE`) with intersection handling helpers for controlled turn execution.
+- Refactored line detection logic to use thresholded signal space for pattern detection, added sensor-read exception handling, enabled runtime bias commands, and switched to measured `dt` in PID updates.
+- Performed follow-up tuning on Feb 13 (thresholds, base speed, turn steering/PWM behavior, straight-angle compensation) and archived the previous monolithic script as `control/pid/pid.py.bak`.
 
 ### Decisions
 
 *Optional section - include if applicable*
 
-- 
+- Moved from a single-script controller to class-based modules (`line_sensor`, `pid_controller`, `main`) to improve maintainability and testability.
+- Adopted an explicit state-machine approach for intersections/stop behavior instead of trying to handle all special cases purely inside continuous PID tracking.
+- Reintroduced integral accumulation with anti-windup in `PIDController` and used actual loop `dt` to improve controller stability and derivative behavior.
 
 ### Issues Encountered
 
 *Optional section - include if applicable*
 
-- 
+- Distinguishing intersection crossings versus stop lines required iterative threshold and pattern-logic refinements.
+- PID behavior was sensitive to timing assumptions and steering saturation, requiring retuning after state-machine and speed-profile changes.
+- Sensor-read reliability required defensive handling to avoid control-loop crashes during transient read failures.
 
 ### Next Steps
 
 *Optional section - include if applicable*
 
-- [ ] 
+- [ ] Validate all state transitions on track with repeatable test scripts (especially `LEFT_2` skip-first behavior).
+- [ ] Continue tuning `LINE_THRESHOLD`, `WHITE_CUTOFF`, and turn timing (`TURN_TIME`, `PASS_TIME`) using logged runs.
+- [ ] Compare class-based controller behavior against archived baseline (`pid.py.bak`) and lock a competition-safe parameter set.
 
 ### References
 
-- 
+- `control/main.py`
+- `control/line_sensor.py`
+- `control/pid_controller.py`
+- `control/pid/pid.py.bak`
 
 ### Reflection
+
+This session was a major structural step forward for the Control pipeline. Breaking the previous monolithic PID script into dedicated sensor, controller, and orchestration modules made the behavior easier to reason about and faster to iterate. The state-machine design was especially useful for handling real track events (stops and intersections) that pure continuous control struggles with. The follow-up tuning work on Feb 13 also reinforced that line-following performance depends heavily on calibration and timing details, so disciplined parameter sweeps and replayable tests will be critical before final integration.
 
 
 
@@ -132,7 +146,7 @@ Personal thoughts on the work performed. What went well? What could be improved?
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Name 1 | X.X h | ✅/⚠️/❌ | Brief description |
-| Name 2 | X.X h | ✅/⚠️/❌ | Brief description |
+| Rafael Costa | 3.5 h | ⚠️ | Implemented modular LineSensor/PIDController/main pipeline (✅), Added state-machine intersection handling and recovery logic (✅), Performed threshold and control tuning follow-up (⚠️ ongoing) |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
