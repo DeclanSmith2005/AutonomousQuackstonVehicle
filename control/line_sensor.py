@@ -1,10 +1,9 @@
 import time
 
 class LineSensor:
-    def __init__(self, px, offsets):
+    def __init__(self, offsets):
         self.cal_min = list(offsets)
         self.cal_max = [offset + 1000 for offset in offsets]
-        self.px = px
         self.offsets = offsets  # [L, M, R]
 
         # Signal gates and tuning
@@ -32,9 +31,6 @@ class LineSensor:
         self.last_line_seen = False
         # -1 = line was left, 0 = center, 1 = right
         self.last_line_direction = 0
-
-    def get_raw(self):
-        return self.px.get_grayscale_data()
 
     def color_signal(self, raw, sensor_index):
         if raw > self.WHITE_CUTOFF:
@@ -123,51 +119,12 @@ class LineSensor:
 
         return error, stop_detected, base_speed
 
-    def calibrate(self, straight_angle=0):
-        print("--- WIGGLE CALIBRATION START ---")
-        print("Robot will move! Clear the area.")
-        time.sleep(1)
+    def apply_calibration(self, cal_min, cal_max):
+        # Record signal range (Max - Min)
+        self.cal_min = cal_min
+        self.cal_max = cal_max
+        self.offsets = cal_min
 
-        # Initialize: Min = High Number, Max = Low Number
-        # We want to find the LOWEST value (Black) and HIGHEST value (Green/White)
-        self.cal_min = [self.ADC_MAX, self.ADC_MAX, self.ADC_MAX]
-        self.cal_max = [0, 0, 0]
-
-        # Define the Wiggle Maneuver
-        # (Steering Angle, Speed, Duration)
-        maneuvers = [
-            (straight_angle - self.CAL_TURN_ANGLE, self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),    # Turn Left Forward
-            (straight_angle - self.CAL_TURN_ANGLE, -self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),   # Turn Left Backward
-            (straight_angle + self.CAL_TURN_ANGLE, self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),    # Turn Right Forward
-            (straight_angle + self.CAL_TURN_ANGLE, -self.CAL_TURN_SPEED, self.CAL_TURN_DURATION),   # Turn Right Backward
-            (straight_angle, 0, self.CAL_STOP_DURATION)                                                # Stop
-        ]
-
-        for angle, speed, duration in maneuvers:
-            self.px.set_dir_servo_angle(angle)
-            self.px.forward(speed)
-
-            # Record data heavily during the maneuver
-            maneuver_start = time.time()
-            while (time.time() - maneuver_start) < duration:
-                raw = self.get_raw()
-                for i in range(3):
-                    # Capture the "Blackest" black (Minimum value)
-                    if raw[i] < self.cal_min[i]:
-                        self.cal_min[i] = raw[i]
-
-                    # Capture the "Whitest" white/green (Maximum value)
-                    if raw[i] > self.cal_max[i]:
-                        self.cal_max[i] = raw[i]
-                time.sleep(self.CAL_SAMPLE_INTERVAL)  # High-frequency sampling
-
-        self.px.stop()
-
-        # Apply the Calibration
-        # Offset is the "Black" floor (Minimum read)
-        self.offsets = self.cal_min
-
-        # Calculate signal range (Max - Min)
         ranges = [self.cal_max[i] - self.cal_min[i] for i in range(3)]
         avg_range = sum(ranges) / 3
 
@@ -175,7 +132,7 @@ class LineSensor:
         self.NOISE_GATE = 10.0
         self.LOGIC_DETECT = 50.0
 
-        print(f"CALIBRATION COMPLETE")
+        print(f"CALIBRATION APPLIED")
         print(f"Black Offsets: {self.offsets}")
         print(f"Max Signals:   {self.cal_max}")
         print(f"Detected Range: {ranges}")

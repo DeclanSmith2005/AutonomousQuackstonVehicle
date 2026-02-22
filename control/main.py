@@ -2,7 +2,8 @@ import csv
 import os
 import threading
 import time
-from picarx import Picarx
+import zmq
+import json
 from pid_controller import PIDController
 from line_sensor import LineSensor
 
@@ -41,6 +42,8 @@ SPEED_DROP_GAIN = 0.4
 MIN_DRIVE_SPEED = 5
 MAX_STEER_CMD = 25
 
+CALIBRATION_TIMEOUT = 8.0
+
 class RobotState:
     STRAIGHT = "ST"
     APPROACH_STOP = "STOP"
@@ -67,6 +70,14 @@ crossings_seen = 0
 bias_mode = "c"
 current_motor_speed = 0
 
+def send_motor_command(push_socket, speed, steer):
+    msg = {
+        "type": "motor",
+        "speed": speed,
+        "steer": steer
+    }
+    push_socket.send_json(msg)
+
 def update_mission_state():
     """Auto-advances state when a maneuver is completed"""
     global current_state, MISSION_QUEUE
@@ -77,15 +88,48 @@ def update_mission_state():
         print("MISSION COMPLETE")
         current_state = RobotState.IDLE
 
-def set_speed_smooth(target, px, ramp_rate=1.0):
+def set_speed_smooth(push_socket, target_speed, steer, ramp_rate=1.0):
     global current_motor_speed
     # Move the current speed towards the target speed by 'ramp_rate'
-    if current_motor_speed < target:
-        current_motor_speed = min(target, current_motor_speed + ramp_rate)
-    elif current_motor_speed > target:
-        current_motor_speed = max(target, current_motor_speed - ramp_rate)
+    if current_motor_speed < target_speed:
+        current_motor_speed = min(target_speed, current_motor_speed + ramp_rate)
+    elif current_motor_speed > target_speed:
+        current_motor_speed = max(target_speed, current_motor_speed - ramp_rate)
 
-    px.forward(current_motor_speed)
+    send_motor_command(push_socket, current_motor_speed, steer)
+
+
+def request_initial_calibration(push_socket, sub_socket, eyes):
+    print("Requesting bridge wiggle calibration...")
+    push_socket.send_json({"type": "calibrate"})
+
+    deadline = time.time() + CALIBRATION_TIMEOUT
+    while time.time() < deadline:
+        timeout_ms = max(1, int((deadline - time.time()) * 1000))
+        if sub_socket.poll(timeout_ms) == 0:
+            continue
+
+        msg = sub_socket.recv_json()
+        topic = msg.get("topic")
+
+        if topic != "CALIBRATION":
+            continue
+
+        if msg.get("status") != "ok":
+            print(f"Calibration failed: {msg}")
+            return False
+
+        cal_min = msg.get("cal_min")
+        cal_max = msg.get("cal_max")
+        if not isinstance(cal_min, list) or not isinstance(cal_max, list):
+            print(f"Invalid calibration payload: {msg}")
+            return False
+
+        eyes.apply_calibration(cal_min, cal_max)
+        return True
+
+    print("Calibration response timed out. Continuing with default offsets.")
+    return False
 
 def key_listener():
     """Keyboard control for the state machine."""
@@ -126,15 +170,14 @@ def key_listener():
             print(f"Bias mode: {bias_mode}")
 
 
-def execute_turn(px, eyes, direction, pid):
+def execute_turn(push_socket, sub_socket, eyes, direction, pid):
     """Turns until the line is actually seen, rather than guessing the time."""
     global current_motor_speed, current_state
     print(f"Executing Closed-Loop {direction} turn...")
 
     # 1. Blind Phase: Turn hard to clear the current intersection
     steer = -MAX_STEER_CMD if direction == "right" else MAX_STEER_CMD
-    px.set_dir_servo_angle(steer)
-    px.forward(TURN_PWM)
+    send_motor_command(push_socket, TURN_PWM, steer)
     current_motor_speed = TURN_PWM
     time.sleep(TURN_BLIND_TIME)  # Short blind duration just to leave the current line
 
@@ -142,67 +185,89 @@ def execute_turn(px, eyes, direction, pid):
     line_found = False
     start_scan = time.time()
     while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
-        raw = eyes.get_raw()
-        # Check if the Center sensor sees the line (signal strength > threshold)
-        if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
-            print("Line Re-acquired!")
-            line_found = True
-            break
+        try:
+            msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
+            if "grayscale" in msg:
+                raw = msg["grayscale"]
+                # Check if the Center sensor sees the line (signal strength > threshold)
+                if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
+                    print("Line Re-acquired!")
+                    line_found = True
+                    break
+        except zmq.Again:
+            pass
         time.sleep(TURN_SCAN_INTERVAL)
 
     # 3. Fallback scanning phase: scan an opposite direction slowly
     if not line_found:
         print("Turn scan timeout. Trying opposite-direction recovery scan...")
         recovery_steer = MAX_STEER_CMD if direction == "right" else -MAX_STEER_CMD
-        px.set_dir_servo_angle(recovery_steer)
-        px.forward(TURN_RECOVERY_PWM)
+        send_motor_command(push_socket, TURN_RECOVERY_PWM, recovery_steer)
         current_motor_speed = TURN_RECOVERY_PWM
 
         start_scan = time.time()
         while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
-            raw = eyes.get_raw()
-            if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
-                print("Line Re-acquired during recovery scan!")
-                line_found = True
-                break
+            try:
+                msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
+                if "grayscale" in msg:
+                    raw = msg["grayscale"]
+                    if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
+                        print("Line Re-acquired during recovery scan!")
+                        line_found = True
+                        break
+            except zmq.Again:
+                pass
             time.sleep(TURN_SCAN_INTERVAL)
 
     if not line_found:
         print("Turn recovery failed. Entering IDLE fail-safe state.")
-        px.stop()
+        push_socket.send_json({"type": "stop"})
         current_motor_speed = 0
         pid.reset()
         current_state = RobotState.IDLE
         return False
 
     # 4. Stabilization Phase
-    px.set_dir_servo_angle(STRAIGHT_ANGLE)  # Snap wheels straight
-    px.stop()  # Briefly stop momentum
+    send_motor_command(push_socket, 0, STRAIGHT_ANGLE)
     current_motor_speed = 0
     time.sleep(TURN_STABILIZE_TIME)
     pid.reset()  # Clear PID errors
     return True
 
-def ignore_intersection(px, speed):
+def ignore_intersection(push_socket, speed):
     """Drive straight briefly to skip a crossing line."""
     global current_motor_speed
-    px.set_dir_servo_angle(STRAIGHT_ANGLE)
-    px.forward(speed)
+    send_motor_command(push_socket, speed, STRAIGHT_ANGLE)
     current_motor_speed = speed
     time.sleep(PASS_TIME)
 
 def main():
     global stop_flag, current_state, crossings_seen, current_motor_speed
 
-    px = Picarx()
+    # --- NETWORK SETUP ---
+    context = zmq.Context()
+
+    # SUB to Sensors (Connect to Bridge Port 5555)
+    sub_socket = context.socket(zmq.SUB)
+    sub_socket.connect("tcp://127.0.0.1:5555")
+    sub_socket.subscribe("")  # JSON payload is single-frame; filter by msg["topic"] in code
+    sub_socket.setsockopt(zmq.CONFLATE, 1)
+
+    # PUSH to Motors (Connect to Bridge Port 5556)
+    push_socket = context.socket(zmq.PUSH)
+    push_socket.connect("tcp://127.0.0.1:5556")
+
+    # --- LOGIC SETUP ---
+    # Note: We don't pass 'px' anymore
+    eyes = LineSensor(OFFSETS)
     pid = PIDController(KP, KI, KD, min_out=-MAX_STEER, max_out=MAX_STEER)
-    eyes = LineSensor(px, OFFSETS)
+
+    print("Control Node Connected to Bridge.")
 
     print("Place robot on the line.")
     print("Ensure it has 20cm of space around it.")
-    input("Press Enter to Start Wiggle Calibration...")
-
-    eyes.calibrate(straight_angle=STRAIGHT_ANGLE)
+    input("Press Enter to run startup wiggle calibration...")
+    request_initial_calibration(push_socket, sub_socket, eyes)
 
     error_buffer = [0.0] * ERROR_BUFFER_LEN
     history = []
@@ -223,7 +288,13 @@ def main():
             loop_start = time.time()
 
             try:
-                raw = eyes.get_raw()
+                msg = sub_socket.recv_json()
+                if msg.get("topic") != "SENSORS":
+                    continue
+                if "grayscale" not in msg:
+                    continue
+
+                raw = msg["grayscale"]
             except Exception as e:
                 print(f"Sensor error: {e}")
                 time.sleep(LOOP_INTERVAL)
@@ -235,7 +306,7 @@ def main():
                 continue
 
             if current_state == RobotState.IDLE:
-                px.stop()
+                push_socket.send_json({"type": "stop"})
                 current_motor_speed = 0
                 time.sleep(0.5)
                 continue
@@ -258,11 +329,11 @@ def main():
 
             # 1) White stop line handling
             if current_state == RobotState.APPROACH_STOP and pattern == "STOP_WHITE":
-                px.stop()
+                push_socket.send_json({"type": "stop"})
                 current_motor_speed = 0  # Reset smooth speed tracker
                 time.sleep(STOP_HOLD_TIME)
                 print("Clearing line...")
-                px.forward(base_speed)
+                send_motor_command(push_socket, base_speed, None)
                 current_motor_speed = base_speed
                 time.sleep(STOP_CLEAR_TIME)
                 pid.reset()
@@ -273,7 +344,7 @@ def main():
             if pattern == "CROSS_GREEN":
                 if current_state == RobotState.LEFT_1:
                     print("Left turn on first crossing")
-                    if not execute_turn(px, eyes, "left", pid):
+                    if not execute_turn(push_socket, sub_socket, eyes, "left", pid):
                         continue
                     pid.reset()
                     update_mission_state()
@@ -284,11 +355,11 @@ def main():
                     crossings_seen += 1
                     if crossings_seen == 1:
                         print("Skipping first left crossing")
-                        ignore_intersection(px, base_speed)
+                        ignore_intersection(push_socket, base_speed)
                         pid.reset()
                         continue
                     print("Left turn on second crossing")
-                    if not execute_turn(px, eyes, "left", pid):
+                    if not execute_turn(push_socket, sub_socket, eyes, "left", pid):
                         continue
                     pid.reset()
                     update_mission_state()
@@ -297,7 +368,7 @@ def main():
 
                 if current_state == RobotState.RIGHT:
                     print("Right turn on crossing")
-                    if not execute_turn(px, eyes, "right", pid):
+                    if not execute_turn(push_socket, sub_socket, eyes, "right", pid):
                         continue
                     pid.reset()
                     update_mission_state()
@@ -305,7 +376,7 @@ def main():
                     continue
 
                 if current_state == RobotState.STRAIGHT:
-                    ignore_intersection(px, base_speed)
+                    ignore_intersection(push_socket, base_speed)
                     pid.reset()
                     # Advance mission if we were just driving straight and reached an intersection
                     # that we are ignoring.
@@ -330,8 +401,12 @@ def main():
             speed_drop = abs(steering) * SPEED_DROP_GAIN
             current_speed = max(base_speed - speed_drop, MIN_DRIVE_SPEED)
 
-            px.set_dir_servo_angle(steering_with_offset)
-            set_speed_smooth(current_speed, px, ramp_rate=SPEED_RAMP_RATE)
+            set_speed_smooth(
+                push_socket,
+                current_speed,
+                steering_with_offset,
+                ramp_rate=SPEED_RAMP_RATE,
+            )
 
             history.append((time.time() - start_time, smooth_error, steering, current_speed))
 
@@ -341,7 +416,7 @@ def main():
                 time.sleep(wait_time)
 
     finally:
-        px.stop()
+        push_socket.send_json({"type": "stop"})
 
         if history:
             os.makedirs("logs", exist_ok=True)
