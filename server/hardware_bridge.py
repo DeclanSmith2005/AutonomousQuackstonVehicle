@@ -72,7 +72,7 @@ def main():
                 cmd_type = cmd_msg.get("type")
 
                 if cmd_type == "motor":
-                    # {type: "motor", speed: 20, steer: -15}
+                    # ex. {type: "motor", speed: 20, steer: -15}
                     if cmd_msg.get("speed") is not None:
                         px.forward(cmd_msg["speed"])
                     if cmd_msg.get("steer") is not None:

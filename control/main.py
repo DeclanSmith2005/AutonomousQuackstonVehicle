@@ -258,7 +258,6 @@ def main():
     push_socket.connect("tcp://127.0.0.1:5556")
 
     # --- LOGIC SETUP ---
-    # Note: We don't pass 'px' anymore
     eyes = LineSensor(OFFSETS)
     pid = PIDController(KP, KI, KD, min_out=-MAX_STEER, max_out=MAX_STEER)
 
