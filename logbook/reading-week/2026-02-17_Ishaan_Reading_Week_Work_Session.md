@@ -2,7 +2,7 @@
 title: "Reading Week Work Session Log - Perception: Data Annotation, Object Detection Distance Calculations, Lane Detection"
 date: 2026-02-17
 week: Reading-week
-hours: X.X
+hours: 6.0
 tags: [Perception, Data Annotation, Object Detection, Lane Detection]
 contributors: [Ishaan Grewal]
 ---
@@ -215,8 +215,8 @@ A second degree polynomial was fit to the lane pixels, plotting x as a function 
 $$x = ay^2 + by + c$$
 
 The following formulas were used to calculate the CTE in pixels, and then convert to meters: 
-$$cte_{pixels} = \text{float}(car\_center_x) - lane_x$$
-$$cte_{meters} = cte_{pixels} \cdot meters\_per\_pixel$$
+$$cte_{pixels} = \text{float}(car_{center_x}) - lane_x$$
+$$cte_{meters} = cte_{pixels} \cdot meters_per_pixel$$
 
 **Results:**
 The above code was tested using the images that were taken on the track, which are found at `Perception/Lane_Pictures`. In the results shown below, there are five images.
