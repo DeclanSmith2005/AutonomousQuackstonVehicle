@@ -228,10 +228,10 @@ The above code was tested using the images that were taken on the track, which a
   green dot represents the y reference/look ahead point from which the CTE is being calculated.
 
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_1_.jpg`:
-![Alt Text](Perception/Lane%20Pictures/lanes1_test.jpg)
+![Alt Text](../../Perception/Lane%20Pictures/lanes1_test.jpg)
 
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_2_.jpg`:
-![Alt Text](Perception/Lane%20Pictures/lanes2_test.jpg)
+![Alt Text](../../Perception/Lane%20Pictures/lanes2_test.jpg)
 
 **Discussion of Results:**
 Overall, the preliminary lane detection script 
