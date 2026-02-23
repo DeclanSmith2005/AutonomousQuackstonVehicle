@@ -101,7 +101,34 @@ This session was a major structural step forward for the Control pipeline. Break
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – [Nolan Su-Hackett]
+
+**Time:** 14:30-16:30  
+**Activity Type:** Planning/Project Management, Data Collection  
+**Status:** Complete  
+**Estimated Effort:** 2.0 h  
+
+### Work Performed
+
+- Completed taking pictures for model training, cars (50)
+- Discussed where bounding boxes should be drawn, since the pole is common to all signs the perception team thought it best to box the head of the sign instead, as for vehicles the team decided to bound boxes around the wheels as a whole block, as the cars will each look different but it is expected that wheels will look relatively similar.
+- Although discussed in last meeting, it was finalized that the perception team will use Makesense to label/annotate images into PASCAL VOC Format.
+- divided next steps for the reading week, see next steps for Nolan below.
+
+### Next Steps
+-  Annotate the following classes: One way, Yield, Car
+-  Train a preliminary model on our annotations (After the team has finished annotations)
+-  Collect validation scores (mAP, Loss)
+-  Import model to car and test
+
+
+### Reflection
+It is good that the team knows what will be done during the break, and each of the perceptions teams members have a defined scope. Other than this, all went well and as expected. 
+
+
+---
+
+## Entry – [Team Member Name 4]
 
 **Time:** HH:MM–HH:MM  
 **Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
@@ -140,14 +167,13 @@ This session was a major structural step forward for the Control pipeline. Break
 
 
 ---
-
 ## Team Metrics
 
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
-| Name 1 | X.X h | ✅/⚠️/❌ | Brief description |
+| Ishaan Grewal | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
 | Rafael Costa | 3.5 h | ⚠️ | Implemented modular LineSensor/PIDController/main pipeline (✅), Added state-machine intersection handling and recovery logic (✅), Performed threshold and control tuning follow-up (⚠️ ongoing) |
-| Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
+| Nolan | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
