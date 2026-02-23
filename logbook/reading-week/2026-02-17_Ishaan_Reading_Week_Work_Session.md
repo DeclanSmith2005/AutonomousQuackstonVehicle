@@ -219,7 +219,7 @@ $$cte_{pixels} = \text{float}(car\_center\_x) - lane\_x$$
 $$cte_{meters} = cte_{pixels} \cdot meters\_per\_pixel$$
 
 **Results:**
-The above code was tested using the images that were taken on the track, which are found at `Perception/Lane Pictures`. In the results shown below, there are five images.
+The above code was tested using the images that were taken on the track, which are found at `Perception/Lane_Pictures`. In the results shown below, there are five images.
 - "Original" is the image from the camera
 - "HSV" is the original image converted to the HSV color space
 - "Green Mask" displays the filtered green color thresholding for the lane pixels
@@ -228,10 +228,10 @@ The above code was tested using the images that were taken on the track, which a
   green dot represents the y reference/look ahead point from which the CTE is being calculated.
 
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_1_.jpg`:
-![Alt Text](/Perception/Lane%20Pictures/lanes1_test.jpg)
+![Alt Text](/Perception/Lane_Pictures/lanes1_test.jpg)
 
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_2_.jpg`:
-![Alt Text](/Perception/Lane%20Pictures/lanes2_test.jpg)
+![Alt Text](/Perception/Lane_Pictures/lanes2_test.jpg)
 
 **Discussion of Results:**
 Overall, the preliminary lane detection script 
