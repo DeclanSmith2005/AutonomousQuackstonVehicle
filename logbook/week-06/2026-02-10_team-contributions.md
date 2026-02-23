@@ -115,7 +115,34 @@ This session reinforced the value of pairing control-code changes with telemetry
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – [Nolan Su-Hackett]
+
+**Time:** 14:30-17:30  
+**Activity Type:** Research/Planning, Data Collection 
+**Status:** Completed/In Progress
+**Estimated Effort:** 3.0 h  
+
+### Work Performed
+- Key goals of the meeting for the Perception team are as follows: Determine how lane detection is going to be performed and how this information will interface with the Control loop. Begin taking images of objects for training of the model.
+- The Perception team began researching effective ways to interface with a PID loop so that control has an easy time processing the information that perception sends. It was in this search that Cross Track Error (CTE) was discovered. In a bird's eye view x-y plane centered about the vehicle, cross track error is the x delta between the car and the center of the lane at a target y coordinate. CTE will be continuously fed to control and it can be used to create a PID loop to determine how much each factor (Proportional, integral, derivative) should change with respect to CTE.
+- After it was decided that CTE would be used, the Perception team began looking into how CTE would be calculated. Tentatively a colour map will be used to filter for the colour of the lanes, this map will be transformed into a birds-eye view peerspective. This will generate guidelines on which a function can be fit to the center of the lane at each point, using the function, CTE can be generated for any target y coordinate.
+- Took images for stop signs (50), yield signs(50), oneways(100), ducks (100), and do not enter signs (50). The images conform to the standard mention in the Gitbook, having good lighting with a simple background.
+
+### Decisions
+
+- Cross Track Error will be used to interface with control
+- Using Colour map and function fit to center of lanes
+- using makesense for PASCAL VOC Annotations
+
+### Next Steps
+- Finish Image collection (Cars)
+- Annotate in Pascal VOC Format
+
+### Reflection
+This meeting highlighted the importance of considering interfacing between teams. Instead of having an approach that looks at the easiest way to detect lanes, the perception team first spoke to Rafael (Control) on what he felt might be useful. He had mentioned distances or error of some sort as this can be integrated into PID easily, his insight allowed perception to narrow the scope on our research and will potentially make for an easier integration later down the line. Had Perception not done this, there may have had to been heavy processing/transformation of the lane detection information to pass to control which could lead to complications.
+
+
+## Entry – [Team Member Name 4]
 
 **Time:** HH:MM–HH:MM  
 **Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
@@ -161,7 +188,7 @@ This session reinforced the value of pairing control-code changes with telemetry
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected 87.5% of data (⚠️) |
 | Rafael Costa | 4.0 h | ⚠️ | Implemented PID CSV logging (✅), Refactored control logic and artifact structure (✅), Added line-loss recovery and tuning updates (⚠️ ongoing tuning) |
-| Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
+| Nolan Su-Hackett | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected Images for training (⚠️) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
