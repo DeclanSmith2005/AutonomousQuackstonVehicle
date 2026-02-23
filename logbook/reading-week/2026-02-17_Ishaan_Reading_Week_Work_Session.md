@@ -215,7 +215,7 @@ A second degree polynomial was fit to the lane pixels, plotting x as a function 
 $$x = ay^2 + by + c$$
 
 The following formulas were used to calculate the CTE in pixels, and then convert to meters: 
-$$cte_{pixels} = \text{float}(car\_center\_x) - lane\_x$$
+$$cte_{pixels} = \text{float}(car\_center_x) - lane_x$$
 $$cte_{meters} = cte_{pixels} \cdot meters\_per\_pixel$$
 
 **Results:**
@@ -233,47 +233,23 @@ Below is a screenshot of the results for `Perception/Lane Pictures/lanes_1_.png`
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_2_.png`:
 ![Alt Text](/Perception/Lane_Pictures/lanes2_test.png)
 
-**Discussion of Results:**
-Overall, the preliminary lane detection script 
+**Discussion of Results & Next Steps:**
+Overall, the preliminary lane detection script is able to successfully isolate and identify the green center tape, complete a BEV transform, fit an accurate polynomial to the curve, and compute a CTE.
 
+Once the Perception and Control teams review these results, both teams will need to discuss/test the following key points/questions:
+- What the output to the Control loop will be (CTE in meters, most likely)
+- How the Control loop will use the CTE. Will it be a weighted combination with the grayscale sensor? If so, what are the weights? Or will CTE be used in sections of the track where grayscale is known to have issues or fail?
+- Whether the camera will be rotated left or right during operation. This is not ideal for lane detection since the image center would no longer represent the vehicle's forward direction, and we would lose lateral reference. 
+- Need to experimentally determine the *meters_per_pixel*
+- Need to discuss and test the most optimal *y_ref* distance. Do we want to dynamically change this based on location? For example, reduce the look-ahead for a curve? This is recommended since on a sharp curve, the point may be far or not even on the curve, which can cause a large CTE. A suggested solution is that from the polynomial, we can find the curvature (a coefficient) and threshold *y_ref* for varying values. Or, we can use continuous adaptation, which changes the *y_ref* based on the curvature.
 
+**References:**
+- `Perception/Lane_Pictures`
+- `Perception/lane_detection_and_cte.py`
 
-
-
-
-
-
-
-## Challenges & Solutions
-
-### Challenge 1: [Issue Description]
-
-**Problem**: 
-
-**Debugging Steps**:
-1.
-2.
-3.
-
-**Solution**: 
-
-**Lessons Learned**: 
-
-## Next Steps
-
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
-
-## References
-
-- [Reference 1](URL)
-- [Reference 2](URL)
-
-## Personal Notes
-
-Any additional thoughts, observations, or things to remember...
+## Reflection
+This week's progress has placed the Perception team in a strong position relative to our reading week and overall project milestones, transitioning from data labelling to a functional, quantitative perception pipeline. This work has highlighted the software's reliability on physical calibration, such as the sensitivity of distance calculations to the focal length. This realization, and the planned next steps, reveal the need for intensive cross-team testing between Perception and Control. We have reached a point where software can no longer be developed in isolation. Clear constraints, such as whether the camera mount remains fixed or pans, how the *y_ref* distance is determined, and how Perception and Control interface are crucial to define. The next phase will focus on defining the above topics of discussion, determining how the PID loop interprets these CTE values, and iteratively testing these interactions to ensure the car's "vision" translates to smooth and efficient steering.
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-02-23
