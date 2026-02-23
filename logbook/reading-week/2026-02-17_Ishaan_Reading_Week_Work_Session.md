@@ -227,11 +227,11 @@ The above code was tested using the images that were taken on the track, which a
 - "Lane Detection" displays from a BEV perspective, the following: The blue line is the center of the car/camera, the dotted red curve is the lane fitted curve, and the
   green dot represents the y reference/look ahead point from which the CTE is being calculated.
 
-Below is a screenshot of the results for `Perception/Lane Pictures/lanes_1_.jpg`:
-![Alt Text](/Perception/Lane_Pictures/lanes1_test.jpg)
+Below is a screenshot of the results for `Perception/Lane Pictures/lanes_1_.png`:
+![Alt Text](/Perception/Lane_Pictures/lanes1_test.png)
 
-Below is a screenshot of the results for `Perception/Lane Pictures/lanes_2_.jpg`:
-![Alt Text](/Perception/Lane_Pictures/lanes2_test.jpg)
+Below is a screenshot of the results for `Perception/Lane Pictures/lanes_2_.png`:
+![Alt Text](/Perception/Lane_Pictures/lanes2_test.png)
 
 **Discussion of Results:**
 Overall, the preliminary lane detection script 
