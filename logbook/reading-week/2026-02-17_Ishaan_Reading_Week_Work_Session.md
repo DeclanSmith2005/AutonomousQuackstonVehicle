@@ -49,9 +49,7 @@ Do Not Enter Sign Class (50), and Duck Class (100). Ensured all bounding boxes w
 object heights, create a *compute_distance* function, and added necessary code to the primary loop.
 
 **Calculations:** Calculated the distance to each object using the following formula: 
-$$
-Distance = \frac{Real\ Height\ of\ Object \times f_y}{Pixel\ Height\ of\ Object}
-$$
+$$Distance = \frac{Real\ Height\ of\ Object \times f_y}{Pixel\ Height\ of\ Object}$$
 
 **Code Snippets:**
 
@@ -214,17 +212,11 @@ cv2.destroyAllWindows()
 ```
 **Calculations:**
 A second degree polynomial was fit to the lane pixels, plotting x as a function of y. Plugging the reference/look ahead y value into this formula returns the x location of the lane: 
-$$
-x = ay^2 + by + c
-$$
+$$x = ay^2 + by + c$$
 
 The following formulas were used to calculate the CTE in pixels, and then convert to meters: 
-$$
-cte_{pixels} = \text{float}(car\_center\_x) - lane\_x
-$$
-$$
-cte_{meters} = cte_{pixels} \cdot meters\_per\_pixel
-$$
+$$cte_{pixels} = \text{float}(car\_center\_x) - lane\_x$$
+$$cte_{meters} = cte_{pixels} \cdot meters\_per\_pixel$$
 
 **Results:**
 The above code was tested using the images that were taken on the track, which are found at `Perception/Lane Pictures`. In the results shown below, there are five images.
@@ -236,10 +228,10 @@ The above code was tested using the images that were taken on the track, which a
   green dot represents the y reference/look ahead point from which the CTE is being calculated.
 
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_1_.jpg`:
-![Alt Text](Perception/Lane%20Pictures/lanes1_test.png)
+![Alt Text](Perception/Lane%20Pictures/lanes1_test.jpg)
 
 Below is a screenshot of the results for `Perception/Lane Pictures/lanes_2_.jpg`:
-![Alt Text](Perception/Lane%20Pictures/lanes2_test.png)
+![Alt Text](Perception/Lane%20Pictures/lanes2_test.jpg)
 
 **Discussion of Results:**
 Overall, the preliminary lane detection script 
