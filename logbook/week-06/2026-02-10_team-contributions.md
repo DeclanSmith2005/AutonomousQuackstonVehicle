@@ -77,22 +77,16 @@ implemented, and completed 87.5% of the data collection.
 
 ### Decisions
 
-*Optional section - include if applicable*
-
 - Chose to log controller outputs to CSV each run so PID tuning can be data-driven rather than based only on subjective driving observations.
 - Prioritized deterministic handling order in control logic: stop-line detection first, then normal tracking, then line-loss recovery.
 - Selected a stronger recovery steer and dynamic speed adjustments on sharp turns/branch bias events to improve reacquisition stability.
 
 ### Issues Encountered
 
-*Optional section - include if applicable*
-
 - Occasional line loss produced unstable behavior (drift/hesitation) when no explicit recovery direction was available.
 - Speed and steering trade-offs required iterative tuning; aggressive steering could destabilize tracking unless speed was reduced on turns.
 
 ### Next Steps
-
-*Optional section - include if applicable*
 
 - [ ] Continue tuning `KP`, `KD`, `RECOVERY_STEER`, and branch bias under repeatable test conditions.
 - [ ] Use generated CSV logs to compare lap segments and quantify tracking error variance before/after each tuning change.

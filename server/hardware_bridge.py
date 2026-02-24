@@ -56,6 +56,7 @@ def main():
     try:
         while True:
             # --- 1. PUBLISH SENSORS ---
+            # Can add other sensors later - ultrasonic, camera
             grayscale = px.get_grayscale_data()
             sensor_msg = {
                 "topic": "SENSORS",

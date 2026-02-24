@@ -64,23 +64,17 @@ Personal thoughts on the work performed. What went well? What could be improved?
 
 ### Decisions
 
-*Optional section - include if applicable*
-
 - Moved from a single-script controller to class-based modules (`line_sensor`, `pid_controller`, `main`) to improve maintainability and testability.
 - Adopted an explicit state-machine approach for intersections/stop behavior instead of trying to handle all special cases purely inside continuous PID tracking.
 - Reintroduced integral accumulation with anti-windup in `PIDController` and used actual loop `dt` to improve controller stability and derivative behavior.
 
 ### Issues Encountered
 
-*Optional section - include if applicable*
-
 - Distinguishing intersection crossings versus stop lines required iterative threshold and pattern-logic refinements.
 - PID behavior was sensitive to timing assumptions and steering saturation, requiring retuning after state-machine and speed-profile changes.
 - Sensor-read reliability required defensive handling to avoid control-loop crashes during transient read failures.
 
 ### Next Steps
-
-*Optional section - include if applicable*
 
 - [ ] Validate all state transitions on track with repeatable test scripts (especially `LEFT_2` skip-first behavior).
 - [ ] Continue tuning `LINE_THRESHOLD`, `WHITE_CUTOFF`, and turn timing (`TURN_TIME`, `PASS_TIME`) using logged runs.
