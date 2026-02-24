@@ -3,7 +3,6 @@ import os
 import threading
 import time
 import zmq
-import json
 from pid_controller import PIDController
 from line_sensor import LineSensor
 
@@ -25,13 +24,16 @@ TURN_TIME = 0.6
 PASS_TIME = 0.5
 
 # Centralized timing/tuning constants
-LOST_LINE_TIMEOUT = 2.0
+LOST_LINE_TIMEOUT = 5.0
 
 TURN_BLIND_TIME = 0.5
 TURN_SCAN_TIMEOUT = 2.0
 TURN_SCAN_INTERVAL = 0.01
 TURN_RECOVERY_PWM = 12
 TURN_STABILIZE_TIME = 0.1
+TURN_ENTRY_TIMEOUT = 2.0
+TURN_ENTRY_SPEED = 10
+TURN_STOP_HOLD_TIME = 1.0
 
 STOP_HOLD_TIME = 2.0
 STOP_CLEAR_TIME = 0.5
@@ -56,19 +58,21 @@ class RobotState:
 # A list of states to execute in order.
 # "None" implies driving straight until the next event.
 # Example mission: Straight -> Left at the 1st cross -> Straight -> Right at the next cross -> Stop
-MISSION_QUEUE = [
+ORIGINAL_MISSION_QUEUE = [
     RobotState.STRAIGHT,
     RobotState.LEFT_1,
     RobotState.STRAIGHT,
     RobotState.RIGHT,
     RobotState.APPROACH_STOP
 ]
+MISSION_QUEUE = ORIGINAL_MISSION_QUEUE.copy()
 
 stop_flag = False
 current_state = RobotState.STRAIGHT
 crossings_seen = 0
 bias_mode = "c"
 current_motor_speed = 0
+mission_step_requested = threading.Event()
 
 def send_motor_command(push_socket, speed, steer):
     msg = {
@@ -79,7 +83,7 @@ def send_motor_command(push_socket, speed, steer):
     push_socket.send_json(msg)
 
 def update_mission_state():
-    """Auto-advances state when a maneuver is completed"""
+    """Advance to next mission state from the queue."""
     global current_state, MISSION_QUEUE
     if len(MISSION_QUEUE) > 0:
         current_state = MISSION_QUEUE.pop(0)
@@ -87,6 +91,16 @@ def update_mission_state():
     else:
         print("MISSION COMPLETE")
         current_state = RobotState.IDLE
+
+
+def reset_mission_queue():
+    """Restore the original mission queue and preload first stage."""
+    global MISSION_QUEUE, current_state, crossings_seen
+    MISSION_QUEUE = ORIGINAL_MISSION_QUEUE.copy()
+    current_state = RobotState.IDLE
+    crossings_seen = 0
+    update_mission_state()
+    print(f"Mission reset. Remaining queued stages: {MISSION_QUEUE}")
 
 def set_speed_smooth(push_socket, target_speed, steer, ramp_rate=1.0):
     global current_motor_speed
@@ -168,56 +182,87 @@ def key_listener():
             global bias_mode
             bias_mode = cmd[1:]
             print(f"Bias mode: {bias_mode}")
+        elif cmd in ("", "n", "next"):
+            mission_step_requested.set()
+            print("Mission step requested. Pressing Enter advances to the next queue state.")
+        elif cmd in ("reset", "mr"):
+            reset_mission_queue()
 
 
 def execute_turn(push_socket, sub_socket, eyes, direction, pid):
-    """Turns until the line is actually seen, rather than guessing the time."""
+    """Wait for full-width line, then turn in commanded direction until line is reacquired."""
     global current_motor_speed, current_state
-    print(f"Executing Closed-Loop {direction} turn...")
 
-    # 1. Blind Phase: Turn hard to clear the current intersection
+    if direction == "left" and current_state not in (RobotState.LEFT_1, RobotState.LEFT_2):
+        print(f"Ignoring left turn request: current mode is {current_state}.")
+        return False
+    if direction == "right" and current_state != RobotState.RIGHT:
+        print(f"Ignoring right turn request: current mode is {current_state}.")
+        return False
+
+    print(f"Executing {direction} turn: wait for full-line marker, then turn until line reacquired.")
+
+    # 1) Gate turn start on full-width line (all 3 sensors strongly detect line)
+    full_line_seen = False
+    send_motor_command(push_socket, TURN_ENTRY_SPEED, STRAIGHT_ANGLE)
+    current_motor_speed = TURN_ENTRY_SPEED
+    entry_start = time.time()
+    while (time.time() - entry_start) < TURN_ENTRY_TIMEOUT:
+        try:
+            msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
+            if msg.get("topic") != "SENSORS" or "grayscale" not in msg:
+                continue
+
+            raw = msg["grayscale"]
+            full_line_seen = (
+                eyes.color_signal(raw[0], 0) > eyes.LOGIC_DETECT
+                and eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT
+                and eyes.color_signal(raw[2], 2) > eyes.LOGIC_DETECT
+            )
+            if full_line_seen:
+                print("Turn gate reached: full-width line detected.")
+                break
+        except zmq.Again:
+            pass
+        time.sleep(TURN_SCAN_INTERVAL)
+
+    if not full_line_seen:
+        print("Turn aborted: did not detect a full-width line marker in time.")
+        push_socket.send_json({"type": "stop"})
+        current_motor_speed = 0
+        pid.reset()
+        current_state = RobotState.IDLE
+        return False
+
+    # Stop at the stop-line marker before committing to the turn
+    push_socket.send_json({"type": "stop"})
+    current_motor_speed = 0
+    print(f"Stop marker reached. Holding for {TURN_STOP_HOLD_TIME:.1f}s before turn.")
+    time.sleep(TURN_STOP_HOLD_TIME)
+
+    # 2) Manual turn in requested direction until the normal line is reacquired
     steer = -MAX_STEER_CMD if direction == "right" else MAX_STEER_CMD
     send_motor_command(push_socket, TURN_PWM, steer)
     current_motor_speed = TURN_PWM
-    time.sleep(TURN_BLIND_TIME)  # Short blind duration just to leave the current line
 
-    # 2. Scanning Phase: try an intended direction first
     line_found = False
     start_scan = time.time()
     while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
         try:
             msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
-            if "grayscale" in msg:
-                raw = msg["grayscale"]
-                # Check if the Center sensor sees the line (signal strength > threshold)
-                if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
-                    print("Line Re-acquired!")
-                    line_found = True
-                    break
+            if msg.get("topic") != "SENSORS" or "grayscale" not in msg:
+                continue
+
+            raw = msg["grayscale"]
+            pattern = eyes.analyze_pattern(raw)
+            center_on_line = eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT
+            if center_on_line and pattern == "LINE":
+                print("Line Re-acquired after turn.")
+                line_found = True
+                break
         except zmq.Again:
             pass
         time.sleep(TURN_SCAN_INTERVAL)
-
-    # 3. Fallback scanning phase: scan an opposite direction slowly
-    if not line_found:
-        print("Turn scan timeout. Trying opposite-direction recovery scan...")
-        recovery_steer = MAX_STEER_CMD if direction == "right" else -MAX_STEER_CMD
-        send_motor_command(push_socket, TURN_RECOVERY_PWM, recovery_steer)
-        current_motor_speed = TURN_RECOVERY_PWM
-
-        start_scan = time.time()
-        while (time.time() - start_scan) < TURN_SCAN_TIMEOUT:
-            try:
-                msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
-                if "grayscale" in msg:
-                    raw = msg["grayscale"]
-                    if eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT:
-                        print("Line Re-acquired during recovery scan!")
-                        line_found = True
-                        break
-            except zmq.Again:
-                pass
-            time.sleep(TURN_SCAN_INTERVAL)
 
     if not line_found:
         print("Turn recovery failed. Entering IDLE fail-safe state.")
@@ -227,11 +272,12 @@ def execute_turn(push_socket, sub_socket, eyes, direction, pid):
         current_state = RobotState.IDLE
         return False
 
-    # 4. Stabilization Phase
+    # 3) Stabilization Phase
     send_motor_command(push_socket, 0, STRAIGHT_ANGLE)
     current_motor_speed = 0
     time.sleep(TURN_STABILIZE_TIME)
     pid.reset()  # Clear PID errors
+    last_pid_time = time.time()
     return True
 
 def ignore_intersection(push_socket, speed):
@@ -274,10 +320,12 @@ def main():
 
     # Initial Mission State
     update_mission_state()
+    print("Mission control: press Enter (or type 'next') to advance to the next mission stage.")
 
     # Initialize failsafe timer
     last_valid_line_time = time.time()
     last_pid_time = time.time()
+    stop_detected_prev = False
 
     listener = threading.Thread(target=key_listener, daemon=True)
     listener.start()
@@ -313,10 +361,20 @@ def main():
             pattern = eyes.analyze_pattern(raw)
             error, stop_detected, base_speed = eyes.compute_error(raw, bias_mode=bias_mode)
 
+            if stop_detected and not stop_detected_prev:
+                print("STOP DETECTED: all three grayscale sensors are over stop threshold.")
+            stop_detected_prev = stop_detected
+
+            if mission_step_requested.is_set():
+                mission_step_requested.clear()
+                update_mission_state()
+                crossings_seen = 0
+                pid.reset()
+
             # Inside the main loop
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > LOST_LINE_TIMEOUT:
-                    print("FAILSAFE: Line lost for > 2s. Emergency Stop.")
+                    print(f"FAILSAFE: Line lost for > {LOST_LINE_TIMEOUT:.1f}s. Emergency Stop.")
                     stop_flag = True
                     break
             else:
@@ -336,7 +394,6 @@ def main():
                 current_motor_speed = base_speed
                 time.sleep(STOP_CLEAR_TIME)
                 pid.reset()
-                update_mission_state()
                 continue
 
             # 2) Intersection handling (green crossings)
@@ -346,7 +403,6 @@ def main():
                     if not execute_turn(push_socket, sub_socket, eyes, "left", pid):
                         continue
                     pid.reset()
-                    update_mission_state()
                     crossings_seen = 0
                     continue
 
@@ -361,7 +417,6 @@ def main():
                     if not execute_turn(push_socket, sub_socket, eyes, "left", pid):
                         continue
                     pid.reset()
-                    update_mission_state()
                     crossings_seen = 0
                     continue
 
@@ -370,29 +425,26 @@ def main():
                     if not execute_turn(push_socket, sub_socket, eyes, "right", pid):
                         continue
                     pid.reset()
-                    update_mission_state()
                     crossings_seen = 0
                     continue
 
                 if current_state == RobotState.STRAIGHT:
                     ignore_intersection(push_socket, base_speed)
                     pid.reset()
-                    # Advance mission if we were just driving straight and reached an intersection
-                    # that we are ignoring.
-                    update_mission_state()
+                    last_pid_time = time.time()
                     continue
 
             # 3) PID line following
-            error_buffer.pop(0)
-            error_buffer.append(error)
-            smooth_error = sum(error_buffer) / len(error_buffer)
+            # error_buffer.pop(0)
+            # error_buffer.append(error)
+            # smooth_error = sum(error_buffer) / len(error_buffer)
 
             # Calculate dt between PID updates
             current_time = time.time()
             dt = current_time - last_pid_time
             last_pid_time = current_time
             
-            steering = pid.update(smooth_error * POLARITY, dt=dt)
+            steering = pid.update(error * POLARITY, dt=dt)
             # Apply straight angle offset
             steering_with_offset = steering + STRAIGHT_ANGLE
             steering_with_offset = max(-MAX_STEER_CMD, min(MAX_STEER_CMD, steering_with_offset))
@@ -407,7 +459,7 @@ def main():
                 ramp_rate=SPEED_RAMP_RATE,
             )
 
-            history.append((time.time() - start_time, smooth_error, steering, current_speed))
+            history.append((time.time() - start_time, error, steering, current_speed))
 
             elapsed = time.time() - loop_start
             wait_time = LOOP_INTERVAL - elapsed

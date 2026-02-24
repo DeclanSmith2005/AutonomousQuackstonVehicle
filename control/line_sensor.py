@@ -11,7 +11,9 @@ class LineSensor:
         self.MIN_LINE_PERCENT = 5.0
         self.NOISE_GATE = 10.0
         self.LOGIC_DETECT = 50.0
-        self.RECOVERY_STEER = 70
+        self.LINE_PRESENT_ON = 12.0
+        self.LINE_PRESENT_OFF = 6.0
+        self.RECOVERY_STEER = 40
         self.BRANCH_BIAS = 20
         self.BASE_SPEED = 30
         self.BRANCH_SPEED = 10
@@ -29,6 +31,7 @@ class LineSensor:
 
         # Memory for recovery steering
         self.last_line_seen = False
+        self.line_present_latched = False
         # -1 = line was left, 0 = center, 1 = right
         self.last_line_direction = 0
 
@@ -82,7 +85,13 @@ class LineSensor:
         stop_detected = s_l > self.LOGIC_DETECT and s_m > self.LOGIC_DETECT and s_r > self.LOGIC_DETECT
         base_speed = self.BASE_SPEED
 
-        has_line = s_l > self.NOISE_GATE or s_m > self.NOISE_GATE or s_r > self.NOISE_GATE
+        strongest_signal = max(s_l, s_m, s_r)
+        if self.line_present_latched:
+            has_line = strongest_signal > self.LINE_PRESENT_OFF
+        else:
+            has_line = strongest_signal > self.LINE_PRESENT_ON
+        self.line_present_latched = has_line
+
         if not has_line:
             self.last_line_seen = False
             if self.last_line_direction < 0:

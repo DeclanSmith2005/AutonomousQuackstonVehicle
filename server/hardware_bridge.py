@@ -1,13 +1,12 @@
 import time
 import zmq
-import json
 from picarx import Picarx
 
-CAL_SAMPLE_INTERVAL = 0.01
-CAL_TURN_ANGLE = 30
+CAL_SAMPLE_INTERVAL = 0.05
+CAL_TURN_ANGLE = 35
 CAL_TURN_SPEED = 10
-CAL_TURN_DURATION = 0.5
-CAL_STOP_DURATION = 0.1
+CAL_TURN_DURATION = 0.8
+CAL_STOP_DURATION = 0.2
 
 
 def collect_calibration_samples(px, cal_min, cal_max, duration_s):
@@ -24,12 +23,18 @@ def run_wiggle_calibration(px):
     cal_min = [4095, 4095, 4095]
     cal_max = [0, 0, 0]
 
+    # Wiggle Left
     px.set_dir_servo_angle(CAL_TURN_ANGLE)
     px.forward(CAL_TURN_SPEED)
     collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
+    px.backward(CAL_TURN_SPEED)
+    collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
 
+    # Wiggle Right
     px.set_dir_servo_angle(-CAL_TURN_ANGLE)
     px.forward(CAL_TURN_SPEED)
+    collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
+    px.backward(CAL_TURN_SPEED)
     collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
 
     px.stop()
@@ -101,8 +106,14 @@ def main():
 
             time.sleep(0.01)  # 100Hz Loop
 
+    except KeyboardInterrupt:
+        print("\nStopping Hardware Bridge...")
+
     finally:
         px.stop()
+        pub_socket.close(0)
+        pull_socket.close(0)
+        context.term()
 
 
 if __name__ == "__main__":
