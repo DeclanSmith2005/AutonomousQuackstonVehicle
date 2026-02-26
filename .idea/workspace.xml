@@ -16,7 +16,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c02ccf5c-ba98-4a60-a621-3b6e64b875ea" name="Changes" comment="Update timing constants and improve comments for clarification; enhance recovery logic in main.py, refine LineSensor calibration outputs, and add clarity to PIDController docstring">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/control/line_sensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/line_sensor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/control/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/control/pid/pid.py.bak" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/server/hardware_bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/server/hardware_bridge.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -28,7 +31,7 @@
     <option name="formatViaClangd" value="false" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="77" />
+    <option name="cachedIndexableFilesCount" value="109" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -67,7 +70,7 @@
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Adding-White-Line-Avoidance&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -102,6 +105,8 @@
       <workItem from="1771277436612" duration="89000" />
       <workItem from="1771706993482" duration="557000" />
       <workItem from="1771774095620" duration="1820000" />
+      <workItem from="1771974109970" duration="361000" />
+      <workItem from="1771980860418" duration="3189000" />
     </task>
     <task id="LOCAL-00001" summary="Adjust MAX_STEER, improve error smoothing and handling logic, and enhance speed adjustments for turns and branch bias">
       <option name="closed" value="true" />

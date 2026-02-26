@@ -1,5 +1,3 @@
-import time
-
 class LineSensor:
     def __init__(self, offsets):
         self.cal_min = list(offsets)
@@ -10,7 +8,7 @@ class LineSensor:
         self.WHITE_CUTOFF = 1000
         self.MIN_LINE_PERCENT = 5.0
         self.NOISE_GATE = 10.0
-        self.LOGIC_DETECT = 50.0
+        self.LOGIC_DETECT = 30.0
         self.LINE_PRESENT_ON = 12.0
         self.LINE_PRESENT_OFF = 6.0
         self.RECOVERY_STEER = 40

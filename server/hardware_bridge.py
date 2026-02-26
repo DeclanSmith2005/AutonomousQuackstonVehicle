@@ -1,120 +1,47 @@
-import time
+"""
+Minimal State Listener - Server Side.
+
+This script acts as the "Server" that receives mission state updates
+from the robot (main.py). It no longer touches the hardware.
+"""
 import zmq
-from picarx import Picarx
-
-CAL_SAMPLE_INTERVAL = 0.05
-CAL_TURN_ANGLE = 35
-CAL_TURN_SPEED = 10
-CAL_TURN_DURATION = 0.8
-CAL_STOP_DURATION = 0.2
-
-
-def collect_calibration_samples(px, cal_min, cal_max, duration_s):
-    start = time.time()
-    while (time.time() - start) < duration_s:
-        sample = px.get_grayscale_data()
-        for index in range(3):
-            cal_min[index] = min(cal_min[index], sample[index])
-            cal_max[index] = max(cal_max[index], sample[index])
-        time.sleep(CAL_SAMPLE_INTERVAL)
-
-
-def run_wiggle_calibration(px):
-    cal_min = [4095, 4095, 4095]
-    cal_max = [0, 0, 0]
-
-    # Wiggle Left
-    px.set_dir_servo_angle(CAL_TURN_ANGLE)
-    px.forward(CAL_TURN_SPEED)
-    collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
-    px.backward(CAL_TURN_SPEED)
-    collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
-
-    # Wiggle Right
-    px.set_dir_servo_angle(-CAL_TURN_ANGLE)
-    px.forward(CAL_TURN_SPEED)
-    collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
-    px.backward(CAL_TURN_SPEED)
-    collect_calibration_samples(px, cal_min, cal_max, CAL_TURN_DURATION)
-
-    px.stop()
-    px.set_dir_servo_angle(0)
-    time.sleep(CAL_STOP_DURATION)
-
-    return cal_min, cal_max
+import time
 
 def main():
-    px = Picarx()
     context = zmq.Context()
-
-    # PUB Socket: Sends Sensor Data (Port 5555)
-    pub_socket = context.socket(zmq.PUB)
-    pub_socket.bind("tcp://*:5555")
-    pub_socket.setsockopt(zmq.CONFLATE, 1)  # Let late subscribers get latest sensor data
-
-    # PULL Socket: Receives Motor Commands (Port 5556)
-    pull_socket = context.socket(zmq.PULL)
-    pull_socket.bind("tcp://*:5556")
-
-    print("Hardware Bridge Running...")
-
+    
+    # SUB Socket: Listens to State/Telemetry from main.py (Port 5555)
+    sub_socket = context.socket(zmq.SUB)
+    # If running on the same Pi, use 127.0.0.1. 
+    # If running on a laptop, use the Pi's IP.
+    sub_socket.connect("tcp://127.0.0.1:5555")
+    sub_socket.subscribe("") # Subscribe to all topics
+    
+    print("Mission State Server Listening on port 5555...")
+    print("Waiting for updates from main.py...")
+    
     try:
         while True:
-            # --- 1. PUBLISH SENSORS ---
-            # Can add other sensors later - ultrasonic, camera
-            grayscale = px.get_grayscale_data()
-            sensor_msg = {
-                "topic": "SENSORS",
-                "grayscale": grayscale,
-                "timestamp": time.time()
-            }
-            pub_socket.send_json(sensor_msg)
-
-            # --- 2. PROCESS COMMANDS ---
             try:
-                # Non-blocking receive
-                cmd_msg = pull_socket.recv_json(flags=zmq.NOBLOCK)
-
-                cmd_type = cmd_msg.get("type")
-
-                if cmd_type == "motor":
-                    # ex. {type: "motor", speed: 20, steer: -15}
-                    if cmd_msg.get("speed") is not None:
-                        px.forward(cmd_msg["speed"])
-                    if cmd_msg.get("steer") is not None:
-                        px.set_dir_servo_angle(cmd_msg["steer"])
-
-                elif cmd_type == "stop":
-                    px.stop()
-
-                elif cmd_type == "calibrate":
-                    print("Starting wiggle calibration...")
-                    cal_min, cal_max = run_wiggle_calibration(px)
-                    pub_socket.send_json(
-                        {
-                            "topic": "CALIBRATION",
-                            "status": "ok",
-                            "cal_min": cal_min,
-                            "cal_max": cal_max,
-                            "timestamp": time.time(),
-                        }
-                    )
-                    print(f"Calibration complete. min={cal_min}, max={cal_max}")
-
+                msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
+                topic = msg.get("topic")
+                
+                if topic == "MISSION_STATE":
+                    print(f"[{time.strftime('%H:%M:%S')}] STATE: {msg.get('state')} | Queue: {msg.get('queue')}")
+                
+                elif topic == "TELEMETRY":
+                    # Only print telemetry occasionally to avoid flooding
+                    if int(time.time() * 10) % 20 == 0:
+                        print(f"  > Telemetry: Speed={msg.get('speed'):.1f} Error={msg.get('error'):.1f}")
+                
             except zmq.Again:
-                pass  # No new command, keep doing what we're doing
-
-            time.sleep(0.01)  # 100Hz Loop
-
+                time.sleep(0.1)
+                
     except KeyboardInterrupt:
-        print("\nStopping Hardware Bridge...")
-
+        print("\nStopping Server...")
     finally:
-        px.stop()
-        pub_socket.close(0)
-        pull_socket.close(0)
+        sub_socket.close()
         context.term()
-
 
 if __name__ == "__main__":
     main()
