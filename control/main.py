@@ -2,7 +2,6 @@ import csv
 import os
 import threading
 import time
-import zmq
 from picarx import Picarx
 
 import config
@@ -16,6 +15,11 @@ current_motor_speed = 0
 bias_mode = "c"
 force_line_lost = False
 force_intersection = False
+run_calibration_flag = False
+
+# Default calibration values (from last successful calibration)
+DEFAULT_CAL_MIN = [75, 71, 68]
+DEFAULT_CAL_MAX = [1447, 1213, 1215]
 
 def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
     """Gradually adjust speed towards target while steering."""
@@ -35,7 +39,8 @@ def run_wiggle_calibration(px, eyes):
     cal_max = [0, 0, 0]
     
     # Calibration parameters
-    CAL_TURN_ANGLE = 35
+    CAL_TURN_ANGLE = 25
+    STRAIGHT_ANGLE = -13.9
     CAL_TURN_SPEED = 10
     CAL_DURATION = 0.8
     CAL_INTERVAL = 0.05
@@ -50,6 +55,7 @@ def run_wiggle_calibration(px, eyes):
             time.sleep(CAL_INTERVAL)
 
     # Wiggle Left
+    px.set_dir_servo_angle(STRAIGHT_ANGLE)
     px.set_dir_servo_angle(CAL_TURN_ANGLE)
     px.forward(CAL_TURN_SPEED)
     collect_samples(CAL_DURATION)
@@ -82,11 +88,13 @@ def key_listener(mission):
     bc/bl/br: bias center/left/right
     fl: toggle forced line lost (simulates sensor failure)
     fi: trigger forced intersection detection (simulates crossing)
+    wiggle: run wiggle calibration
     """
-    global stop_flag, bias_mode, force_line_lost, force_intersection
+    global stop_flag, bias_mode, force_line_lost, force_intersection, run_calibration_flag
     print("Keyboard listener active.")
     print("Commands: s=stop, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
     print("          bc/bl/br=bias, n=next, reset=reset, fl=force line lost, fi=force intersection")
+    print("          wiggle=run wiggle calibration")
     
     while not stop_flag:
         try:
@@ -133,6 +141,9 @@ def key_listener(mission):
             elif cmd == "fi":
                 force_intersection = True
                 print("Force Intersection Triggered")
+            elif cmd == "wiggle":
+                run_calibration_flag = True
+                print("Wiggle calibration requested...")
         except EOFError:
             break
 
@@ -166,8 +177,8 @@ def execute_turn(px, eyes, direction, pid, mission):
         return False
 
     # Stop before turning
-    px.stop()
     current_motor_speed = 0
+    px.forward(current_motor_speed)
     time.sleep(config.TURN_STOP_HOLD_TIME)
 
     # 2) Manual turn
@@ -197,10 +208,6 @@ def execute_turn(px, eyes, direction, pid, mission):
         return False
 
     # 3) Stabilize
-    px.stop()
-    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
-    current_motor_speed = 0
-    time.sleep(config.TURN_STABILIZE_TIME)
     pid.reset()
     return True
 
@@ -211,49 +218,13 @@ def ignore_intersection(px, speed):
     current_motor_speed = speed
     time.sleep(config.PASS_TIME)
 
-def report_state(pub_socket, mission, eyes, raw, error, steering, speed, distance=None):
-    """Broadcast mission state and telemetry via ZMQ."""
-    if pub_socket:
-        msg = {
-            "topic": "MISSION_STATE",
-            "state": mission.current_state,
-            "crossings": mission.crossings_seen,
-            "queue": mission.mission_queue,
-            "timestamp": time.time()
-        }
-        pub_socket.send_json(msg)
-
-        msg_telemetry = {
-            "topic": "TELEMETRY",
-            "raw": raw,
-            "error": error,
-            "steering": steering,
-            "speed": speed,
-            "last_line_seen": eyes.last_line_seen,
-            "distance": distance,
-            "timestamp": time.time()
-        }
-        pub_socket.send_json(msg_telemetry)
-
-
 def main():
-    global stop_flag, current_motor_speed, bias_mode, force_line_lost, force_intersection
+    global stop_flag, current_motor_speed, bias_mode, force_line_lost, force_intersection, run_calibration_flag
 
     # --- SENSORS & ACTUATORS ---
     px = Picarx()
     eyes = LineSensor(config.OFFSETS)
     pid = PIDController(config.KP, config.KI, config.KD, min_out=-config.MAX_STEER, max_out=config.MAX_STEER)
-
-    # --- ZMQ SETUP (State Reporting) ---
-    context = zmq.Context()
-    pub_socket = context.socket(zmq.PUB)
-    try:
-        # Use a high port to avoid conflicts, or use config.SENSOR_PORT
-        pub_socket.bind(f"tcp://*:{config.SENSOR_PORT}")
-        print(f"State reporting active on port {config.SENSOR_PORT}")
-    except zmq.ZMQError as e:
-        print(f"Warning: Could not bind ZMQ publisher: {e}")
-        pub_socket = None
 
     # --- MISSION ---
     # Default mission from main_old.py
@@ -270,8 +241,10 @@ def main():
     print("PICARX DIRECT CONTROL STARTED")
     print("="*40)
     
-    input("Press Enter to run wiggle calibration...")
-    run_wiggle_calibration(px, eyes)
+    # Apply default calibration values
+    print("Using default calibration values...")
+    eyes.apply_calibration(DEFAULT_CAL_MIN, DEFAULT_CAL_MAX)
+    print("Type 'wiggle' to run live calibration if needed.")
 
     # Start keyboard listener
     threading.Thread(target=key_listener, args=(mission,), daemon=True).start()
@@ -285,6 +258,12 @@ def main():
     try:
         while not stop_flag:
             loop_start = time.time()
+
+            # Check for calibration request
+            if run_calibration_flag:
+                run_calibration_flag = False
+                run_wiggle_calibration(px, eyes)
+                continue
 
             # 1) Get Hardware Data
             raw = px.get_grayscale_data()
@@ -380,21 +359,18 @@ def main():
             last_pid_time = current_time
 
             # Use error smoothing if requested (from pid.py)
-            error_buffer.pop(0)
-            error_buffer.append(error)
-            smooth_error = sum(error_buffer) / len(error_buffer)
-
-            steering = pid.update(smooth_error * config.POLARITY, dt=dt)
+            steering = pid.update(error * config.POLARITY, dt=dt)
             steering_with_offset = steering + config.STRAIGHT_ANGLE
             steering_with_offset = max(-config.MAX_STEER_CMD, min(config.MAX_STEER_CMD, steering_with_offset))
 
             speed_drop = abs(steering) * config.SPEED_DROP_GAIN
             current_speed = max(base_speed - speed_drop, config.MIN_DRIVE_SPEED)
 
-            set_speed_smooth(px, current_speed, steering_with_offset, ramp_rate=config.SPEED_RAMP_RATE)
+            # set_speed_smooth(px, current_speed, steering_with_offset, ramp_rate=config.SPEED_RAMP_RATE)
+            px.forward(current_speed)
+            px.set_dir_servo_angle(steering_with_offset)
 
-            # 7) REPORTING & LOGGING
-            report_state(pub_socket, mission, eyes, raw, error, steering_with_offset, current_speed, current_distance)
+            # 7) LOGGING
             history.append((time.time() - start_time, mission.current_state, error, steering_with_offset, current_speed))
 
             # 8) LOOP TIMING
@@ -407,9 +383,6 @@ def main():
         print("\nStopping...")
     finally:
         px.stop()
-        if pub_socket:
-            pub_socket.close(0)
-        context.term()
 
         # Save Logs
         if history:
