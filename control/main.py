@@ -12,14 +12,13 @@ from mission_manager import MissionManager, RobotState
 # --- GLOBALS ---
 stop_flag = False
 current_motor_speed = 0
-bias_mode = "c"
 force_line_lost = False
 force_intersection = False
 run_calibration_flag = False
 
-# Default calibration values (from last successful calibration)
-DEFAULT_CAL_MIN = [75, 71, 68]
-DEFAULT_CAL_MAX = [1447, 1213, 1215]
+# Default calibration values (updated from calibration session)
+DEFAULT_CAL_MIN = [50, 50, 50]   # Floor values (off-line)
+DEFAULT_CAL_MAX = [1455, 1315, 1383]  # Peak values (on-line)
 
 def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
     """Gradually adjust speed towards target while steering."""
@@ -85,15 +84,14 @@ def key_listener(mission):
     st/a/l1/l2/r/idle/cal: manually jump to state
     n: next mission stage
     reset: reset mission
-    bc/bl/br: bias center/left/right
     fl: toggle forced line lost (simulates sensor failure)
     fi: trigger forced intersection detection (simulates crossing)
     wiggle: run wiggle calibration
     """
-    global stop_flag, bias_mode, force_line_lost, force_intersection, run_calibration_flag
+    global stop_flag, force_line_lost, force_intersection, run_calibration_flag
     print("Keyboard listener active.")
     print("Commands: s=stop, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
-    print("          bc/bl/br=bias, n=next, reset=reset, fl=force line lost, fi=force intersection")
+    print("          n=next, reset=reset, fl=force line lost, fi=force intersection")
     print("          wiggle=run wiggle calibration")
     
     while not stop_flag:
@@ -127,9 +125,6 @@ def key_listener(mission):
             elif cmd == "idle":
                 mission.current_state = RobotState.IDLE
                 print("Manual State: IDLE")
-            elif cmd in ("bc", "bl", "br"):
-                bias_mode = cmd[1:]
-                print(f"Bias mode: {bias_mode}")
             elif cmd in ("", "n", "next"):
                 mission.request_step()
                 print("Mission step requested.")
@@ -219,7 +214,7 @@ def ignore_intersection(px, speed):
     time.sleep(config.PASS_TIME)
 
 def main():
-    global stop_flag, current_motor_speed, bias_mode, force_line_lost, force_intersection, run_calibration_flag
+    global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag
 
     # --- SENSORS & ACTUATORS ---
     px = Picarx()
@@ -229,10 +224,10 @@ def main():
     # --- MISSION ---
     # Default mission from main_old.py
     initial_mission = [
+        RobotState.RIGHT,
         RobotState.STRAIGHT,
         RobotState.LEFT_1,
         RobotState.STRAIGHT,
-        RobotState.RIGHT,
         RobotState.APPROACH_STOP
     ]
     mission = MissionManager(initial_mission)
@@ -249,7 +244,7 @@ def main():
     # Start keyboard listener
     threading.Thread(target=key_listener, args=(mission,), daemon=True).start()
 
-    error_buffer = [0.0] * config.ERROR_BUFFER_LEN
+    # error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     history = []
     start_time = time.time()
     last_valid_line_time = time.time()
@@ -285,7 +280,7 @@ def main():
                 raw = [4095, 4095, 4095] 
 
             pattern = eyes.analyze_pattern(raw)
-            error, stop_detected, base_speed = eyes.compute_error(raw, bias_mode=bias_mode)
+            error, stop_detected, base_speed = eyes.compute_error(raw)
 
             # Manual intersection trigger
             if force_intersection:
@@ -360,18 +355,18 @@ def main():
 
             # Use error smoothing if requested (from pid.py)
             steering = pid.update(error * config.POLARITY, dt=dt)
-            steering_with_offset = steering + config.STRAIGHT_ANGLE
-            steering_with_offset = max(-config.MAX_STEER_CMD, min(config.MAX_STEER_CMD, steering_with_offset))
+            # steering_with_offset = steering + config.STRAIGHT_ANGLE
+            steering = max(-config.MAX_STEER_CMD, min(config.MAX_STEER_CMD, steering))
 
             speed_drop = abs(steering) * config.SPEED_DROP_GAIN
             current_speed = max(base_speed - speed_drop, config.MIN_DRIVE_SPEED)
 
             # set_speed_smooth(px, current_speed, steering_with_offset, ramp_rate=config.SPEED_RAMP_RATE)
             px.forward(current_speed)
-            px.set_dir_servo_angle(steering_with_offset)
+            px.set_dir_servo_angle(steering)
 
             # 7) LOGGING
-            history.append((time.time() - start_time, mission.current_state, error, steering_with_offset, current_speed))
+            history.append((time.time() - start_time, mission.current_state, error, steering, current_speed))
 
             # 8) LOOP TIMING
             elapsed = time.time() - loop_start
