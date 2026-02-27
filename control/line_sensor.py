@@ -1,146 +1,107 @@
+"""
+Line Sensor Module
+Handles grayscale sensor signal processing and pattern detection.
+"""
+
 class LineSensor:
+    # Detection threshold (fraction of calibrated range)
+    LOGIC_DETECT = 0.35  # Lowered - sensor shows line at ~35%+ of range
+    
+    # Pattern thresholds
+    CROSS_THRESHOLD = 0.30  # All sensors must be above this for intersection
+    
+    # Speed settings
+    BASE_SPEED = 18  # Reduced further for better control
+    MIN_SPEED = 15
+
     def __init__(self, offsets):
-        self.cal_min = list(offsets)
-        self.cal_max = [offset + 1000 for offset in offsets]
-        self.offsets = offsets  # [L, M, R]
-
-        # Signal gates and tuning
-        self.WHITE_CUTOFF = 1000
-        self.MIN_LINE_PERCENT = 5.0
-        self.NOISE_GATE = 10.0
-        self.LOGIC_DETECT = 30.0
-        self.LINE_PRESENT_ON = 12.0
-        self.LINE_PRESENT_OFF = 6.0
-        self.RECOVERY_STEER = 40
-        self.BRANCH_BIAS = 20
-        self.BASE_SPEED = 30
-        self.BRANCH_SPEED = 10
-
-        # Calibration/tuning constants
-        self.ADC_MAX = 4095
-        self.CAL_SAMPLE_INTERVAL = 0.01
-        self.CAL_TURN_ANGLE = 30
-        self.CAL_TURN_SPEED = 10
-        self.CAL_TURN_DURATION = 0.5
-        self.CAL_STOP_DURATION = 0.1
-
-        # Steering weights for weighted average
-        self.weights = [1, 0, -1]
-
-        # Memory for recovery steering
-        self.last_line_seen = False
-        self.line_present_latched = False
-        # -1 = line was left, 0 = center, 1 = right
-        self.last_line_direction = 0
-
-    def color_signal(self, raw, sensor_index):
-        if raw > self.WHITE_CUTOFF:
-            return 0.0
-
-        sensor_min = self.cal_min[sensor_index]
-        sensor_max = self.cal_max[sensor_index]
-        span = max(1.0, float(sensor_max - sensor_min))
-        normalized_percent = ((raw - sensor_min) / span) * 100.0
-
-        if normalized_percent < self.MIN_LINE_PERCENT:
-            return 0.0
-        
-        return max(0.0, normalized_percent)
-
-    def _signals(self, raw_values):
-        l_raw, m_raw, r_raw = raw_values
-        return (
-            self.color_signal(l_raw, 0),
-            self.color_signal(m_raw, 1),
-            self.color_signal(r_raw, 2),
-        )
-
-    def analyze_pattern(self, raw_values):
-        s_l, s_m, s_r = self._signals(raw_values)
-        
-        if all(r > self.WHITE_CUTOFF for r in raw_values):
-            return "STOP_WHITE"
-
-        is_l = s_l > self.LOGIC_DETECT
-        is_m = s_m > self.LOGIC_DETECT
-        is_r = s_r > self.LOGIC_DETECT
-
-        count = sum([is_l, is_m, is_r])
-        if count == 3 or (count == 2 and is_m):
-            return "CROSS_GREEN"
-        if count > 0:
-            return "LINE"
-        return "NONE"
-
-    def compute_error(self, raw_values, bias_mode="c"):
         """
-        Converts grayscale readings into a steering error.
-
-        Returns (error, stop_detected, base_speed).
+        offsets: [left_offset, center_offset, right_offset] in mm or arbitrary units
         """
-        s_l, s_m, s_r = self._signals(raw_values)
-
-        stop_detected = s_l > self.LOGIC_DETECT and s_m > self.LOGIC_DETECT and s_r > self.LOGIC_DETECT
-        base_speed = self.BASE_SPEED
-
-        strongest_signal = max(s_l, s_m, s_r)
-        if self.line_present_latched:
-            has_line = strongest_signal > self.LINE_PRESENT_OFF
-        else:
-            has_line = strongest_signal > self.LINE_PRESENT_ON
-        self.line_present_latched = has_line
-
-        if not has_line:
-            self.last_line_seen = False
-            if self.last_line_direction < 0:
-                return self.RECOVERY_STEER, stop_detected, base_speed
-            if self.last_line_direction > 0:
-                return -self.RECOVERY_STEER, stop_detected, base_speed
-            return 0.0, stop_detected, base_speed
-
-        total_signal = s_l + s_m + s_r
-        if total_signal == 0:
-            return 0.0, stop_detected, base_speed
-
-        numerator = (s_l * self.weights[0]) + (s_r * self.weights[2])
-        error = (numerator / total_signal) * 100.0
-
+        self.offsets = offsets
+        self.cal_min = [0, 0, 0]
+        self.cal_max = [4095, 4095, 4095]
         self.last_line_seen = True
-        if error > 20:
-            self.last_line_direction = -1
-        elif error < -20:
-            self.last_line_direction = 1
-        else:
-            self.last_line_direction = 0
-
-        has_left = s_l > self.LOGIC_DETECT
-        has_mid = s_m > self.LOGIC_DETECT
-        has_right = s_r > self.LOGIC_DETECT
-
-        if bias_mode == "r" and has_mid and has_right:
-            error -= self.BRANCH_BIAS
-            base_speed = self.BRANCH_SPEED
-        elif bias_mode == "l" and has_mid and has_left:
-            error += self.BRANCH_BIAS
-            base_speed = self.BRANCH_SPEED
-
-        return error, stop_detected, base_speed
+        self.last_error = 0.0
 
     def apply_calibration(self, cal_min, cal_max):
-        # Record signal range (Max - Min)
+        """Apply calibration values from wiggle routine."""
         self.cal_min = cal_min
         self.cal_max = cal_max
-        self.offsets = cal_min
+        print(f"Calibration applied: min={cal_min}, max={cal_max}")
 
-        ranges = [self.cal_max[i] - self.cal_min[i] for i in range(3)]
-        avg_range = sum(ranges) / 3
+    def color_signal(self, raw_value, sensor_idx):
+        """
+        Convert raw ADC value to normalized signal [0.0, 1.0].
+        0 = off line (low reflectance), 1 = on line (high reflectance)
+        """
+        cmin = self.cal_min[sensor_idx]
+        cmax = self.cal_max[sensor_idx]
+        if cmax <= cmin:
+            return 0.0
+        normalized = (raw_value - cmin) / (cmax - cmin)
+        return max(0.0, min(1.0, normalized))
 
-        # Thresholds are now interpreted in normalized percent space (0-100).
-        self.NOISE_GATE = 10.0
-        self.LOGIC_DETECT = 50.0
+    def analyze_pattern(self, raw):
+        """
+        Analyze 3-sensor array to detect patterns.
+        Returns: 'LINE', 'CROSS_GREEN', 'STOP_WHITE', or 'NONE'
+        """
+        signals = [self.color_signal(raw[i], i) for i in range(3)]
+        left, center, right = signals
+        
+        # All three sensors detect line = intersection or stop
+        if all(s > self.CROSS_THRESHOLD for s in signals):
+            # Could differentiate STOP_WHITE vs CROSS_GREEN here if needed
+            return "CROSS_GREEN"
+        
+        # At least one sensor detects line
+        if any(s > self.LOGIC_DETECT for s in signals):
+            return "LINE"
+        
+        return "NONE"
 
-        print(f"CALIBRATION APPLIED")
-        print(f"Black Offsets: {self.offsets}")
-        print(f"Max Signals:   {self.cal_max}")
-        print(f"Detected Range: {ranges}")
-        print(f"Average Range: {avg_range}")
+    def compute_error(self, raw):
+        """
+        Compute lateral error from sensor readings using weighted average.
+        Returns: (error, stop_detected, base_speed)
+        
+        Error: positive = line is to the left (steer left), negative = line is to the right (steer right)
+        """
+        signals = [self.color_signal(raw[i], i) for i in range(3)]
+        left, center, right = signals
+        
+        pattern = self.analyze_pattern(raw)
+        stop_detected = (pattern == "STOP_WHITE")
+        
+        # Check if any sensor sees the line
+        total_signal = left + center + right
+        
+        if total_signal < 0.1:
+            # No line detected - use last known error direction
+            self.last_line_seen = False
+            # Return last error amplified to encourage correction
+            return self.last_error * 1.2, stop_detected, self.BASE_SPEED
+        
+        self.last_line_seen = True
+        
+        # Weighted average position calculation
+        # Left sensor = +1, Center = 0, Right = -1
+        # Positive error = line to left = steer left (positive servo angle)
+        # Negative error = line to right = steer right (negative servo angle)
+        
+        if total_signal > 0.01:
+            weighted_pos = (left - right) / total_signal
+            # Scale to -100 to +100 range
+            error = weighted_pos * 100.0
+        else:
+            error = 0.0
+        
+        self.last_error = error
+        
+        # Reduce speed when error is large
+        speed = self.BASE_SPEED
+        if abs(error) > 50:
+            speed = self.MIN_SPEED
+        
+        return error, stop_detected, speed
