@@ -7,10 +7,8 @@ from pathlib import Path
 from statistics import mean, median
 from typing import List, Optional
 
-
 LOG_PATTERN = "pid_log_*.csv"
 TIME_FORMAT = "%Y%m%d_%H%M%S"
-
 
 @dataclass
 class LogEntry:
@@ -38,7 +36,7 @@ def list_log_files(log_dir: Path) -> List[LogEntry]:
         ts = parse_timestamp_from_name(p)
         if ts is not None:
             return (0, ts)
-        return (1, datetime.fromtimestamp(p.stat().st_mtime))
+        return 1, datetime.fromtimestamp(p.stat().st_mtime)
 
     files.sort(key=sort_key, reverse=True)
 
