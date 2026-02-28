@@ -6,9 +6,9 @@
 # However, if we keep / dt, we can tune it to a new value.
 KP = 0.28
 KI = 0.0
-KD = 0.01  # Adjusted to match pid.py's D-term which was 100x smaller (no / dt)
+KD = 0.005  # Adjusted to match pid.py's D-term which was 100x smaller (no / dt)
 POLARITY = -1
-ERROR_BUFFER_LEN = 3
+ERROR_BUFFER_LEN = 5
 
 # --- MOTION PARAMETERS ---
 BASE_SPEED = 15

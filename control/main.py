@@ -352,6 +352,10 @@ def main():
             error_buffer.pop(0)
             smooth_error = sum(error_buffer) / len(error_buffer)
 
+            DEADBAND = 3.0  # error units — tune this
+            if abs(smooth_error) < DEADBAND:
+                smooth_error = 0.0
+
             steering = pid.update(smooth_error * config.POLARITY, dt=dt)
             # steering_with_offset = steering + config.STRAIGHT_ANGLE
             steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))

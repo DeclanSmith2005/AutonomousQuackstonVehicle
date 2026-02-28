@@ -34,13 +34,15 @@ class LineSensor:
         Convert raw ADC value to normalized signal [0.0, 1.0].
         0 = off line (low reflectance), 1 = on line (high reflectance)
         """
+
+        corrected = raw_value - self.offsets[sensor_idx]  # apply bias correction
         cmin = self.cal_min[sensor_idx]
         cmax = self.cal_max[sensor_idx]
 
         if cmax <= cmin:
             return 0.0
-        normalized = (raw_value - cmin) / (cmax - cmin)
-
+        
+        normalized = (corrected - cmin) / (cmax - cmin)
         return max(0.0, min(1.0, normalized))
 
     def analyze_pattern(self, raw):
