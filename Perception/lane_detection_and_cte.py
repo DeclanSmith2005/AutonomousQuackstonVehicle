@@ -1,33 +1,21 @@
 import cv2
 import numpy as np
+from perception_server_comms import get_vehicle_state, send_cte_to_server
 
-# Read the image
-image = cv2.imread("lanes_2_.jpg")
-height, width = image.shape[:2] # in pixels, width should be 640 and height should be 480, (0, 0) is top-left
-
-# Convert to HSV (Hue = Color, Saturation = Color Intensity, Value = Brightness) color space
-hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-# Green color thresholding for lane segementation
+#---------------------------------------------------------------CONSTANTS---------------------------------------------------------------------
+# Green color range for lane detection in HSV color space
 lower_green = np.array([40, 80, 80])  # lower bound for green color
 upper_green = np.array([80, 255, 255])  # upper bound for green color
-mask = cv2.inRange(hsv, lower_green, upper_green) # white pixels represent green lane, everything else is black
 
-# Clean green mask
-kernel = np.ones((5, 5), np.uint8)
-# Morphological opening removes small dots from the background by eroding objects smaller than the kernel and then dilating the remaining objects back to their original size.
-mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-# Morphological closing fills small black holes in white objects by dilating the objects and then eroding them back to their original size.
-mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-# BEV (Bird's Eye View) transformation
-src_points = np.float32([   # change top and bottom points to change distance that is analyzed
+# BEV source points for perspective transformation for each vehicle state (right turn, left turn, or straight)
+src_points_straight = np.float32([   # change top and bottom points to change distance that is analyzed
     [200, 300], # top-left, 62.5% of the height, which is 37.5% up from the bottom
     [440, 300], # top-right, 62.5% of the height, which is 37.5% up from the bottom
     [50, 470], # bottom-left
     [590, 470]  # bottom-right
 ])
 
+# BEV destination points for perspective transformation
 dst_points = np.float32([
     [150, 0],   # top-left
     [490, 0],   # top-right
@@ -35,46 +23,106 @@ dst_points = np.float32([
     [490, 480]  # bottom-right
 ])
 
-M = cv2.getPerspectiveTransform(src_points, dst_points) # transformation matrix
-bev = cv2.warpPerspective(mask, M, (width, height))
+# BEV transformation matrix for each vehicle state (right turn, left turn, or straight)
+M_straight = cv2.getPerspectiveTransform(src_points_straight, dst_points)
 
-# Extract lane pixels
-ys, xs = np.nonzero(bev)
+# Meters per pixel conversion factor for each vehicle state (right turn, left turn, or straight)
+meters_per_pixel_straight = 0.00046296296  # 0.025m/54 pixels
 
-# Fit polynomial to lane pixels
-if len(xs) > 0 and len(ys) > 0:
-    poly = np.polyfit(ys, xs, 2)  # Fit a second degree polynomial, x as a function of y: x = a*y^2 + b*y + c
-    print("Polynomial coefficients:", poly)
-a, b, c = poly
+#---------------------------------------------------------------MAIN CODE----------------------------------------------------------------------
 
-# Calculate Cross Track Error (CTE)
-y_ref = int(height * 0.8)  # reference point at 80% of the image height, which is 20% up from the bottom and where we want to be centered on the lane
-meters_per_pixel = 0.1  # need to experimentally determine this by dividing real lane width by pixel lane width in the image
-lane_x = a*y_ref*y_ref + b*y_ref + c
-car_center_x = width // 2
-cte_pixels = float(car_center_x) - lane_x
-cte_meters = cte_pixels * meters_per_pixel
-print("Cross Track Error (pixels):", cte_pixels)
-print("Cross Track Error (meters):", cte_meters)
+def detect_lane_cte(image):
+    """Process a single image and return CTE metrics and visualization.
 
-# Add visualization
-output = cv2.cvtColor(bev, cv2.COLOR_GRAY2BGR)
-# Red points for lane curve
-for y in range(0, height, 5):
-    x = int(a*y*y + b*y + c)
-    if 0 <= x < width:
-        cv2.circle(output, (x, y), 2, (0, 0, 255), -1)
+    The vehicle state is determined internally by calling :func:`get_vehicle_state`.
 
-# Blue center line
-cv2.line(output, (int(car_center_x), 0), (int(car_center_x), height), (255, 0, 0), 2)
+    Parameters
+    ----------
+    image : np.ndarray
+        BGR image from camera or file.
 
-# Green point at reference
-cv2.circle(output, (int(lane_x), y_ref), 8, (0, 255, 0), -1)
+    Returns
+    -------
+    tuple
+        (cte_pixels, cte_meters, output_image) where output_image is a BGR
+        visualization showing the lane curve and center lines. If detection
+        fails, outputs will be (None, None, None).
+    """
 
-cv2.imshow("Original", image)
-cv2.imshow("HSV", hsv)
-cv2.imshow("Green Mask", mask)
-cv2.imshow("BEV", bev)
-cv2.imshow("Lane Detection", output)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    # vehicle_state = get_vehicle_state()
+    vehicle_state = "STRAIGHT"  # for testing purposes, hardcode to straight until we have state detection working
+
+    height, width = image.shape[:2]
+
+    # Convert to HSV (Hue = Color, Saturation = Color Intensity, Value = Brightness) color space
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Green color thresholding for lane segmentation
+    mask = cv2.inRange(hsv, lower_green, upper_green)  # white pixels represent green lane, everything else is black
+
+    # Clean green mask
+    kernel = np.ones((5, 5), np.uint8)
+    # Morphological opening removes small dots from the background by eroding objects smaller than the kernel and then dilating the remaining objects back to their original size.
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    # Morphological closing fills small black holes in white objects by dilating the objects and then eroding them back to their original size.
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+    # BEV (Bird's Eye View) transformation based on vehicle state
+    if vehicle_state == "STRAIGHT":
+        bev = cv2.warpPerspective(mask, M_straight, (width, height))
+    else:
+        return None, None, None    
+
+    # Filter lane pixels based on vehicle state
+    if vehicle_state == "STRAIGHT":
+        # Estimate lane center from bottom region
+        bottom_region = bev[int(height * 0.8) : height, :]  # take a horizontal slice of the bottom 20% of the image
+        ys_bottom, xs_bottom = np.nonzero(bottom_region)  # get the x and y coordinates of the white pixels in the bottom region
+        if len(xs_bottom) > 0:
+            lane_center_x = int(np.mean(xs_bottom))  # average x coordinate of white pixels in the bottom region as the lane center
+        else:
+            lane_center_x = width // 2  # default to center if no pixels detected
+
+        roi_half_width = 54  # lane width on a straight is 54 pixels, so this gives 2x margin of error
+        mask_roi = np.zeros_like(bev)
+        l = max(lane_center_x - roi_half_width, 0)
+        r = min(lane_center_x + roi_half_width, width)
+        mask_roi[:, l:r] = 255
+        bev_roi = cv2.bitwise_and(bev, mask_roi)
+        ys, xs = np.nonzero(bev_roi)
+
+    if len(xs) == 0 or len(ys) == 0:
+        return None, None, None
+
+    poly = np.polyfit(ys, xs, 2) # fit a second degree polynomial of the form x = ay^2 + by + c to the lane pixels
+    a, b, c = poly
+
+    # compute CTE at y_ref
+    y_ref = int(height * 0.9)
+    lane_x = a * y_ref * y_ref + b * y_ref + c
+    car_center_x = width // 2
+    cte_pixels = float(car_center_x) - lane_x
+    if vehicle_state == "STRAIGHT":
+        cte_meters = cte_pixels * meters_per_pixel_straight
+
+    # visualization
+    output = cv2.cvtColor(bev_roi, cv2.COLOR_GRAY2BGR)
+    for y in range(0, height, 5):
+        x = int(a * y * y + b * y + c)
+        if 0 <= x < width:
+            cv2.circle(output, (x, y), 2, (0, 0, 255), -1)
+    cv2.line(output, (int(car_center_x), 0), (int(car_center_x), height), (255, 0, 0), 2)
+    cv2.circle(output, (int(lane_x), y_ref), 8, (0, 255, 0), -1)
+
+    return cte_pixels, cte_meters, output
+
+if __name__ == "__main__":
+    image = cv2.imread("lanes_1_.jpg")
+    if image is None:
+        raise RuntimeError("failed to read test image")
+    cte_px, cte_m, vis = detect_lane_cte(image)
+    print(f"cte: {cte_px} px, {cte_m} m")
+    if vis is not None:
+        cv2.imshow("Lane Detection", vis)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
