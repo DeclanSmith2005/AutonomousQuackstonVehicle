@@ -109,7 +109,39 @@ This session was productive for both implementation and team alignment. The disc
 
 ---
 
-## Entry – [Team Member Name 3]
+## Entry – [Nolan Su-Hackett]
+
+**Time:** 14:30-16:30  
+**Activity Type:** Implementation, Testing, Brainstorming/Team Sync  
+**Status:** Complete/In progress  
+**Estimated Effort:** 2.0 h 
+
+### Work Performed
+
+- Tested Object detection model on signs, tested what cases the model misclassifies things in.
+- Following the testing of object detection, I rewrote some labels to ensure that Ishaan's labels for object distance matched that of the model, this allowed the team to test and validate the distance measurements. A conclusive error test has not been done on the distance measuremenets as of yet. However, with a real distance of 30 cm the distance calculation can vary in either direction by about 1 cm from what was observed.
+- Spoke with Professor Paulo Araujo about some problems that were arising with our model and general perspective regarding CTE. A main problem was the overclassification of the car. The Professor said that it may be hard to detect cars, as each car is allowed their own design, this made the team think that car detection may not be crucial and that there may be another better solution.
+- Team sync: Rafael suggested a server that each team will send information to, allowing communication between nodes. The server will accept input from each team, and the control loop decides what information to take and when, it then performs control functions based on relevant inputs.
+- Retrained model with concatenated oneway class instead of leftway, rightway, and with reannotated car images.
+
+### Decisions
+- Reannotate and retrain the model with different bounding boxes which will only capture individual wheels of the car.
+### Issues Encountered
+- Car overclassification: the model is classifying people, darker backgrounds and objects in the distace as cars. This can be due to the annotation method, originally the bounding boxes were drawn around the wheels and the empty space between them so that each car would be identified as one box. After discussion we decided it might be better if each wheel was bounded individually, and although we might see one car as multiple cars as there are multiple wheels on a car, it is more important that the car class is correctly classified.
+
+### Next Steps
+
+
+- [ ] Test the new model and check distance calculations for each object
+- [ ] discuss with Ishaan how to go about application of CTE, different test cases like turn right, left or stay straight.
+
+### Reflection
+This session highlights the importance of decisive bounding boxes in the annotation stage, and also the importance of consultation with those who are more experienced. The conversation with the professor allowed the team to verify the feasibility of our solution. This is important as it allows for checkpoints at which the team will know whether to pivot and cut losses or to continue its path. Consulting those who are more experienced, can also help hint towards unnecessary steps that the team may be taking, like the car detection for example which still needs to be investigated by the perception team.
+
+
+---
+
+## Entry – [Team Member Name 4]
 
 **Time:** HH:MM–HH:MM  
 **Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
@@ -148,14 +180,13 @@ This session was productive for both implementation and team alignment. The disc
 
 
 ---
-
 ## Team Metrics
 
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Team Sync & Professor Feedback (✅), Object Detection Model Implementation & Testing (⚠️), Object Detection Distance Testing(⚠️)  |
 | Rafael Costa | 2.0 h | ✅ | Turn Logic Overhaul (✅), Mission Queue Improvements (✅), Line Sensor Hysteresis (✅), PID Data Collection (✅) |
-| Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
+| Nolan Su-Hackett | 2.0 h | ✅/⚠️ | Team Sync & Professor Feedback (✅), Object Detection Model Implementation & Testing (⚠️), Object Detection Distance Testing(⚠️)  |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
