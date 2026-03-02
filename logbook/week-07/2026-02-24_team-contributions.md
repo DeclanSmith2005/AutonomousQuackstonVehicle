@@ -70,43 +70,42 @@ the results obtained; that is, in this case, the efficiency of object detection 
 
 ---
 
-## Entry – [Team Member Name 2]
+## Entry – Rafael Costa
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30–16:30  
+**Activity Type:** Implementation, Testing, Team Sync  
+**Status:** Completed  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 
-- 
-- 
+- **Team Sync:** Shared Control subsystem progress with the team. Explained the server architecture and ZeroMQ-based communication between the hardware bridge and control logic, helping Perception understand how their CTE output would interface with the system.
+- **Turn Execution Logic Overhaul:** Refactored `execute_turn()` in `main.py` to use a closed-loop approach—the robot now waits for a full-width line marker (all three grayscale sensors detecting the line) before committing to a turn, then scans until the line is reacquired. Added configurable timeouts (`TURN_ENTRY_TIMEOUT`, `TURN_STOP_HOLD_TIME`) and stop-at-marker behavior before turns.
+- **Mission Queue Improvements:** Added `reset_mission_queue()` function and keyboard command (`reset`/`mr`) to restart the mission. Implemented manual mission step advancement via Enter key or `next` command, decoupling state progression from intersection detection.
+- **Line Sensor Hysteresis:** Implemented hysteresis thresholds (`LINE_PRESENT_ON`/`LINE_PRESENT_OFF`) in `line_sensor.py` to prevent flickering line detection. Adjusted `RECOVERY_STEER` from 70 to 40 for smoother recovery behavior.
+- **Hardware Bridge Enhancements:** Updated calibration parameters in `hardware_bridge.py` (increased turn angle, duration, sample interval). Added backward motion phase to wiggle calibration for more comprehensive min/max sampling. Added proper socket cleanup on exit.
+- **PID Data Collection:** Ran multiple test sessions and collected 7 PID log files capturing steering angles, speeds, and error values for data-driven tuning analysis.
 
 ### Decisions
 
-*Optional section - include if applicable*
-
-- 
+- Changed the turn execution model from time-based blind turns to sensor-gated turns, improving reliability at intersections.
+- Increased `LOST_LINE_TIMEOUT` from 2.0s to 5.0s to reduce false failsafe triggers during maneuvers.
+- Removed automatic `update_mission_state()` calls after turns/intersections; state now advances only via explicit keyboard input or mission logic.
 
 ### Issues Encountered
 
-*Optional section - include if applicable*
-
-- 
+- Initial turn logic was unreliable—the robot would sometimes start turning before reaching the intersection marker, or miss the line entirely during recovery. Solved by gating turn entry on full-width line detection.
+- Line detection flickered near threshold boundaries, causing erratic behavior. Addressed with hysteresis logic.
 
 ### Next Steps
 
-*Optional section - include if applicable*
-
-- [ ] 
-
-### References
-
-- 
+- [ ] Integrate perception-derived CTE input once available from the Perception team.
+- [ ] Analyze collected PID logs to identify optimal `KP`, `KD` values for different track sections.
+- [ ] Validate the new turn logic on all intersection types (left, right, straight-through).
 
 ### Reflection
 
-
+This session was productive for both implementation and team alignment. The discussion with Ishaan about how Perception's CTE would feed into Control helped clarify the interface requirements and reinforced the decision (from Professor Paulo's feedback) to use a weighted combination of CTE and grayscale readings. The refactored turn logic using sensor-gated execution is significantly more robust than the previous time-based approach, though it required careful threshold tuning. Collecting extensive log data during testing will enable data-driven PID tuning in future sessions rather than relying on subjective observations.
 
 ---
 
@@ -155,7 +154,7 @@ the results obtained; that is, in this case, the efficiency of object detection 
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Team Sync & Professor Feedback (✅), Object Detection Model Implementation & Testing (⚠️), Object Detection Distance Testing(⚠️)  |
-| Name 2 | X.X h | ✅/⚠️/❌ | Brief description |
+| Rafael Costa | 2.0 h | ✅ | Turn Logic Overhaul (✅), Mission Queue Improvements (✅), Line Sensor Hysteresis (✅), PID Data Collection (✅) |
 | Name 3 | X.X h | ✅/⚠️/❌ | Brief description |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
