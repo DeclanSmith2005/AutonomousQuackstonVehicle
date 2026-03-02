@@ -43,7 +43,7 @@ Below is a list of the tasks Ishaan has been assigned to complete over reading w
 
 ### Reflection
 
-Personal thoughts on the work performed. What went well? What could be improved? Any insights gained?
+Effective project management within the Perception team is critical to ensuring Nolan and I remain aligned on our objectives over the break. By decomposing high-level goals into granular tasks, we have established a framework that mitigates the risk of task slippage and eliminates redundant effort. In an engineering environment, this level of structured synchronization is essential not just for accountability but as a proactive measure to ensure operational efficiency and the successful delivery of our technical milestones.
 
 ---
 
