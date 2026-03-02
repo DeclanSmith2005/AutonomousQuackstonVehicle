@@ -130,8 +130,6 @@ This work session illustrated the immense importance of practical on-track testi
 - [ ] Write CTE Code
 - [ ] Test object distances
 
-This session highlights the importance of practical testing, as it was through testing on the actual track that the team identified the weakness in a straight-on camera angle. A straight-on camera angle would introduce many problems in our application as the car would not see oncoming traffic, aswell as the lanes this would disallow the car from properly navigating turns
-
 ### Reflection
 
 This session highlights the importance of practical testing, as it was through testing on the actual track that the team identified the weakness in a straight-on camera angle. A straight-on camera angle would introduce many problems in our application as the car would not see oncoming traffic, aswell as the lanes this would disallow the car from properly navigating turns
