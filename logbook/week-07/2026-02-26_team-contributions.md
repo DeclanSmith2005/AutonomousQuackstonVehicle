@@ -88,7 +88,7 @@ This was a substantial refactoring session that significantly improved the codeb
 
 ## Results
 Images for object detection can be found at
-[https://github.com/ELEC-392/elec-392-project-duclair_2/blob/main/images/week-07/objectdet2.png](https://github.com/ELEC-392/elec-392-project-duclair_2/blob/main/images/week-07/objectdet2.png)
+[Images stored here](https://github.com/ELEC-392/elec-392-project-duclair_2/tree/main/images/week-07)
 ### Next Steps
 - [ ] Retest the model once it is retrained with only images of the side view of the wheels.
 - [ ] Modify `lane_detection_and_cte.py` to handle different vehicle states and make the script modular (with functions) and easy to integrate with the PID loop. Write the code for the STRAIGHT vehicle state.
