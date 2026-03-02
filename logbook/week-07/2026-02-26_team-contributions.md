@@ -87,8 +87,8 @@ This was a substantial refactoring session that significantly improved the codeb
 - **Camera Tilt & Limited Field of View:** We have decided that when making a turn at an intersection, the camera will tilt fully down, allowing it to get a better view of the lanes for the curve and CTE generation. We have recognized that this will require tuning parameters and implementing different methods for lane filtering based on vehicle state.
 
 ## Results
-Below are images displaying the effectiveness of the current model at detecting all object classes:
-
+Images for object detection can be found at
+[https://github.com/ELEC-392/elec-392-project-duclair_2/blob/main/images/week-07/objectdet2.png](https://github.com/ELEC-392/elec-392-project-duclair_2/blob/main/images/week-07/objectdet2.png)
 ### Next Steps
 - [ ] Retest the model once it is retrained with only images of the side view of the wheels.
 - [ ] Modify `lane_detection_and_cte.py` to handle different vehicle states and make the script modular (with functions) and easy to integrate with the PID loop. Write the code for the STRAIGHT vehicle state.
