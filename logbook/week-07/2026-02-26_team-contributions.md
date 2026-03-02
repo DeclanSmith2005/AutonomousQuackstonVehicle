@@ -2,7 +2,7 @@
 title: "Team Contributions - Weekly Work Session #2"
 date: 2026-02-26
 week: 7
-hours: 3.0
+hours: 9.0
 tags: [Perception, Planning, Control, Refactoring, Testing, PID]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 ---
@@ -64,6 +64,43 @@ This was a substantial refactoring session that significantly improved the codeb
 
 ---
 
+## Entry – Ishaan Grewal
+
+**Time:** 15:00–18:00  
+**Activity Type:** Implementation, Testing, Problem Solving
+**Status:** In Progress, Completed  
+**Estimated Effort:** 3.0 h 
+
+### Work Performed
+- **Object Detection Model - Implementation & Testing:** Once Nolan retrained the model with the Vehicle class annotations having separate bounding boxes around each wheel compared to one large box around both, Nolan and I reimplemented and tested the model's object detection effectiveness. In addition to this, we compared this revised model to one where there was no Vehicle class at all to see the effect of the Vehicle class on classifications. Issues encountered and corresponding decisions made are discussed below.
+- **CTE Implementation and Camera Tilting Discussion:** Nolan and I discussed how the image processing and CTE calculation would need to vary based on the vehicle states (STRAIGHT, LEFT, RIGHT) because, for example, if the state is STRAIGHT, and there is a green line intersecting the desired path, this would interfere with the polynomial generation and CTE calculation. Conversely, if the state is RIGHT (which is turn right at an intersection), then we would want to ignore irrelevant lanes and change the look-ahead distance accordingly to generate a turning curve. Additionally, Rafael, Nolan, and I discussed when and how to use the camera tilting functionality. Decisions made are discussed below.
+- **CTE Implementation & Server Integration Work Split:** Split up the modifications that are to be made to the `lane_detection_and_cte.py` script for the different vehicle states, as well as the required code for integrating the Perception pipelines with the rest of the car via the server. Nolan will work on CTE for left and right turns, and I will work on the CTE for the straight vehicle state and all server integration scripts.
+- **Determining Meters Per Pixel:** Experimentally determined the `meters_per_pixel_straight` parameter, which is required to convert the CTE from pixels to meters when outputting to the PID loop. This was done by dividing the real width of the green tape by the pixel width, obtaining a value of 0.00046296296 meters/pixel.
+- **Image Collection:** Nolan and I took more pictures of different turns on the map so that the CTE scripts can be tested over the weekend for the different vehicle states.
+
+### Issues Encountered
+- **Object Detection Model:** When comparing the revised model with the model with no Vehicle class, we found that the model with no Vehicle class was failing to detect ducks for some reason. On the other hand, the revised model was still occasionally detecting black surfaces as wheels. However, other than these misdetections, it was detecting all object classes, including the Vehicle class, successfully. Hence, the primary issue was the misdetection of black surfaces as wheels.
+- **Camera Tilt & Limited Field of View:** When approaching intersections on the track, we found that when the camera is facing straight forward with zero tilt, there was a limited field of view of the actual lanes near it. This is especially an issue when making turns at intersections since the CTE requires a polynomial, which in turn requires a clear view of the lanes.
+
+### Decisions
+- **Object Detection Model:** Nolan and I decided that we would proceed with the revised model since it was able to detect all object classes successfully, with the only issue being the misclassifications of black surfaces as wheels. To solve this misclassification, we have decided to retrain the model and only keep images of the side views of the wheels for the Vehicle class, as we figured that the reason for these misclassifications was that some of the trained images were of the front/back of the wheel, which is essentially a black rectangle. Although this means that the model will not detect cars that are straight on in front of us, we have discussed with Rafael and determined that the use of ultrasonic sensors on the front will cover this case. This retraining is important to prevent classifying any black rectangles as wheels, since this would be a critical failure for our application.
+- **Camera Tilt & Limited Field of View:** We have decided that when making a turn at an intersection, the camera will tilt fully down, allowing it to get a better view of the lanes for the curve and CTE generation. We have recognized that this will require tuning parameters and implementing different methods for lane filtering based on vehicle state.
+
+## Results
+Below are images displaying the effectiveness of the current model at detecting all object classes:
+
+### Next Steps
+- [ ] Retest the model once it is retrained with only images of the side view of the wheels.
+- [ ] Modify `lane_detection_and_cte.py` to handle different vehicle states and make the script modular (with functions) and easy to integrate with the PID loop. Write the code for the STRAIGHT vehicle state.
+- [ ] Create a new `perception_server_comms.py` file to facilitate communication from and between the Perception pipeline and the main server.
+- [ ] Modify `detect_objects.py` to include the lane detection and CTE calculations and integrate with the server.
+- [ ] Test object distance errors in detail.
+
+### Reflection
+This work session illustrated the immense importance of practical on-track testing, because it was through testing on the track that the team noticed the misclassifications of the Vehicle class and the limitations of having a straight-facing camera with zero tilt when making turns. By recognizing these edge cases and weaknesses, the team is now able to address them head-on rather than being blindsided in the future as competition nears. The decision to remove straight-on vehicle detection highlights how, in complex engineering systems and projects, one may have to iterate and forego extra features to focus on core reliability. By removing these images from our training pipeline, the model will be far more reliable and accurate, as it will not misclassify black rectangles as wheels. That being said, discussing these changes with Rafael also showcases that when features are removed, backups, in this case, the ultrasonic sensors, must be considered to ensure safety, which, in this case, pertains to reliable vehicle detection in front of the car. 
+
+---
+
 ## Entry – Nolan Su-Hackett
 
 **Time:** 15:00–18:00  
@@ -101,12 +138,15 @@ This session highlights the importance of practical testing, as it was through t
 
 ---
 
+
+
 ## Team Metrics
 
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ✅ | Architecture Refactoring (✅), Log Analysis Tool (✅), Extensive On-Track Testing (✅) |
 | Nolan Su-Hackett | 3.0 h | ⚠️ | Cross-Track Error (⚠️), Object Detection Model (⚠️) |
+| Ishaan Grewal | 3.0 h | ✅/⚠️ | Cross-Track Error (⚠️), Object Detection Model (⚠️), Server Integration (⚠️), Meters Per Pixel (✅), Planning CTE Changes (✅) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
