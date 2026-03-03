@@ -1,3 +1,4 @@
+---
 title: "Team Contributions - Team Work Session"
 date: 2026-02-10
 week: 6
