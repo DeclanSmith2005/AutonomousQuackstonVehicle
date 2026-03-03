@@ -2,7 +2,7 @@
 title: "[Descriptive Title of Your Work]"
 date: 2026-02-03
 week: 5
-hours: 4.0
+hours: 8.0
 tags: [Perception, Object Detection, Camera Testing]
 contributors: [Nolan Su-Hackett, Ishaan Grewal]
 ---
@@ -74,17 +74,9 @@ Professor Paulo provided the missing code that allowed the team to generate boun
 
 
 **Lessons Learned**: 
-These sessions highlighted the importance of using all resources at your disposal including researchings tools aswell as those with more experience. Professor Paulo helped us greatly as he was able to confirm that we were not on the wrong track as he tested his bounding box code on his computer with our model. His insights spared the team debugging time and helped lead us the correct direction. Something that was learned in the second session was that even if things seem to be fine it is always good to ensure 
+These sessions highlighted the importance of using all resources at your disposal including researching tools aswell as consulting those with more experience. Professor Paulo helped us greatly as he was able to confirm that we were not on the wrong track as he tested his bounding box code on his computer with our model. His insights spared the team debugging time and helped lead us in the correct direction. Something that was learned in the second session was that it is important to double check intrinsics and parameters even if things seem to be fine. Checking camera distortion and intrinsics can save the team time later with narrowing down sources of error, as we can discard distortion as a source of error. 
 ## Next Steps
 
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
+- [ ] Take images of objects so that the team can create an object detection model
 
-## Personal Notes
-
-Any additional thoughts, observations, or things to remember...
-
----
-
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-03-03 00:29
