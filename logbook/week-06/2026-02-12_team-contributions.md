@@ -2,7 +2,7 @@
 title: "Team Contributions - Team Work Session"
 date: 2026-02-12
 week: 6
-hours: X.X
+hours: 9.5
 tags: Perception, Planning, Data Collection, Project Management
 contributors: Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith
 ---
@@ -158,8 +158,7 @@ It is good that the team knows what will be done during the break, and each of t
 | Ishaan Grewal | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
 | Rafael Costa | 3.5 h | ⚠️ | Implemented modular LineSensor/PIDController/main pipeline (✅), Added state-machine intersection handling and recovery logic (✅), Performed threshold and control tuning follow-up (⚠️ ongoing) |
 | Nolan | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
-| Declan Smith | 2.0 h | ✅/⚠️ | Improved Disktra's Implementation (✅), Merged local repositiory with team github
-(✅)|
+| Declan Smith | 2.0 h | ✅/⚠️ | Improved Disktra's Implementation (✅), Merged local repositiory with team github (✅)|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
