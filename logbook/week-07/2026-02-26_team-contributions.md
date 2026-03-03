@@ -136,7 +136,23 @@ This session highlights the importance of practical testing, as it was through t
 
 ---
 
+## Entry – Declan Smith
 
+**Time:** 15:00–18:00   
+**Activity Type:** Project Management / Software Dev
+**Status:** In progress  
+**Estimated Effort:** 3.0h  
+
+### Work Performed
+- Worked with all team members to decide how to optimally communicate directions from the pathing software to other subsystems (both in terms of the means of communication and the way they are encoded. The team has currently settled on a list of left, right, and straight instructions for simplicity, but it gets quite complicated around certain edge cases to do with one-way streets, roundabouts, and map nodes that aren't placed at intersections. We are still in the process of resolving exactly how to avoid these issues, but our systems for managing regular intersections seems releavtively robust.
+
+
+### Next Steps
+- Speak with TA's / instruction staff about the rules for initial placement of the car at the start of the competition. Much of the pathing logic is dependent on the orientation of the car, which can easily be determined once it has been moving, but we need a way to know what its orientation is when we first set it down to orient the mapping software properly.
+
+
+### Reflection
+Things seem to be coming together very nicely. If the line following and object detection software is complete soon, its possible that we may be able to begin integration testing as soon as next week. 
 
 ## Team Metrics
 
@@ -144,7 +160,9 @@ This session highlights the importance of practical testing, as it was through t
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ✅ | Architecture Refactoring (✅), Log Analysis Tool (✅), Extensive On-Track Testing (✅) |
 | Nolan Su-Hackett | 3.0 h | ⚠️ | Cross-Track Error (⚠️), Object Detection Model (⚠️) |
-| Ishaan Grewal | 3.0 h | ✅/⚠️ | Cross-Track Error (⚠️), Object Detection Model (⚠️), Server Integration (⚠️), Meters Per Pixel (✅), Planning CTE Changes (✅) |
+| Ishaan Grewal | 3.0 h | ✅/⚠️ | Cross-Track Error F, Object Detection Model (⚠️), Server Integration (⚠️), Meters Per Pixel (✅), Planning CTE Changes (✅) |
+| Declan Smith | 3.0 h | ⚠️ | Subsytem coordination(⚠️)|
+
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
