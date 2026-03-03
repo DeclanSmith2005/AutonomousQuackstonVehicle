@@ -1,4 +1,4 @@
----
+<img width="1146" height="874" alt="image" src="https://github.com/user-attachments/assets/0b78aaf8-a24c-40b6-ac6d-55ebc4404a41" />---
 title: "Team Contributions - Team Work Session"
 date: 2026-02-10
 week: 6
@@ -148,6 +148,8 @@ This meeting highlighted the importance of considering interfacing between teams
 - First draft of a Dijkstra-style algorithm to navigate the map.
 - Developed a function to identify the road that a new node lies on. 
 
+This is the current state of the map:
+<img width="1146" height="874" alt="image" src="https://github.com/user-attachments/assets/6ad21851-e1b8-40f2-90bf-35c4acf7e151" />
 
 
 ### Next Steps
