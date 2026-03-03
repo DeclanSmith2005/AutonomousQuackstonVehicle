@@ -174,7 +174,7 @@ This is the current state of the map:
 | Ishaan Grewal | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected 87.5% of data (⚠️) |
 | Rafael Costa | 4.0 h | ⚠️ | Implemented PID CSV logging (✅), Refactored control logic and artifact structure (✅), Added line-loss recovery and tuning updates (⚠️ ongoing tuning) |
 | Nolan Su-Hackett | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected Images for training (⚠️) |
-| Declan Smith | 3.0 h | ✅/⚠️ | Imporoved map of Quackston to be more accurate (✅), Draft of Dijstra's (⚠️) |
+| Declan Smith | 4.0 h | ✅/⚠️ | Imporoved map of Quackston to be more accurate (✅), Draft of Dijstra's (⚠️) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
