@@ -2,7 +2,7 @@
 title: "Perception Work Log - Lane Detection & CTE, Server Integration"
 date: 2026-03-01
 week: 7
-hours: X.X
+hours: 2.25
 tags: [Perception, Lane Detection, CTE, Server]
 contributors: [Ishaan Grewal]
 ---
@@ -17,7 +17,7 @@ What did you plan to accomplish in this session?
 
 ## Detailed Work Log
 
-### Session 1: [Lane Detection & CTE Modifications, Code for STRAIGHT State, Integration with Detect Objects Script] (2026-02-28, 20:00-21:30)
+### Session 1: [Lane Detection & CTE Modifications, Code for STRAIGHT State, Integration with Detect Objects Script] (2026-02-28, 20:00-21:45)
 
 **Members Present**: [Ishaan Grewal]
 
@@ -75,14 +75,12 @@ code snippet below:
 ```
 **Results:** Running the above code on an example image at an intersection where a horizontal lane intersects the direction of travel displays its effectiveness.
 
-The first figure below is of the lane detection output when the old code is used. Clearly, the horizontal lane introduces a significant amount of error since it causes the
-polynomial to be a quadratic. In regard to CTE, this would lead to highly inaccurate CTE values since the curve is not fit correctly on the lane to travel, which would
-cause incorrect input into the PID loop.
+The first figure below is of the lane detection output when the old code is used. Clearly, the horizontal lane introduces a significant amount of error since it causes the polynomial to be a quadratic. In regard to CTE, this would lead to highly inaccurate CTE values since the curve is not fit correctly on the lane to travel, which would cause incorrect input into the PID loop.
+
 ![Alt Text](/Perception/Lane_Pictures/lane_detection_output_with_old_code.png)
 
-The image below is the output lane detection from the newly revised code, displaying how the horizontal lane is almost entirely filtered out. Although small segments
-are still present on the left and right of the primary lane, this does not interfere with the polynomial generated due to the dominance of the vertical segment. As 
-seen in the output (red dotted line), the polynomial is now centred on the lane that is intended for travel, resulting in accurate CTE readings.
+The image below is the output lane detection from the newly revised code, displaying how the horizontal lane is almost entirely filtered out. Although small segments are still present on the left and right of the primary lane, this does not interfere with the polynomial generated due to the dominance of the vertical segment. As seen in the output (red dotted line), the polynomial is now centred on the lane that is intended for travel, resulting in accurate CTE readings.
+
 ![Alt Text](/Perception/Lane_Pictures/lane_detection_output_with_new_code.png)
 
 ### Full Revised `lane_detection_and_cte.py` Code
