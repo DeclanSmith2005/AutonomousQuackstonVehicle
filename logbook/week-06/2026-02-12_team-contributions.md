@@ -122,42 +122,32 @@ It is good that the team knows what will be done during the break, and each of t
 
 ---
 
-## Entry – [Team Member Name 4]
+## Entry – [Declan Smith]
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-16:30  
+**Activity Type:** [Software Development]  
+**Status:** [In progress]  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
-
-- 
-- 
+- Improved Disktra's Implementation
+- Merged local repositiory with team github
 
 ### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
+- Interacted with line detection team lead and agreed to supply a list of left, right, and straight directions over a series of way points. 
 
 ### Next Steps
+- WRITE CODE TO CHOOSE NEXT PASSANGER
+- INTERACT WITH VFPS API
+- INTEGRATE WITH RAPHAEL'S SERVER
 
-*Optional section - include if applicable*
-
-- [ ] 
 
 ### References
 
-- 
+- NA
 
 ### Reflection
-
+- Pace of project is going well. Everyone is on top of their respective work and we seem well ahead of schedule. 
 
 
 ---
@@ -168,6 +158,8 @@ It is good that the team knows what will be done during the break, and each of t
 | Ishaan Grewal | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
 | Rafael Costa | 3.5 h | ⚠️ | Implemented modular LineSensor/PIDController/main pipeline (✅), Added state-machine intersection handling and recovery logic (✅), Performed threshold and control tuning follow-up (⚠️ ongoing) |
 | Nolan | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
+| Declan Smith | 2.0 h | ✅/⚠️ | Improved Disktra's Implementation (✅), Merged local repositiory with team github
+(✅)|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
@@ -179,4 +171,4 @@ Any collective observations, cross-functional issues, or team-level decisions th
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-03-02 20:40
