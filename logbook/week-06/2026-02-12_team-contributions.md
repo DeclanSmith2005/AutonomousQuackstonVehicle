@@ -130,8 +130,8 @@ It is good that the team knows what will be done during the break, and each of t
 **Estimated Effort:** 2.0 h  
 
 ### Work Performed
-- Improved Disktra's Implementation
-- Merged local repositiory with team github
+- Improved Disktra's Implementation, to properly integrate the temporary nodes representing the car's current position and destination (previously was only working for the existing list of map nodes.
+- Merged the local repository with the team github to support version management and integrate with other relevant subsystems. 
 
 ### Decisions
 - Interacted with line detection team lead and agreed to supply a list of left, right, and straight directions over a series of way points. 
@@ -147,7 +147,7 @@ It is good that the team knows what will be done during the break, and each of t
 - NA
 
 ### Reflection
-- Pace of project is going well. Everyone is on top of their respective work and we seem well ahead of schedule. 
+- Pace of the project is going well. Everyone is on top of their respective work and we seem well ahead of schedule. For my part of the project, it seems like only about 15-20 more hours of work need to be done for building and testing the software naviagtion tools and accomplish next steps mentioned above. Following that, overall system integration between each different sub system will be  the primary work remaining for the team. 
 
 
 ---
