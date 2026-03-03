@@ -20,16 +20,16 @@ run_calibration_flag = False
 DEFAULT_CAL_MIN = [50, 50, 50]   # Floor values (off-line)
 DEFAULT_CAL_MAX = [1455, 1315, 1383]  # Peak values (on-line)
 
-def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
-    """Gradually adjust speed towards target while steering."""
-    global current_motor_speed
-    if current_motor_speed < target_speed:
-        current_motor_speed = min(target_speed, current_motor_speed + ramp_rate)
-    elif current_motor_speed > target_speed:
-        current_motor_speed = max(target_speed, current_motor_speed - ramp_rate)
-
-    px.forward(current_motor_speed)
-    px.set_dir_servo_angle(steer)
+# def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
+#     """Gradually adjust speed towards target while steering."""
+#     global current_motor_speed
+#     if current_motor_speed < target_speed:
+#         current_motor_speed = min(target_speed, current_motor_speed + ramp_rate)
+#     elif current_motor_speed > target_speed:
+#         current_motor_speed = max(target_speed, current_motor_speed - ramp_rate)
+#
+#     px.forward(current_motor_speed)
+#     px.set_dir_servo_angle(steer)
 
 def run_wiggle_calibration(px, eyes):
     """Execute wiggle calibration directly on hardware."""
@@ -39,7 +39,7 @@ def run_wiggle_calibration(px, eyes):
     
     # Calibration parameters
     CAL_TURN_ANGLE = 25
-    STRAIGHT_ANGLE = -13.9
+    STRAIGHT_ANGLE = 0
     CAL_TURN_SPEED = 10
     CAL_DURATION = 0.8
     CAL_INTERVAL = 0.05
@@ -54,7 +54,6 @@ def run_wiggle_calibration(px, eyes):
             time.sleep(CAL_INTERVAL)
 
     # Wiggle Left
-    px.set_dir_servo_angle(STRAIGHT_ANGLE)
     px.set_dir_servo_angle(CAL_TURN_ANGLE)
     px.forward(CAL_TURN_SPEED)
     collect_samples(CAL_DURATION)
@@ -130,12 +129,6 @@ def key_listener(mission):
                 print("Mission step requested.")
             elif cmd in ("reset", "mr"):
                 mission.reset_mission()
-            elif cmd == "fl":
-                force_line_lost = not force_line_lost
-                print(f"Force Line Lost: {force_line_lost}")
-            elif cmd == "fi":
-                force_intersection = True
-                print("Force Intersection Triggered")
             elif cmd == "wiggle":
                 run_calibration_flag = True
                 print("Wiggle calibration requested...")
@@ -149,38 +142,34 @@ def execute_turn(px, eyes, direction, pid, mission):
     print(f"Executing {direction} turn...")
 
     # 1) Gate turn start on full-width line
-    full_line_seen = False
-    px.forward(config.TURN_ENTRY_SPEED)
-    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
-    current_motor_speed = config.TURN_ENTRY_SPEED
-    entry_start = time.time()
-    
-    while (time.time() - entry_start) < config.TURN_ENTRY_TIMEOUT:
-        raw = px.get_grayscale_data()
-        full_line_seen = all(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
-        if full_line_seen:
-            print("Full-width line detected.")
-            break
-        time.sleep(config.TURN_SCAN_INTERVAL)
-
-    if not full_line_seen:
-        print("Turn aborted: No marker detected.")
-        px.stop()
-        current_motor_speed = 0
-        pid.reset()
-        mission.current_state = RobotState.IDLE
-        return False
-
     # Stop before turning
     current_motor_speed = 0
     px.forward(current_motor_speed)
     time.sleep(config.TURN_STOP_HOLD_TIME)
 
     # 2) Manual turn
-    steer = -config.MAX_STEER_CMD if direction == "right" else config.MAX_STEER_CMD
+    steer = -config.MAX_STEER if direction == "right" else config.MAX_STEER
     px.forward(config.TURN_PWM)
     px.set_dir_servo_angle(steer)
     current_motor_speed = config.TURN_PWM
+
+    #entry_start = time.time()
+    
+    # while (time.time() - entry_start) < config.TURN_ENTRY_TIMEOUT:
+    #     raw = px.get_grayscale_data()
+    #     full_line_seen = all(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+    #     if full_line_seen:
+    #         print("Full-width line detected.")
+    #         break
+    #     time.sleep(config.TURN_SCAN_INTERVAL)
+    #
+    # if not full_line_seen:
+    #     print("Turn aborted: No marker detected.")
+    #     px.stop()
+    #     current_motor_speed = 0
+    #     pid.reset()
+    #     mission.current_state = RobotState.IDLE
+    #     return False
 
     line_found = False
     start_scan = time.time()
@@ -213,6 +202,15 @@ def ignore_intersection(px, speed):
     current_motor_speed = speed
     time.sleep(config.PASS_TIME)
 
+def stop_at_line(px, base_speed):
+    global current_motor_speed
+    px.stop()
+    current_motor_speed = 0
+    time.sleep(config.STOP_HOLD_TIME)
+    # Clear the line
+    px.forward(base_speed)
+    time.sleep(config.STOP_CLEAR_TIME)
+
 def main():
     global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag
 
@@ -244,7 +242,7 @@ def main():
     # Start keyboard listener
     threading.Thread(target=key_listener, args=(mission,), daemon=True).start()
 
-    # error_buffer = [0.0] * config.ERROR_BUFFER_LEN
+    error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     history = []
     start_time = time.time()
     last_valid_line_time = time.time()
@@ -264,15 +262,13 @@ def main():
             raw = px.get_grayscale_data()
             
             # Distance check (Obstacle avoidance failsafe)
-            current_distance = None
-            try:
-                current_distance = px.ultrasonic.read()
-                if current_distance > 0 and current_distance < config.OBSTACLE_THRESHOLD:
-                    print(f"!!! EMERGENCY STOP: Obstacle detected at {current_distance:.1f}cm !!!")
-                    stop_flag = True
-                    break
-            except Exception:
-                pass # Picarx might not have ultrasonic attached or initialized
+            #current_distance = None
+            current_distance = px.ultrasonic.read()
+            if 0 < current_distance < config.OBSTACLE_THRESHOLD:
+                print(f"!!! EMERGENCY STOP: Obstacle detected at {current_distance:.1f}cm !!!")
+                stop_flag = True
+                break
+
 
             # 2) Fail-safe & Simulation logic
             if force_line_lost:
@@ -283,9 +279,9 @@ def main():
             error, stop_detected, base_speed = eyes.compute_error(raw)
 
             # Manual intersection trigger
-            if force_intersection:
-                pattern = "CROSS_GREEN"
-                force_intersection = False
+            #if force_intersection:
+            #   pattern = "CROSS"
+            #    force_intersection = False
 
             # 3) Handle Mission Stages
             if mission.check_step_requested():
@@ -304,6 +300,12 @@ def main():
                 time.sleep(0.5)
                 continue
 
+            if (mission.current_state == RobotState.APPROACH_STOP or mission.current_state == RobotState.LEFT_1
+                    or mission.current_state == RobotState.LEFT_2 or mission.current_state == RobotState.RIGHT):
+                print("Approaching STOP LINE...")
+                px.forward(config.TURN_ENTRY_SPEED)
+                current_motor_speed = config.TURN_ENTRY_SPEED
+
             # Line Lost Failsafe
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > config.LOST_LINE_TIMEOUT:
@@ -313,26 +315,22 @@ def main():
             else:
                 last_valid_line_time = time.time()
 
-            # 5) Handle Intersections & Special Markers
-            if pattern == "STOP_WHITE" and mission.current_state == RobotState.APPROACH_STOP:
-                print("STOP LINE reached.")
-                px.stop()
-                current_motor_speed = 0
-                time.sleep(config.STOP_HOLD_TIME)
-                # Clear the line
-                px.forward(base_speed)
-                time.sleep(config.STOP_CLEAR_TIME)
-                pid.reset()
-                continue
-
-            if pattern == "CROSS_GREEN":
-                if mission.current_state == RobotState.LEFT_1:
+            if pattern == "CROSS":
+                if mission.current_state == RobotState.STRAIGHT:
+                    print("Ignoring intersection (STRAIGHT mode).")
+                    ignore_intersection(px, base_speed)
+                    continue
+                elif mission.current_state == RobotState.APPROACH_STOP:
+                    print("STOP LINE reached.")
+                    stop_at_line(px, base_speed)
+                    continue
+                elif mission.current_state == RobotState.LEFT_1:
                     if execute_turn(px, eyes, "left", pid, mission):
                         mission.advance_mission()
                     continue
                 elif mission.current_state == RobotState.LEFT_2:
                     mission.crossings_seen += 1
-                    if mission.crossings_seen >= 2:
+                    if mission.crossings_seen >= 3: # +1 more to account for the stop line
                         if execute_turn(px, eyes, "left", pid, mission):
                             mission.advance_mission()
                     else:
@@ -343,20 +341,23 @@ def main():
                     if execute_turn(px, eyes, "right", pid, mission):
                         mission.advance_mission()
                     continue
-                elif mission.current_state == RobotState.STRAIGHT:
-                    print("Ignoring intersection (STRAIGHT mode).")
-                    ignore_intersection(px, base_speed)
-                    continue
+
 
             # 6) PID CONTROL
             current_time = time.time()
             dt = current_time - last_pid_time
             last_pid_time = current_time
 
-            # Use error smoothing if requested (from pid.py)
-            steering = pid.update(error * config.POLARITY, dt=dt)
+            error_buffer.append(error)
+            error_buffer.pop(0)
+            smooth_error = sum(error_buffer) / len(error_buffer)
+
+            if abs(smooth_error) < config.DEADBAND:
+                smooth_error = 0.0
+
+            steering = pid.update(smooth_error * config.POLARITY, dt=dt)
             # steering_with_offset = steering + config.STRAIGHT_ANGLE
-            steering = max(-config.MAX_STEER_CMD, min(config.MAX_STEER_CMD, steering))
+            steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
 
             speed_drop = abs(steering) * config.SPEED_DROP_GAIN
             current_speed = max(base_speed - speed_drop, config.MIN_DRIVE_SPEED)
@@ -366,7 +367,7 @@ def main():
             px.set_dir_servo_angle(steering)
 
             # 7) LOGGING
-            history.append((time.time() - start_time, mission.current_state, error, steering, current_speed))
+            history.append((time.time() - start_time, mission.current_state, smooth_error, steering, current_speed))
 
             # 8) LOOP TIMING
             elapsed = time.time() - loop_start

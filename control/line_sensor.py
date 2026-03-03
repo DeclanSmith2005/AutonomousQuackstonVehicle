@@ -5,14 +5,13 @@ Handles grayscale sensor signal processing and pattern detection.
 
 class LineSensor:
     # Detection threshold (fraction of calibrated range)
-    LOGIC_DETECT = 0.35  # Lowered - sensor shows line at ~35%+ of range
-    
-    # Pattern thresholds
-    CROSS_THRESHOLD = 0.30  # All sensors must be above this for intersection
-    
+    LOGIC_DETECT = 0.35  # sensor shows line at ~35%+ of range
+
+    WHITE_DETECT = 0.90
+
     # Speed settings
-    BASE_SPEED = 18  # Reduced further for better control
-    MIN_SPEED = 15
+    BASE_SPEED = 20
+    MIN_SPEED = 5
 
     def __init__(self, offsets):
         """
@@ -35,11 +34,15 @@ class LineSensor:
         Convert raw ADC value to normalized signal [0.0, 1.0].
         0 = off line (low reflectance), 1 = on line (high reflectance)
         """
+
+        corrected = raw_value - self.offsets[sensor_idx]  # apply bias correction
         cmin = self.cal_min[sensor_idx]
         cmax = self.cal_max[sensor_idx]
+
         if cmax <= cmin:
             return 0.0
-        normalized = (raw_value - cmin) / (cmax - cmin)
+        
+        normalized = (corrected - cmin) / (cmax - cmin)
         return max(0.0, min(1.0, normalized))
 
     def analyze_pattern(self, raw):
@@ -48,15 +51,20 @@ class LineSensor:
         Returns: 'LINE', 'CROSS_GREEN', 'STOP_WHITE', or 'NONE'
         """
         signals = [self.color_signal(raw[i], i) for i in range(3)]
-        left, center, right = signals
+        # left, center, right = signals
         
         # All three sensors detect line = intersection or stop
-        if all(s > self.CROSS_THRESHOLD for s in signals):
-            # Could differentiate STOP_WHITE vs CROSS_GREEN here if needed
-            return "CROSS_GREEN"
-        
+        if (all(s > self.LOGIC_DETECT for s in signals) or
+                all(s > self.LOGIC_DETECT for s in signals[:2]) or  # left and center
+                all(s > self.LOGIC_DETECT for s in signals[1:])):  # center and right
+            return "CROSS"
+
+        # At least one sensor detects white line
+        if any(s > self.WHITE_DETECT for s in signals):
+            return "BOUNDARY"
+
         # At least one sensor detects line
-        if any(s > self.LOGIC_DETECT for s in signals):
+        if any(s > self.LOGIC_DETECT for s in signals): # update main.py
             return "LINE"
         
         return "NONE"
@@ -72,16 +80,16 @@ class LineSensor:
         left, center, right = signals
         
         pattern = self.analyze_pattern(raw)
-        stop_detected = (pattern == "STOP_WHITE")
+        stop_detected = (pattern == "CROSS")
         
         # Check if any sensor sees the line
         total_signal = left + center + right
         
-        if total_signal < 0.1:
+        if total_signal < 0.2:
             # No line detected - use last known error direction
             self.last_line_seen = False
             # Return last error amplified to encourage correction
-            return self.last_error * 1.2, stop_detected, self.BASE_SPEED
+            return self.last_error * 1.3, stop_detected, self.BASE_SPEED
         
         self.last_line_seen = True
         
@@ -90,12 +98,12 @@ class LineSensor:
         # Positive error = line to left = steer left (positive servo angle)
         # Negative error = line to right = steer right (negative servo angle)
         
-        if total_signal > 0.01:
-            weighted_pos = (left - right) / total_signal
-            # Scale to -100 to +100 range
-            error = weighted_pos * 100.0
-        else:
-            error = 0.0
+        #if total_signal > 0.01:
+        weighted_pos = (left - right) / total_signal
+        # Scale to -100 to +100 range
+        error = weighted_pos * 100.0
+        #else:
+        #    error = 0.0
         
         self.last_error = error
         

@@ -2,7 +2,7 @@
 title: "Team Contributions - Team Work Session"
 date: 2026-02-10
 week: 6
-hours: X.X
+hours: 14.0
 tags: Perception, Planning, Data Collection
 contributors: Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith
 ---
@@ -136,42 +136,34 @@ This session reinforced the value of pairing control-code changes with telemetry
 This meeting highlighted the importance of considering interfacing between teams. Instead of having an approach that looks at the easiest way to detect lanes, the perception team first spoke to Rafael (Control) on what he felt might be useful. He had mentioned distances or error of some sort as this can be integrated into PID easily, his insight allowed perception to narrow the scope on our research and will potentially make for an easier integration later down the line. Had Perception not done this, there may have had to have been heavy processing/transformation of the lane detection information to pass to control which could lead to complications.
 
 
-## Entry – [Team Member Name 4]
+## Entry – Declan
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-17:30
+**Activity Type:** [Develeopment]  
+**Status:** [In progress]  
+**Estimated Effort:** 4 h  
 
 ### Work Performed
+- Updated the map of Quackston, increasing resolution and fixing small mistakes with node connections accidentally not going both ways. 
+- First draft of a Dijkstra-style algorithm to navigate the map.
+- Developed a function to identify the road that a new node lies on. 
 
-- 
-- 
+This is the current state of the map:
+<img width="1146" height="874" alt="image" src="https://github.com/user-attachments/assets/6ad21851-e1b8-40f2-90bf-35c4acf7e151" />
 
-### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
 
 ### Next Steps
-
-*Optional section - include if applicable*
-
-- [ ] 
+- CONFIRM W/ STAFF ABT ORIENTATION OF CAR WHEN WE START, AND HOW TO GET CURRent POSITION, AND HOW TO GET LIST OF FARES
+- INTEGRATE WITH RAPHAEL'S SERVER
+- WRITE CODE TO CHOOSE NEXT PASSANGER
+- INTERACT WITH VFPS POSITIONING API
+- WRITE A FUNCTION THAT CONVERTS THE PATH LIST FROM DIJKSTRA'S TO A LIST OF TURNS / DIRECTIONS
 
 ### References
 
 - 
 
 ### Reflection
-
 
 
 ---
@@ -183,7 +175,8 @@ This meeting highlighted the importance of considering interfacing between teams
 | Ishaan Grewal | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected 87.5% of data (⚠️) |
 | Rafael Costa | 4.0 h | ⚠️ | Implemented PID CSV logging (✅), Refactored control logic and artifact structure (✅), Added line-loss recovery and tuning updates (⚠️ ongoing tuning) |
 | Nolan Su-Hackett | 3.0 h | ✅/⚠️ | Researched and planned lane detection implementation (✅), Outlined data collection process (✅), Collected Images for training (⚠️) |
+| Declan Smith | 4.0 h | ✅/⚠️ | Imporoved map of Quackston to be more accurate (✅), Draft of Dijstra's (⚠️) |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-03-02 20:31

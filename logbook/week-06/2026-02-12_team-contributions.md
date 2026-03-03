@@ -2,7 +2,7 @@
 title: "Team Contributions - Team Work Session"
 date: 2026-02-12
 week: 6
-hours: X.X
+hours: 9.5
 tags: Perception, Planning, Data Collection, Project Management
 contributors: Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith
 ---
@@ -43,7 +43,7 @@ Below is a list of the tasks Ishaan has been assigned to complete over reading w
 
 ### Reflection
 
-Personal thoughts on the work performed. What went well? What could be improved? Any insights gained?
+Effective project management within the Perception team is critical to ensuring Nolan and I remain aligned on our objectives over the break. By decomposing high-level goals into granular tasks, we have established a framework that mitigates the risk of task slippage and eliminates redundant effort. In an engineering environment, this level of structured synchronization is essential not just for accountability but as a proactive measure to ensure operational efficiency and the successful delivery of our technical milestones.
 
 ---
 
@@ -122,42 +122,32 @@ It is good that the team knows what will be done during the break, and each of t
 
 ---
 
-## Entry – [Team Member Name 4]
+## Entry – [Declan Smith]
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-16:30  
+**Activity Type:** [Software Development]  
+**Status:** [In progress]  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
-
-- 
-- 
+- Improved Disktra's Implementation, to properly integrate the temporary nodes representing the car's current position and destination (previously was only working for the existing list of map nodes.
+- Merged the local repository with the team github to support version management and integrate with other relevant subsystems. 
 
 ### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
+- Interacted with line detection team lead and agreed to supply a list of left, right, and straight directions over a series of way points. 
 
 ### Next Steps
+- WRITE CODE TO CHOOSE NEXT PASSANGER
+- INTERACT WITH VFPS API
+- INTEGRATE WITH RAPHAEL'S SERVER
 
-*Optional section - include if applicable*
-
-- [ ] 
 
 ### References
 
-- 
+- NA
 
 ### Reflection
-
+- Pace of the project is going well. Everyone is on top of their respective work and we seem well ahead of schedule. For my part of the project, it seems like only about 15-20 more hours of work need to be done for building and testing the software naviagtion tools and accomplish next steps mentioned above. Following that, overall system integration between each different sub system will be  the primary work remaining for the team. 
 
 
 ---
@@ -168,6 +158,7 @@ It is good that the team knows what will be done during the break, and each of t
 | Ishaan Grewal | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
 | Rafael Costa | 3.5 h | ⚠️ | Implemented modular LineSensor/PIDController/main pipeline (✅), Added state-machine intersection handling and recovery logic (✅), Performed threshold and control tuning follow-up (⚠️ ongoing) |
 | Nolan | 2.0 h | ✅/⚠️/❌ | Data collection (✅), Discussed work split for reading break (✅)|
+| Declan Smith | 2.0 h | ✅/⚠️ | Improved Disktra's Implementation (✅), Merged local repositiory with team github (✅)|
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
@@ -179,4 +170,4 @@ Any collective observations, cross-functional issues, or team-level decisions th
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-03-02 20:40
