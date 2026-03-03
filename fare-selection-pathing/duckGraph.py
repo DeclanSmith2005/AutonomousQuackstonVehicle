@@ -215,17 +215,45 @@ class NavGraph:
         
         path = deque([targetNode])
         n = targetNode
-        while prev[n] != currentNode:
+        while n != currentNode:
             path.appendleft(prev[n])
             n = prev[n]
 
         return list(path), dists[targetNode]
 
-    # def convertToDirections(self, pathNodes: list) -> list:
-    #     for nxt in pathNodes:
-            
+    def convertToDirections(self, pathNodes: list) -> list:
+        res= []
+        for i in range(len(pathNodes)-2):
+            curr, nxt = pathNodes[i], pathNodes[i+1]
+            if len(self.adj[nxt]) < 3:
+                continue
+            else:
+                # curr angle
+                dx = self.x[nxt] - self.x[curr]
+                dy = self.y[nxt] - self.y[curr]
+                curr_angle = math.atan2(dy, dx) % (2*math.pi)
 
-
+                # upcoming roads
+                releativeAngles = sorted([((math.atan2(self.y[n]-self.y[nxt], self.x[n]-self.x[nxt]) - curr_angle + math.pi) % (2*math.pi) - math.pi, n) 
+                    for n in self.adj[nxt] if n != curr])
+                
+                s_val, s_node = min(releativeAngles, key=lambda x: abs(x[0]))
+                T_JUNCTION_THRESHOLD = math.radians(60)
+                dirs = {}
+                if abs(s_val) > T_JUNCTION_THRESHOLD:
+                    dirs[releativeAngles[-1][1]] = 'LEFT'
+                    dirs[releativeAngles[0][1]] = 'RIGHT'
+                else:
+                    dirs[s_node] = 'STRAIGHT'
+                    if len(releativeAngles) > 1:
+                        if releativeAngles[-1][1] != s_node:
+                            dirs[releativeAngles[-1][1]] = 'LEFT'
+                        if releativeAngles[0][1] != s_node:
+                            dirs[releativeAngles[0][1]] = 'RIGHT'
+                res.append(dirs[pathNodes[i+2]])
+        return res
+                
+                
 def main() -> None:
     g = NavGraph()
     g.readGraph("graph.txt", "adj.txt")
