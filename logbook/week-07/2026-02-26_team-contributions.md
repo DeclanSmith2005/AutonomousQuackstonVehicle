@@ -9,7 +9,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 
 ## Daily Summary
 
-XX
+This session focused on architecture improvements, object detection refinement, and CTE implementation planning. Rafael performed a major refactoring of the control system, creating a centralized `config.py` for tuning parameters, a `MissionManager` class for state machine logic, and a log analysis tool (`analyze_logs.py`). He conducted 28 on-track test runs, collecting extensive telemetry data for data-driven PID tuning. The Perception team (Ishaan and Nolan) continued testing the retrained object detection model with separate wheel bounding boxes, comparing it against a carless model. They discovered that the carless model failed to detect ducks, while the wheel model still occasionally misclassified black surfaces. They decided to retrain using only side-view wheel images, relying on ultrasonic sensors for straight-on vehicle detection. The team also identified that the camera's limited field of view during turns requires a full downtilt at intersections for proper CTE calculation. Ishaan and Nolan split the CTE implementation work—Nolan handling left/right turns while Ishaan handles straight-line CTE and server integration. Experimentally determined the meters-per-pixel conversion factor (0.00046296296 m/px). Declan coordinated with all team members on direction encoding from the pathfinding software, settling on a list of left/right/straight instructions while working through edge cases for one-way streets and roundabouts.
 
 ---
 

@@ -9,10 +9,7 @@ contributors: [Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith]
 
 ## Daily Summary
 
-As the first team work session following reading week, the beginning of the session served as a team sync, where each individual shared the progress they made on their tasks
-over reading week with the rest of the team. Additionally, the team discussed overall subteam project status and future trajectory. The Perception team engaged in valuable discussions
-with Professor Paulo Araujo about their lane detection and CTE implementation, gaining important insights and opinions which led to key decisions being made (as discussed below).
-The Perception team also focused on testing the trained object detection model and the distance calculations.
+This first team work session following reading week began with a team sync where each member shared their progress from the break. The Perception team engaged in a valuable discussion with Professor Paulo Araujo about their lane detection and cross-track error (CTE) implementation, leading to key decisions: the Control PID loop will use a weighted combination of CTE and grayscale sensor readings, with CTE weighted more heavily due to its image processing origin, while the grayscale sensor fills gaps between camera frames due to its higher operating frequency. The Perception team (Ishaan and Nolan) tested the trained object detection model and validated distance calculations with excellent accuracy (±1 cm error at 30 cm). However, Vehicle class misdetections were identified—black rectangular objects were falsely classified as cars due to large bounding boxes in the training data that included noise between wheels. The team decided to reannotate with separate bounding boxes around each wheel. Rafael shared the Control server architecture and ZeroMQ-based communication with the team, clarifying how Perception's CTE output would interface with the system. Declan coordinated with subsystem heads on master/slave dynamics and fixed a bug in the Dijkstra's pathfinding implementation.
 
 ---
 
