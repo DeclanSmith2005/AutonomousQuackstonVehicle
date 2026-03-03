@@ -141,43 +141,25 @@ This session highlights the importance of decisive bounding boxes in the annotat
 
 ---
 
-## Entry – [Team Member Name 4]
+## Entry – Declan Smith
 
-**Time:** HH:MM–HH:MM  
-**Activity Type:** [Implementation / Testing / Design / Documentation / Project Management / Hardware]  
-**Status:** [Completed / In progress / Blocked / On hold]  
-**Estimated Effort:** X.X h  
+**Time:** 14:30-16:30  
+**Activity Type:** Project Management / Software Dev
+**Status:** In progress  
+**Estimated Effort:** 2.0h  
 
 ### Work Performed
+- Spent most of the session conferring with other subsystem heads about the optimal way to structure master/slave dynamics between each subsystem and how to decide which files should call/make reference to each other.
+- Especially between myself and Raphael, it feels like either piece of software could form the mainloop running on the actual car, so we discussed whether it would make more sense to have a web server running, making calls to other Python files as necessary, or if the server should be a supplemental part of systyem that provides consumer producer processes a convenient method of interaction. So far we have settled on having the latter, but we have agreed that we should try to comnplete development of subsystems before we decide the most efficient way to wire them together. 
+- Remaining time was spent refining / trying to fix bugs with existing path-finding algorithms / supporting functions. For example, I realized that I accidentally had included an extra loop in my Dijkstra's implementation that was causing new nodes to be added in an incorrect order. 
 
-- 
-- 
-
-### Decisions
-
-*Optional section - include if applicable*
-
-- 
-
-### Issues Encountered
-
-*Optional section - include if applicable*
-
-- 
 
 ### Next Steps
+- Complete algorithms for fare selection and vfps so that I can direct more focus towards integrating the pathfinding logic with other team members' contributions. 
 
-*Optional section - include if applicable*
-
-- [ ] 
-
-### References
-
-- 
 
 ### Reflection
-
-
+The team is well organized and continuing to make good progress towards  the final product. I am hopeful that we will be ready in the next 2 weeks and that we may perform well at the competition. 
 
 ---
 ## Team Metrics
@@ -187,9 +169,10 @@ This session highlights the importance of decisive bounding boxes in the annotat
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Team Sync & Professor Feedback (✅), Object Detection Model Implementation & Testing (⚠️), Object Detection Distance Testing(⚠️)  |
 | Rafael Costa | 2.0 h | ✅ | Turn Logic Overhaul (✅), Mission Queue Improvements (✅), Line Sensor Hysteresis (✅), PID Data Collection (✅) |
 | Nolan Su-Hackett | 2.0 h | ✅/⚠️ | Team Sync & Professor Feedback (✅), Object Detection Model Implementation & Testing (⚠️), Object Detection Distance Testing(⚠️)  |
+| Declan Smith | 2.0 h | ✅/⚠️ | Team Sync (✅), Code Polishing (⚠️)  |
 
 **Legend:** ✅ Completed | ⚠️ In Progress/Blocked | ❌ Issues
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-03-03 04:26
