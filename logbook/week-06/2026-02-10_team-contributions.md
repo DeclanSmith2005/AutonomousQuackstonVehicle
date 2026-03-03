@@ -1,8 +1,7 @@
-<img width="1146" height="874" alt="image" src="https://github.com/user-attachments/assets/0b78aaf8-a24c-40b6-ac6d-55ebc4404a41" />---
 title: "Team Contributions - Team Work Session"
 date: 2026-02-10
 week: 6
-hours: X.X
+hours: 14.0
 tags: Perception, Planning, Data Collection
 contributors: Ishaan Grewal, Nolan Su-Hackett, Rafael Costa, Declan Smith
 ---
