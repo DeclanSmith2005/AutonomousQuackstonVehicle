@@ -4,20 +4,20 @@
 # These should match pid.py's "feel" but account for dt=0.01
 # In pid.py, KD was 0.05 without / dt. To match that, KD should be 0.0005 if / dt is used.
 # However, if we keep / dt, we can tune it to a new value.
-KP = 0.28
+KP = 0.30
 KI = 0.0
-KD = 0.005  # Adjusted to match pid.py's D-term which was 100x smaller (no / dt)
+KD = 0.008  # Adjusted to match pid.py's D-term which was 100x smaller (no / dt)
 POLARITY = -1
 ERROR_BUFFER_LEN = 5
-DEADBAND = 5.0
+DEADBAND = 3.0
 
 # --- MOTION PARAMETERS ---
 BASE_SPEED = 12
-MAX_STEER = 30
+MAX_STEER = 35
 LOOP_INTERVAL = 0.01
 STRAIGHT_ANGLE = 0
-MIN_DRIVE_SPEED = 5
-SPEED_DROP_GAIN = 0.4
+MIN_DRIVE_SPEED = 8
+SPEED_DROP_GAIN = 0.25
 SPEED_RAMP_RATE = 2.0
 
 # --- APPROACH & STOP TUNING ---
