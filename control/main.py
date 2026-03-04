@@ -148,10 +148,11 @@ def execute_turn(px, eyes, direction, pid, mission):
     time.sleep(config.TURN_STOP_HOLD_TIME)
 
     # 2) Manual turn
-    steer = -config.MAX_STEER if direction == "right" else config.MAX_STEER
+    steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
     px.forward(config.TURN_PWM)
     px.set_dir_servo_angle(steer)
     current_motor_speed = config.TURN_PWM
+    time.sleep(1.5) 
 
     #entry_start = time.time()
     
@@ -175,11 +176,12 @@ def execute_turn(px, eyes, direction, pid, mission):
     start_scan = time.time()
     while (time.time() - start_scan) < config.TURN_SCAN_TIMEOUT:
         raw = px.get_grayscale_data()
-        pattern = eyes.analyze_pattern(raw)
-        center_on_line = eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT
-        if center_on_line and pattern == "LINE":
+        on_line = eyes.color_signal(raw[0], 0) > eyes.LOGIC_DETECT or eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT or eyes.color_signal(raw[2], 2) > eyes.LOGIC_DETECT 
+        if on_line:
             print("Line re-acquired.")
             line_found = True
+            mission.current_state = RobotState.STRAIGHT
+            px.forward(5)
             break
         time.sleep(config.TURN_SCAN_INTERVAL)
 
@@ -222,11 +224,11 @@ def main():
     # --- MISSION ---
     # Default mission from main_old.py
     initial_mission = [
+        RobotState.STRAIGHT,
+        RobotState.LEFT_2,
+        RobotState.STRAIGHT,
         RobotState.RIGHT,
-        RobotState.STRAIGHT,
-        RobotState.LEFT_1,
-        RobotState.STRAIGHT,
-        RobotState.APPROACH_STOP
+        RobotState.STRAIGHT
     ]
     mission = MissionManager(initial_mission)
 
@@ -330,7 +332,7 @@ def main():
                     continue
                 elif mission.current_state == RobotState.LEFT_2:
                     mission.crossings_seen += 1
-                    if mission.crossings_seen >= 3: # +1 more to account for the stop line
+                    if mission.crossings_seen >= 2: # +1 more to account for the stop line
                         if execute_turn(px, eyes, "left", pid, mission):
                             mission.advance_mission()
                     else:

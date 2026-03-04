@@ -5,7 +5,7 @@ Handles grayscale sensor signal processing and pattern detection.
 
 class LineSensor:
     # Detection threshold (fraction of calibrated range)
-    LOGIC_DETECT = 0.35  # sensor shows line at ~35%+ of range
+    LOGIC_DETECT = 0.75  # sensor shows line at ~35%+ of range
 
     WHITE_DETECT = 0.90
 
@@ -54,9 +54,7 @@ class LineSensor:
         # left, center, right = signals
         
         # All three sensors detect line = intersection or stop
-        if (all(s > self.LOGIC_DETECT for s in signals) or
-                all(s > self.LOGIC_DETECT for s in signals[:2]) or  # left and center
-                all(s > self.LOGIC_DETECT for s in signals[1:])):  # center and right
+        if (all(s > self.LOGIC_DETECT for s in signals)):  # center and right
             return "CROSS"
 
         # At least one sensor detects white line
