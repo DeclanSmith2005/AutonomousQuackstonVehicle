@@ -2,7 +2,7 @@ import csv
 import os
 import threading
 import time
-import zmq
+#import zmq
 from picarx import Picarx
 
 import config
@@ -22,9 +22,9 @@ DEFAULT_CAL_MIN = [50, 50, 50]   # Floor values (off-line)
 DEFAULT_CAL_MAX = [1455, 1315, 1383]  # Peak values (on-line)
 
 
-# --- ZMQ SERVER FUNCTIONALITY ---
+""" # --- ZMQ SERVER FUNCTIONALITY ---
 class ServerManager:
-    """Manages ZMQ sockets for mission state publishing and CTE reception."""
+    ""Manages ZMQ sockets for mission state publishing and CTE reception.""
     
     def __init__(self, pub_port=config.SENSOR_PORT, sub_port=config.MOTOR_PORT):
         self.context = zmq.Context()
@@ -48,7 +48,7 @@ class ServerManager:
         print(f"[ZMQ] Publishing on port {pub_port}, Subscribing on port {sub_port}")
     
     def publish_mission_state(self, state, mission_queue):
-        """Publish current mission state to subscribers."""
+        ""Publish current mission state to subscribers.""
         try:
             msg = {
                 "topic": "MISSION_STATE",
@@ -60,7 +60,7 @@ class ServerManager:
             print(f"[ZMQ] Error publishing state: {e}")
     
     def publish_telemetry(self, speed, error, steering):
-        """Publish telemetry data to subscribers."""
+        ""Publish telemetry data to subscribers.""
         try:
             msg = {
                 "topic": "TELEMETRY",
@@ -74,7 +74,7 @@ class ServerManager:
             print(f"[ZMQ] Error publishing telemetry: {e}")
     
     def receive_camera_cte(self):
-        """Non-blocking receive of CTE from camera system. Returns CTE or None."""
+        ""Non-blocking receive of CTE from camera system. Returns CTE or None.""
         try:
             while True:
                 try:
@@ -95,11 +95,11 @@ class ServerManager:
         return None
     
     def close(self):
-        """Clean up ZMQ resources."""
+        ""Clean up ZMQ resources.""
         self.pub_socket.close()
         self.sub_socket.close()
         self.context.term()
-        print("[ZMQ] Sockets closed")
+        print("[ZMQ] Sockets closed") """
 
 # def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
 #     """Gradually adjust speed towards target while steering."""
@@ -326,7 +326,7 @@ def main():
     threading.Thread(target=key_listener, args=(mission,), daemon=True).start()
 
     # --- ZMQ SERVER ---
-    server = ServerManager()
+    #server = ServerManager()
     last_published_state = None
 
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
@@ -365,13 +365,13 @@ def main():
             error, stop_detected, base_speed = eyes.compute_error(raw)
 
             # --- RECEIVE CAMERA CTE ---
-            camera_cte = server.receive_camera_cte()
-            if camera_cte is not None:
+            #camera_cte = server.receive_camera_cte()
+            #if camera_cte is not None:
                 # Camera CTE available - can be used for sensor fusion
                 # For now, log it; uncomment below to blend with line sensor
                 # error = camera_cte  # Use camera CTE directly
                 # error = 0.5 * error + 0.5 * camera_cte  # Blend both sources
-                pass
+            #    pass
 
             # Manual intersection trigger
             #if force_intersection:
@@ -385,7 +385,7 @@ def main():
 
             # --- PUBLISH MISSION STATE ON CHANGE ---
             if mission.current_state != last_published_state:
-                server.publish_mission_state(mission.current_state, mission.mission_queue)
+                #server.publish_mission_state(mission.current_state, mission.mission_queue)
                 last_published_state = mission.current_state
 
             # 4) State Machine Failsafes
@@ -468,7 +468,7 @@ def main():
 
             # 7) LOGGING & TELEMETRY
             history.append((time.time() - start_time, mission.current_state, smooth_error, steering, current_speed))
-            server.publish_telemetry(current_speed, smooth_error, steering)
+            #server.publish_telemetry(current_speed, smooth_error, steering)
 
             # 8) LOOP TIMING
             elapsed = time.time() - loop_start
@@ -480,7 +480,7 @@ def main():
         print("\nStopping...")
     finally:
         px.stop()
-        server.close()
+        #server.close()
 
         # Save Logs
         if history:
