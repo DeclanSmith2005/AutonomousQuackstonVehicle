@@ -6,8 +6,8 @@ import cv2
 import os
 import time
 import numpy as np
-from perception_server_comms import send_cte_to_server
-from lane_detection_and_cte import detect_lane_cte
+from perception_server_comms import send_cte_to_server, send_trajectory_to_server
+from lane_detection_and_cte import detect_lane_cte, get_trajectory_points
 
 # Change detector and label names
 detector = vision.Detector(models.SIGN_DETECTION_MODEL)
@@ -65,6 +65,12 @@ for frame in vision.get_frames(display=False):
     if cte_m is not None:
         print(f"CTE: {cte_m:.3f} m ({cte_px:.1f} px)")
         send_cte_to_server(cte_m)
+    
+    # ---trajectory for turns (always send, control decides when to use)---
+    trajectory = get_trajectory_points(frame, num_points=10)
+    if trajectory is not None:
+        send_trajectory_to_server(trajectory)
+    
     if lane_vis is not None:
         cv2.imshow('Lane Detection', lane_vis)
 

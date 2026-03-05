@@ -39,6 +39,15 @@ TURN_ENTRY_TIMEOUT = 5.0
 TURN_ENTRY_SPEED = 10
 TURN_STOP_HOLD_TIME = 1.0
 
+# --- CAMERA-GUIDED TURN TUNING ---
+TURN_USE_CAMERA = True           # Enable camera-guided turns (set False to use old blind turn)
+TRAJECTORY_KP = 0.3              # Steering gain per cm of CTE (start low, increase if sluggish)
+WAYPOINT_ADVANCE_THRESHOLD = 1.5 # cm - move to next waypoint when CTE below this
+TURN_CAMERA_TIMEOUT = 3.0        # Max time for camera-guided turn before fallback
+TURN_INITIAL_ROTATION_TIME = 0.3 # Brief initial rotation to point toward exit lane
+TURN_PROGRESS_MODE = "blended"   # "fixed", "progressive", or "blended"
+EXPECTED_TURN_DURATION = 2.0     # seconds - for blended progress calculation
+
 # --- SENSOR & CALIBRATION ---
 OFFSETS = [111, 95, 100]
 LOST_LINE_TIMEOUT = 5.0

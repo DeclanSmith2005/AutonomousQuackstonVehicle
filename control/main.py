@@ -2,7 +2,7 @@ import csv
 import os
 import threading
 import time
-#import zmq
+import zmq
 from picarx import Picarx
 
 import config
@@ -22,9 +22,9 @@ DEFAULT_CAL_MIN = [50, 50, 50]   # Floor values (off-line)
 DEFAULT_CAL_MAX = [1455, 1315, 1383]  # Peak values (on-line)
 
 
-""" # --- ZMQ SERVER FUNCTIONALITY ---
+# --- ZMQ SERVER FUNCTIONALITY ---
 class ServerManager:
-    ""Manages ZMQ sockets for mission state publishing and CTE reception.""
+    """Manages ZMQ sockets for mission state publishing and CTE/trajectory reception."""
     
     def __init__(self, pub_port=config.SENSOR_PORT, sub_port=config.MOTOR_PORT):
         self.context = zmq.Context()
@@ -33,7 +33,7 @@ class ServerManager:
         self.pub_socket = self.context.socket(zmq.PUB)
         self.pub_socket.bind(f"tcp://*:{pub_port}")
         
-        # SUB Socket: Receives CTE from camera system (Port 5556)
+        # SUB Socket: Receives CTE/trajectory from camera system (Port 5556)
         self.sub_socket = self.context.socket(zmq.SUB)
         self.sub_socket.bind(f"tcp://*:{sub_port}")
         self.sub_socket.subscribe("")  # Subscribe to all topics
@@ -43,12 +43,17 @@ class ServerManager:
         self.camera_cte_timestamp = 0
         self.camera_cte_timeout = 0.5  # CTE valid for 500ms
         
+        # Trajectory state for turns
+        self.trajectory = None
+        self.trajectory_timestamp = 0
+        self.trajectory_timeout = 0.3  # Trajectory valid for 300ms
+        
         # Give sockets time to bind
         time.sleep(0.1)
         print(f"[ZMQ] Publishing on port {pub_port}, Subscribing on port {sub_port}")
     
     def publish_mission_state(self, state, mission_queue):
-        ""Publish current mission state to subscribers.""
+        """Publish current mission state to subscribers."""
         try:
             msg = {
                 "topic": "MISSION_STATE",
@@ -60,7 +65,7 @@ class ServerManager:
             print(f"[ZMQ] Error publishing state: {e}")
     
     def publish_telemetry(self, speed, error, steering):
-        ""Publish telemetry data to subscribers.""
+        """Publish telemetry data to subscribers."""
         try:
             msg = {
                 "topic": "TELEMETRY",
@@ -73,20 +78,31 @@ class ServerManager:
         except Exception as e:
             print(f"[ZMQ] Error publishing telemetry: {e}")
     
-    def receive_camera_cte(self):
-        ""Non-blocking receive of CTE from camera system. Returns CTE or None.""
+    def _process_incoming_messages(self):
+        """Process all pending messages from camera system."""
         try:
             while True:
                 try:
                     msg = self.sub_socket.recv_json(flags=zmq.NOBLOCK)
-                    if msg.get("topic") == "CTE":
+                    topic = msg.get("topic")
+                    
+                    if topic == "CTE":
                         self.camera_cte = msg.get("cte")
                         self.camera_cte_timestamp = time.time()
+                    
+                    elif topic == "TRAJECTORY":
+                        self.trajectory = msg.get("points")
+                        self.trajectory_timestamp = time.time()
+                        
                 except zmq.Again:
                     # No more messages
                     break
         except Exception as e:
-            print(f"[ZMQ] Error receiving CTE: {e}")
+            print(f"[ZMQ] Error receiving: {e}")
+    
+    def receive_camera_cte(self):
+        """Non-blocking receive of CTE from camera system. Returns CTE or None."""
+        self._process_incoming_messages()
         
         # Return CTE only if it's fresh
         if self.camera_cte is not None:
@@ -94,12 +110,184 @@ class ServerManager:
                 return self.camera_cte
         return None
     
+    def receive_trajectory(self):
+        """Non-blocking receive of trajectory points. Returns list of (dist_cm, cte_cm) or None."""
+        self._process_incoming_messages()
+        
+        # Return trajectory only if it's fresh
+        if self.trajectory is not None:
+            if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
+                return self.trajectory
+        return None
+    
     def close(self):
-        ""Clean up ZMQ resources.""
+        """Clean up ZMQ resources."""
         self.pub_socket.close()
         self.sub_socket.close()
         self.context.term()
-        print("[ZMQ] Sockets closed") """
+        print("[ZMQ] Sockets closed")
+
+
+# --- CAMERA-GUIDED TURN HELPERS ---
+def compute_blended_steering(trajectory, progress_factor):
+    """
+    Blend CTE from multiple trajectory points based on turn progress.
+    
+    Parameters
+    ----------
+    trajectory : list
+        List of (distance_cm, cte_cm) tuples.
+    progress_factor : float
+        0.0 (start of turn) to 1.0 (end of turn).
+    
+    Returns
+    -------
+    float or None
+        Blended CTE in cm, or None if trajectory invalid.
+    """
+    if not trajectory or len(trajectory) < 2:
+        return None
+    
+    num_points = len(trajectory)
+    weighted_cte = 0.0
+    total_weight = 0.0
+    
+    # Weight distribution shifts from near→far as turn progresses
+    center_idx = progress_factor * (num_points - 1)
+    
+    for i, (dist_cm, cte_cm) in enumerate(trajectory):
+        # Gaussian-ish weight centered on current progress
+        weight = max(0, 1.0 - abs(i - center_idx) / 3.0)  # Falloff over 3 indices
+        weighted_cte += cte_cm * weight
+        total_weight += weight
+    
+    if total_weight > 0:
+        return weighted_cte / total_weight
+    return None
+
+
+def scan_for_line_fallback(px, eyes, mission, pid):
+    """Fallback: scan for line using grayscale after camera timeout."""
+    global current_motor_speed
+    
+    print("Camera fallback: scanning with grayscale...")
+    line_found = False
+    start_scan = time.time()
+    
+    while (time.time() - start_scan) < config.TURN_SCAN_TIMEOUT:
+        raw = px.get_grayscale_data()
+        on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+        if on_line:
+            print("Line re-acquired by grayscale.")
+            line_found = True
+            mission.current_state = RobotState.STRAIGHT
+            px.forward(5)
+            break
+        time.sleep(config.TURN_SCAN_INTERVAL)
+    
+    if not line_found:
+        print("Turn failed to re-acquire line.")
+        px.stop()
+        current_motor_speed = 0
+        pid.reset()
+        mission.current_state = RobotState.IDLE
+        return False
+    
+    pid.reset()
+    return True
+
+
+def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
+    """Camera-guided turn with progressive/blended trajectory following.
+    
+    Uses camera trajectory points to steer through the turn until
+    grayscale sensor re-acquires the line.
+    """
+    global current_motor_speed
+    
+    print(f"Executing camera-guided {direction} turn...")
+    
+    # 1) Stop at intersection
+    px.stop()
+    current_motor_speed = 0
+    time.sleep(config.TURN_STOP_HOLD_TIME)
+    
+    # 2) Initial rotation to point toward exit lane
+    initial_steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
+    px.set_dir_servo_angle(initial_steer)
+    px.forward(config.TURN_PWM)
+    current_motor_speed = config.TURN_PWM
+    time.sleep(config.TURN_INITIAL_ROTATION_TIME)
+    
+    # 3) Camera-guided trajectory following
+    turn_start = time.time()
+    current_waypoint_idx = 0
+    
+    while (time.time() - turn_start) < config.TURN_CAMERA_TIMEOUT:
+        
+        # Check grayscale — if line found, handoff to straight mode
+        raw = px.get_grayscale_data()
+        on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+        if on_line:
+            print(f"Line re-acquired by grayscale (waypoint {current_waypoint_idx})")
+            mission.current_state = RobotState.STRAIGHT
+            pid.reset()
+            px.forward(5)
+            return True
+        
+        # Get camera trajectory
+        trajectory = server.receive_trajectory()
+        
+        if trajectory and len(trajectory) > 0:
+            elapsed = time.time() - turn_start
+            
+            if config.TURN_PROGRESS_MODE == "blended":
+                # Blended: weight points based on turn progress
+                progress = min(1.0, elapsed / config.EXPECTED_TURN_DURATION)
+                cte_cm = compute_blended_steering(trajectory, progress)
+                
+            elif config.TURN_PROGRESS_MODE == "progressive":
+                # Progressive: advance through waypoints discretely
+                if current_waypoint_idx < len(trajectory):
+                    dist_cm, cte_cm = trajectory[current_waypoint_idx]
+                    
+                    # Advance to next waypoint if close enough
+                    if abs(cte_cm) < config.WAYPOINT_ADVANCE_THRESHOLD:
+                        if current_waypoint_idx < len(trajectory) - 1:
+                            current_waypoint_idx += 1
+                            print(f"  Advancing to waypoint {current_waypoint_idx}")
+                else:
+                    cte_cm = None
+                    
+            else:  # "fixed" - use middle waypoint
+                mid_idx = len(trajectory) // 2
+                dist_cm, cte_cm = trajectory[mid_idx]
+            
+            if cte_cm is not None:
+                # Convert CTE to steering command
+                # Positive CTE (from perception) = lane to right of center
+                # For "right" turn, positive CTE should reduce steering (we're aligning)
+                # For "left" turn, positive CTE should increase steering
+                # Sign may need adjustment based on testing!
+                steering = -cte_cm * config.TRAJECTORY_KP
+                steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
+                
+                px.set_dir_servo_angle(steering)
+                px.forward(config.TURN_PWM)
+                
+                # Debug output (occasionally)
+                if int(time.time() * 5) % 2 == 0:
+                    print(f"  Camera: CTE={cte_cm:.1f}cm → Steer={steering:.1f}°")
+        else:
+            # No camera data — maintain initial steering direction
+            px.set_dir_servo_angle(initial_steer)
+            px.forward(config.TURN_PWM)
+        
+        time.sleep(0.05)  # ~20Hz camera loop
+    
+    # 4) Camera timeout — fall back to grayscale scan
+    return scan_for_line_fallback(px, eyes, mission, pid)
+
 
 # def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
 #     """Gradually adjust speed towards target while steering."""
@@ -326,7 +514,7 @@ def main():
     threading.Thread(target=key_listener, args=(mission,), daemon=True).start()
 
     # --- ZMQ SERVER ---
-    #server = ServerManager()
+    server = ServerManager()
     last_published_state = None
 
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
@@ -385,7 +573,7 @@ def main():
 
             # --- PUBLISH MISSION STATE ON CHANGE ---
             if mission.current_state != last_published_state:
-                #server.publish_mission_state(mission.current_state, mission.mission_queue)
+                server.publish_mission_state(mission.current_state, mission.mission_queue)
                 last_published_state = mission.current_state
 
             # 4) State Machine Failsafes
@@ -425,20 +613,33 @@ def main():
                     stop_at_line(px, base_speed)
                     continue
                 elif mission.current_state == RobotState.LEFT_1:
-                    if execute_turn(px, eyes, "left", pid, mission):
+                    # Use camera-guided turn if enabled
+                    if config.TURN_USE_CAMERA:
+                        success = execute_turn_with_camera(px, eyes, "left", pid, mission, server)
+                    else:
+                        success = execute_turn(px, eyes, "left", pid, mission)
+                    if success:
                         mission.advance_mission()
                     continue
                 elif mission.current_state == RobotState.LEFT_2:
                     mission.crossings_seen += 1
                     if mission.crossings_seen >= 2: # +1 more to account for the stop line
-                        if execute_turn(px, eyes, "left", pid, mission):
+                        if config.TURN_USE_CAMERA:
+                            success = execute_turn_with_camera(px, eyes, "left", pid, mission, server)
+                        else:
+                            success = execute_turn(px, eyes, "left", pid, mission)
+                        if success:
                             mission.advance_mission()
                     else:
                         print(f"Skipping intersection {mission.crossings_seen}/2")
                         ignore_intersection(px, base_speed)
                     continue
                 elif mission.current_state == RobotState.RIGHT:
-                    if execute_turn(px, eyes, "right", pid, mission):
+                    if config.TURN_USE_CAMERA:
+                        success = execute_turn_with_camera(px, eyes, "right", pid, mission, server)
+                    else:
+                        success = execute_turn(px, eyes, "right", pid, mission)
+                    if success:
                         mission.advance_mission()
                     continue
 
@@ -468,7 +669,7 @@ def main():
 
             # 7) LOGGING & TELEMETRY
             history.append((time.time() - start_time, mission.current_state, smooth_error, steering, current_speed))
-            #server.publish_telemetry(current_speed, smooth_error, steering)
+            server.publish_telemetry(current_speed, smooth_error, steering)
 
             # 8) LOOP TIMING
             elapsed = time.time() - loop_start
@@ -480,7 +681,7 @@ def main():
         print("\nStopping...")
     finally:
         px.stop()
-        #server.close()
+        server.close()
 
         # Save Logs
         if history:
