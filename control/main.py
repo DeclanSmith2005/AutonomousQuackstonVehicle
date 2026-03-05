@@ -2,6 +2,7 @@ import csv
 import os
 import threading
 import time
+import zmq
 from picarx import Picarx
 
 import config
@@ -19,6 +20,86 @@ run_calibration_flag = False
 # Default calibration values (updated from calibration session)
 DEFAULT_CAL_MIN = [50, 50, 50]   # Floor values (off-line)
 DEFAULT_CAL_MAX = [1455, 1315, 1383]  # Peak values (on-line)
+
+
+# --- ZMQ SERVER FUNCTIONALITY ---
+class ServerManager:
+    """Manages ZMQ sockets for mission state publishing and CTE reception."""
+    
+    def __init__(self, pub_port=config.SENSOR_PORT, sub_port=config.MOTOR_PORT):
+        self.context = zmq.Context()
+        
+        # PUB Socket: Sends mission state and telemetry to hardware_bridge (Port 5555)
+        self.pub_socket = self.context.socket(zmq.PUB)
+        self.pub_socket.bind(f"tcp://*:{pub_port}")
+        
+        # SUB Socket: Receives CTE from camera system (Port 5556)
+        self.sub_socket = self.context.socket(zmq.SUB)
+        self.sub_socket.bind(f"tcp://*:{sub_port}")
+        self.sub_socket.subscribe("")  # Subscribe to all topics
+        
+        # Camera CTE state
+        self.camera_cte = None
+        self.camera_cte_timestamp = 0
+        self.camera_cte_timeout = 0.5  # CTE valid for 500ms
+        
+        # Give sockets time to bind
+        time.sleep(0.1)
+        print(f"[ZMQ] Publishing on port {pub_port}, Subscribing on port {sub_port}")
+    
+    def publish_mission_state(self, state, mission_queue):
+        """Publish current mission state to subscribers."""
+        try:
+            msg = {
+                "topic": "MISSION_STATE",
+                "state": state.name if hasattr(state, 'name') else str(state),
+                "queue": [s.name if hasattr(s, 'name') else str(s) for s in mission_queue]
+            }
+            self.pub_socket.send_json(msg)
+        except Exception as e:
+            print(f"[ZMQ] Error publishing state: {e}")
+    
+    def publish_telemetry(self, speed, error, steering):
+        """Publish telemetry data to subscribers."""
+        try:
+            msg = {
+                "topic": "TELEMETRY",
+                "speed": speed,
+                "error": error,
+                "steering": steering,
+                "timestamp": time.time()
+            }
+            self.pub_socket.send_json(msg)
+        except Exception as e:
+            print(f"[ZMQ] Error publishing telemetry: {e}")
+    
+    def receive_camera_cte(self):
+        """Non-blocking receive of CTE from camera system. Returns CTE or None."""
+        try:
+            while True:
+                try:
+                    msg = self.sub_socket.recv_json(flags=zmq.NOBLOCK)
+                    if msg.get("topic") == "CTE":
+                        self.camera_cte = msg.get("cte")
+                        self.camera_cte_timestamp = time.time()
+                except zmq.Again:
+                    # No more messages
+                    break
+        except Exception as e:
+            print(f"[ZMQ] Error receiving CTE: {e}")
+        
+        # Return CTE only if it's fresh
+        if self.camera_cte is not None:
+            if (time.time() - self.camera_cte_timestamp) < self.camera_cte_timeout:
+                return self.camera_cte
+        return None
+    
+    def close(self):
+        """Clean up ZMQ resources."""
+        self.pub_socket.close()
+        self.sub_socket.close()
+        self.context.term()
+        print("[ZMQ] Sockets closed")
 
 # def set_speed_smooth(px, target_speed, steer, ramp_rate=1.0):
 #     """Gradually adjust speed towards target while steering."""
@@ -244,6 +325,10 @@ def main():
     # Start keyboard listener
     threading.Thread(target=key_listener, args=(mission,), daemon=True).start()
 
+    # --- ZMQ SERVER ---
+    server = ServerManager()
+    last_published_state = None
+
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     history = []
     start_time = time.time()
@@ -271,7 +356,6 @@ def main():
                 stop_flag = True
                 break
 
-
             # 2) Fail-safe & Simulation logic
             if force_line_lost:
                 # Simulate no line detected
@@ -279,6 +363,15 @@ def main():
 
             pattern = eyes.analyze_pattern(raw)
             error, stop_detected, base_speed = eyes.compute_error(raw)
+
+            # --- RECEIVE CAMERA CTE ---
+            camera_cte = server.receive_camera_cte()
+            if camera_cte is not None:
+                # Camera CTE available - can be used for sensor fusion
+                # For now, log it; uncomment below to blend with line sensor
+                # error = camera_cte  # Use camera CTE directly
+                # error = 0.5 * error + 0.5 * camera_cte  # Blend both sources
+                pass
 
             # Manual intersection trigger
             #if force_intersection:
@@ -289,6 +382,11 @@ def main():
             if mission.check_step_requested():
                 print(f"Advancing mission. New state: {mission.current_state}")
                 pid.reset()
+
+            # --- PUBLISH MISSION STATE ON CHANGE ---
+            if mission.current_state != last_published_state:
+                server.publish_mission_state(mission.current_state, mission.mission_queue)
+                last_published_state = mission.current_state
 
             # 4) State Machine Failsafes
             if mission.current_state == RobotState.IDLE:
@@ -368,8 +466,9 @@ def main():
             px.forward(current_speed)
             px.set_dir_servo_angle(steering)
 
-            # 7) LOGGING
+            # 7) LOGGING & TELEMETRY
             history.append((time.time() - start_time, mission.current_state, smooth_error, steering, current_speed))
+            server.publish_telemetry(current_speed, smooth_error, steering)
 
             # 8) LOOP TIMING
             elapsed = time.time() - loop_start
@@ -381,6 +480,7 @@ def main():
         print("\nStopping...")
     finally:
         px.stop()
+        server.close()
 
         # Save Logs
         if history:
