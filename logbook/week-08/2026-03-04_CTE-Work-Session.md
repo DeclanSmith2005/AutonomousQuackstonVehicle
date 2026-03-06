@@ -73,64 +73,74 @@ Figure 3: Original BEV and Transformed BEV after the cleanup was done
 Figure 4: After creating the rectangular cut to the TURN BEV for the polyfit
 
 
-### Session 2: [Activity Name] (HH:MM - HH:MM)
+### Session 2: [Creating Y_references] (15:00 - 16:00)
 
-**Members Present**: [Name1, Name2, Name3]
+**Members Present**: [Nolan Su-Hackett]
 
 **Description**:
+Creating y_reference points at which CTE offsets will be returned from the center line. Following discussion with Rafael (Control Lead) it was decided that 10 points should be sufficient for PID calculations. y_refs are bounded from the bottom of the image up until the highest white pixel that was masked by the respective turn mask. The x values were calculated using the generated polynomial.
 
 ## Results & Data
-
-### Measurements/Observations
-
-| Parameter | Expected | Measured | Pass/Fail | Notes |
-|-----------|----------|----------|-----------|-------|
-| | | | | |
+Sample Output for the reference image provided above, these are the green points in figure 4.
+y_refs: [470, 447, 424, 402, 379, 357, 334, 312, 289, 267]
+cte_px: [44.25, 22.42, 27.37, 50.67, 87.68, 128.78, 170.92, 204.05, 224.41, 223.83]
+cte_m : [0.0205, 0.0104, 0.0127, 0.0235, 0.0406, 0.0596, 0.0791, 0.0945, 0.1039, 0.1036]
 
 ### Code Snippets
 
 ```python
-# Add relevant code here
+# -------------------- compute 10 CTE values at 10 y_ref points --------------------
+    y_min = int(np.min(ys))  # top-most detected lane pixel (smallest y)
+    y_max = int(np.max(ys))  # bottom-most detected lane pixel (largest y)
+
+    margin = int(0.02 * height)  # avoid endpoints (noise/sparsity)
+
+    # average = (y_min + y_max) / 10
+    # y_top = 
+    y_top = min(max(y_min + margin, 0), height - 1)
+    y_bottom = min(max(y_max - margin, 0), height - 1)
+
+    if y_bottom <= y_top:
+        return None, None, None, None, None
+
+    y_refs = np.linspace(y_bottom, y_top, 10).astype(int)
+
+    car_center_x = width // 2
+    cte_pixels_list = []
+    cte_meters_list = []
+    lane_x_list = []
+
+    # meters-per-pixel selection (replace with per-state if needed)
+    mpp = meters_per_pixel_straight
+
+    for y_ref in y_refs:
+        lane_x = a * (y_ref ** 3) + b * (y_ref ** 2) + c * y_ref + d
+
+        # sign convention: positive means lane is to the RIGHT of car center
+        cte_px = float(lane_x) - float(car_center_x)
+        cte_m = cte_px * mpp
+
+        cte_pixels_list.append(cte_px)
+        cte_meters_list.append(cte_m)
+        lane_x_list.append(lane_x)
 ```
-
-### Calculations
-
-Show your mathematical work:
-
-$$
-x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
-$$
-
 ## Challenges & Solutions
 
-### Challenge 1: [Issue Description]
+### Challenge 1: [Poly Fitting]
 
 **Problem**: 
-
+Finding a wa to make the polynomial fit properly
 **Debugging Steps**:
-1.
-2.
-3.
+1. trying different cuts of the Turn_BEV
 
 **Solution**: 
+80% height and 70% width ratio was determined to be best
 
-**Lessons Learned**: 
 
 ## Next Steps
 
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
-
-## References
-
-- [Reference 1](URL)
-- [Reference 2](URL)
-
-## Personal Notes
-
-Any additional thoughts, observations, or things to remember...
+- [ ] Test with live feed on actual lanes rather than just images.
 
 ---
 
-**Entry completed**: YYYY-MM-DD HH:MM
+**Entry completed**: 2026-03-06 17:00
