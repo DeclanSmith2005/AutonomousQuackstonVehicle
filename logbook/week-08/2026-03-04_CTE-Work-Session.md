@@ -63,9 +63,9 @@ Line 1: cuts a rectangle out off the Turn_BEV, this is so that the polynomial do
 3. devise a way for the polynomial to fit a more natural turning path.
 
 **Documentation**:
-![Reference Image](images/week-08/NewLanes_1_.jpg)
+![Reference Image](elec-392-project-duclair_2/images/week-08/NewLanes_1_.jpg)
 Figure 1: Reference Image
-![Pre-Cleanup](images/week-08/PreFilterAdjustments.png)
+![Pre-Cleanup](elec-392-project-duclair_2/images/week-08/PreFilterAdjustments.png)
 Figure 2: Original BEV and Transformed BEV before the work on the cleanup
 ![Post-Cleanup](images/week-08/PostFilterAdjustments.png)
 Figure 3: Original BEV and Transformed BEV after the cleanup was done
