@@ -29,74 +29,7 @@ M_straight = cv2.getPerspectiveTransform(src_points_straight, dst_points)
 # Meters per pixel conversion factor for each vehicle state (right turn, left turn, or straight)
 meters_per_pixel_straight = 0.00046296296  # 0.025m/54 pixels
 
-# Centimeters per pixel for trajectory output
-cm_per_pixel_straight = meters_per_pixel_straight * 100  # ~0.046 cm/pixel
-
 #---------------------------------------------------------------MAIN CODE----------------------------------------------------------------------
-
-def get_trajectory_points(image, num_points=10):
-    """Extract CTE at multiple lookahead distances for curve following during turns.
-    
-    Parameters
-    ----------
-    image : np.ndarray
-        BGR image from camera.
-    num_points : int
-        Number of trajectory points to sample (default: 10).
-    
-    Returns
-    -------
-    list or None
-        List of (distance_cm, cte_cm) tuples from near to far, or None if detection fails.
-        Positive CTE = lane is to the right of car center.
-    """
-    height, width = image.shape[:2]
-    
-    # Convert to HSV and threshold for green
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower_green, upper_green)
-    
-    # Clean mask
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    
-    # BEV transformation
-    bev = cv2.warpPerspective(mask, M_straight, (width, height))
-    
-    # Get all lane pixels
-    ys, xs = np.nonzero(bev)
-    
-    if len(xs) < 50:  # Need enough pixels for reliable fit
-        return None
-    
-    # Fit polynomial: x = ay^2 + by + c
-    try:
-        poly = np.polyfit(ys, xs, 2)
-    except np.linalg.LinAlgError:
-        return None
-    
-    a, b, c = poly
-    car_center_x = width // 2
-    
-    trajectory = []
-    # Sample from near (90% height) to far (30% height)
-    for i in range(num_points):
-        y_frac = 0.9 - (i * 0.06)  # 0.9, 0.84, 0.78, ... ~0.36
-        y = int(height * y_frac)
-        
-        lane_x = a * y * y + b * y + c
-        cte_pixels = float(car_center_x) - lane_x
-        cte_cm = cte_pixels * cm_per_pixel_straight
-        
-        # Estimate distance ahead based on BEV position (rough approximation)
-        # Bottom of BEV (~y=height) is ~0cm ahead, top (~y=0) is ~30cm ahead
-        distance_cm = (0.9 - y_frac) * 50  # Range: 0 to ~30cm
-        
-        trajectory.append((round(distance_cm, 1), round(cte_cm, 2)))
-    
-    return trajectory
-
 
 def detect_lane_cte(image):
     """Process a single image and return CTE metrics and visualization.

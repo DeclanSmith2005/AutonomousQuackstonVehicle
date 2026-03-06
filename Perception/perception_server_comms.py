@@ -54,24 +54,6 @@ class _CTESender:
             self.pub_socket.send_json(msg)
         except Exception as e:
             print(f"Error sending CTE: {e}")
-    
-    def send_trajectory(self, trajectory):
-        """Send trajectory points to the server for turn guidance.
-        
-        Parameters
-        ----------
-        trajectory : list
-            List of (distance_cm, cte_cm) tuples from get_trajectory_points().
-        """
-        try:
-            msg = {
-                "topic": "TRAJECTORY",
-                "points": trajectory,
-                "timestamp": time.time()
-            }
-            self.pub_socket.send_json(msg)
-        except Exception as e:
-            print(f"Error sending trajectory: {e}")
 
 _state_manager = _VehicleStateManager()
 _cte_sender = _CTESender()
@@ -97,15 +79,3 @@ def send_cte_to_server(cte_meters):
         Cross-Track Error in meters
     """
     _cte_sender.send_cte(cte_meters)
-
-
-def send_trajectory_to_server(trajectory):
-    """Send trajectory points to the server for camera-guided turns.
-    
-    Parameters
-    ----------
-    trajectory : list
-        List of (distance_cm, cte_cm) tuples from get_trajectory_points().
-    """
-    if trajectory is not None:
-        _cte_sender.send_trajectory(trajectory)
