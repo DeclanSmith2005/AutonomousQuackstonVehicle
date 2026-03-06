@@ -46,22 +46,32 @@ Changes:
 2. Previously the lower bound takes a distance which is half a tape width below the highest detected intersection point, this means that the bottom half rows of the turn pixels can be cut out, this is changed in V2, by allowed 1.25* a full tape width below the highest detected intersection point.
 3. Previously the x bound filtered everything on the other side of the lane center (dependent on case (left or right)), however this can cut off half of the straight section of the tape. Instead of the center V2 uses the left or right, which are defined as the left or right bounds of the centered green tape.
 
-**Materials/Tools Used**:
--
--
+PolyFit Cuts:
 
+```python
+mask_turn[:int(0.8*height), :int(0.7*width) ] = 0
+mask_turn[:int(0.8*height), int(0.2*width):] = 0
+```
+
+Line 1: cuts a rectangle out off the Turn_BEV, this is so that the polynomial does not need to fit to a large proportion of pixels that create the shape of a 90-degree turn. This was done so that the polunomial curve will fit a more natural turn path, the images can be seen in the documentation section
+
+**Materials/Tools Used**:
+- Python
 **Process/Steps**:
-1.
-2.
-3.
+1. Read previously written code
+2. Identify possible optimizations
+3. devise a way for the polynomial to fit a more natural turning path.
 
 **Documentation**:
-<!-- Add images, diagrams, screenshots from the images/ folder -->
-<!-- Store your images in: images/week-XX/ directory -->
+![Reference Image](images/week-08/NewLanes_1_.jpg)
+Figure 1: Reference Image
+![Pre-Cleanup](images/week-08/PreFilterAdjustments.png)
+Figure 2: Original BEV and Transformed BEV before the work on the cleanup
+![Post-Cleanup](images/week-08/PostFilterAdjustments.png)
+Figure 3: Original BEV and Transformed BEV after the cleanup was done
+![PolyFit Cuts](images/week-08/PolyFitCuts.png)
+Figure 4: After creating the rectangular cut to the TURN BEV for the polyfit
 
-![A giant duck.](../../images/giant_duck.jpg)
-
-*Figure 1: Brief description of what the image shows and its relevance to your work*
 
 ### Session 2: [Activity Name] (HH:MM - HH:MM)
 
