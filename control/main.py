@@ -429,12 +429,10 @@ def main():
                 px.forward(config.TURN_ENTRY_SPEED)
                 current_motor_speed = config.TURN_ENTRY_SPEED
 
-            trajectory_msg = server.receive_trajectory()
-
             # Trigger no-stop-line turn using camera-provided distance to intersection.
             # This only applies when operator/planner has flagged no-line mode.
-            if no_line_turn and trajectory_msg is not None:
-                _trajectory_points, distance_line = trajectory_msg
+            if no_line_turn:
+                distance_line = server.receive_intersection_distance()
                 if distance_line is not None and 0 < distance_line < config.MAX_TURN_PROXIMITY:
                     if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
                         turn_dir = "left"
@@ -518,7 +516,7 @@ def main():
             if abs(smooth_error) < config.DEADBAND:
                 smooth_error = 0.0
 
-            steering = pid.update(smooth_error * config.POLARITY, dt=dt)
+            steering = pid.update(-smooth_error, dt=dt)
             # steering_with_offset = steering + config.STRAIGHT_ANGLE
             steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
 

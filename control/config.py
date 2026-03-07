@@ -7,7 +7,6 @@
 KP = 0.30
 KI = 0.0
 KD = 0.008  # Adjusted to match pid.py's D-term which was 100x smaller (no / dt)
-POLARITY = -1
 ERROR_BUFFER_LEN = 5
 DEADBAND = 3.0
 

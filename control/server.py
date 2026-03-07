@@ -79,6 +79,14 @@ class ServerManager:
                             self.trajectory_distance_line = float(distance_line) if distance_line is not None else None
                         except (TypeError, ValueError):
                             self.trajectory_distance_line = None
+                    
+                    elif topic == "DISTANCE":
+                        distance_line = msg.get("distance_line")
+                        try:
+                            self.trajectory_distance_line = float(distance_line) if distance_line is not None else None
+                            self.trajectory_timestamp = time.time()
+                        except (TypeError, ValueError):
+                            pass
                         
                 except zmq.Again:
                     # No more messages
@@ -94,6 +102,21 @@ class ServerManager:
         if self.camera_cte is not None:
             if (time.time() - self.camera_cte_timestamp) < self.camera_cte_timeout:
                 return self.camera_cte
+        return None
+    
+    def receive_intersection_distance(self):
+        """Non-blocking receive of distance to intersection from camera system.
+        
+        Returns
+        -------
+        float or None
+            Distance to intersection in cm.
+        """
+        self._process_incoming_messages()
+        
+        if self.trajectory_distance_line is not None:
+            if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
+                return self.trajectory_distance_line
         return None
     
     def receive_trajectory(self):

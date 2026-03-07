@@ -17,11 +17,12 @@
   <component name="ChangeListManager">
     <list default="true" id="c02ccf5c-ba98-4a60-a621-3b6e64b875ea" name="Changes" comment="Update timing constants and improve comments for clarification; enhance recovery logic in main.py, refine LineSensor calibration outputs, and add clarity to PIDController docstring">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/control/analyze_logs.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/analyze_logs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Perception/detect_objects.py" beforeDir="false" afterPath="$PROJECT_DIR$/Perception/detect_objects.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Perception/perception_server_comms.py" beforeDir="false" afterPath="$PROJECT_DIR$/Perception/perception_server_comms.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/control/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/control/line_sensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/line_sensor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/control/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/control/pid_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/pid_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/control/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/control/server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/hardware_bridge.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,7 +33,7 @@
     <option name="formatViaClangd" value="false" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="135" />
+    <option name="cachedIndexableFilesCount" value="139" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -43,6 +44,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="McpProjectServerCommands">
@@ -71,7 +77,7 @@
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;adding__cte&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -109,6 +115,7 @@
       <workItem from="1771974109970" duration="361000" />
       <workItem from="1771980860418" duration="3189000" />
       <workItem from="1772221738405" duration="5522000" />
+      <workItem from="1772894806690" duration="1514000" />
     </task>
     <task id="LOCAL-00001" summary="Adjust MAX_STEER, improve error smoothing and handling logic, and enhance speed adjustments for turns and branch bias">
       <option name="closed" value="true" />
@@ -159,5 +166,15 @@
     <MESSAGE value="Adjust MAX_STEER, improve error smoothing and handling logic, and enhance speed adjustments for turns and branch bias" />
     <MESSAGE value="Update timing constants and improve comments for clarification; enhance recovery logic in main.py, refine LineSensor calibration outputs, and add clarity to PIDController docstring" />
     <option name="LAST_COMMIT_MESSAGE" value="Update timing constants and improve comments for clarification; enhance recovery logic in main.py, refine LineSensor calibration outputs, and add clarity to PIDController docstring" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Perception/lane_detection_and_cte.py</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
