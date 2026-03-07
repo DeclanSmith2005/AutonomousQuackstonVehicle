@@ -1,4 +1,5 @@
 import time
+import math
 import zmq
 import config
 
@@ -25,8 +26,12 @@ class ServerManager:
         # Trajectory state for turns
         self.trajectory = None
         self.trajectory_timestamp = 0
-        self.trajectory_timeout = 0.3  # Trajectory valid for 300ms
-        self.trajectory_distance_line = None
+        self.trajectory_timeout = config.TRAJECTORY_TIMEOUT
+
+        # Distance-to-intersection state (can arrive with TRAJECTORY or DISTANCE topics)
+        self.intersection_distance_cm = None
+        self.intersection_distance_timestamp = 0
+        self.intersection_distance_timeout = config.INTERSECTION_DISTANCE_TIMEOUT
         
         # Give sockets time to bind
         time.sleep(0.1)
@@ -74,19 +79,12 @@ class ServerManager:
                     elif topic == "TRAJECTORY":
                         self.trajectory = msg.get("points")
                         self.trajectory_timestamp = time.time()
-                        distance_line = msg.get("distance_line")
-                        try:
-                            self.trajectory_distance_line = float(distance_line) if distance_line is not None else None
-                        except (TypeError, ValueError):
-                            self.trajectory_distance_line = None
                     
                     elif topic == "DISTANCE":
-                        distance_line = msg.get("distance_line")
-                        try:
-                            self.trajectory_distance_line = float(distance_line) if distance_line is not None else None
-                            self.trajectory_timestamp = time.time()
-                        except (TypeError, ValueError):
-                            pass
+                        distance_line = self._validate_distance_cm(msg.get("distance_line"))
+                        if distance_line is not None:
+                            self.intersection_distance_cm = distance_line
+                            self.intersection_distance_timestamp = time.time()
                         
                 except zmq.Again:
                     # No more messages
@@ -103,6 +101,19 @@ class ServerManager:
             if (time.time() - self.camera_cte_timestamp) < self.camera_cte_timeout:
                 return self.camera_cte
         return None
+
+    def _validate_distance_cm(self, value):
+        """Return a sane distance in cm or None for invalid/outlier data."""
+        try:
+            distance_cm = float(value)
+        except (TypeError, ValueError):
+            return None
+
+        if not math.isfinite(distance_cm):
+            return None
+        if not (config.DISTANCE_MIN_CM <= distance_cm <= config.DISTANCE_MAX_CM):
+            return None
+        return distance_cm
     
     def receive_intersection_distance(self):
         """Non-blocking receive of distance to intersection from camera system.
@@ -114,25 +125,25 @@ class ServerManager:
         """
         self._process_incoming_messages()
         
-        if self.trajectory_distance_line is not None:
-            if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
-                return self.trajectory_distance_line
+        if self.intersection_distance_cm is not None:
+            if (time.time() - self.intersection_distance_timestamp) < self.intersection_distance_timeout:
+                return self.intersection_distance_cm
         return None
     
     def receive_trajectory(self):
-        """Non-blocking receive of trajectory points and distance to line.
+        """Non-blocking receive of trajectory points.
 
         Returns
         -------
-        tuple or None
-            (points, distance_line_cm) where points is list[(dist_cm, cte_cm)].
+        list or None
+            points list[(dist_cm, cte_cm)] when fresh.
         """
         self._process_incoming_messages()
         
         # Return trajectory only if it's fresh
-        if self.trajectory is not None and self.trajectory_distance_line is not None:
+        if self.trajectory is not None:
             if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
-                return self.trajectory, self.trajectory_distance_line
+                return self.trajectory
         return None
     
     def close(self):

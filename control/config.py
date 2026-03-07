@@ -39,6 +39,7 @@ TURN_ENTRY_TIMEOUT = 5.0
 TURN_ENTRY_SPEED = 10
 TURN_STOP_HOLD_TIME = 1.0
 MAX_TURN_PROXIMITY = 20 # in cm
+NO_LINE_TRIGGER_SAMPLES = 3
 
 # --- CAMERA-GUIDED TURN TUNING (Pure Pursuit / Adaptive Lookahead) ---
 TURN_USE_CAMERA = True           # Enable camera-guided turns (set False to use old blind turn)
@@ -46,6 +47,10 @@ LOOKAHEAD_DISTANCE_CM = 15.0     # Physical distance ahead to target (Pure Pursu
 TRAJECTORY_KP = 0.8              # Steering gain per cm of CTE (higher = more aggressive curve following)
 TURN_CAMERA_TIMEOUT = 4.0        # Max time for camera-guided turn before fallback
 TURN_INITIAL_ROTATION_TIME = 0.3 # Brief initial rotation to point toward exit lane
+TRAJECTORY_TIMEOUT = 0.3         # Freshness window for trajectory points (s)
+INTERSECTION_DISTANCE_TIMEOUT = 0.4  # Freshness window for distance_line (s)
+DISTANCE_MIN_CM = 1.0
+DISTANCE_MAX_CM = 300.0
 
 # --- SENSOR & CALIBRATION ---
 OFFSETS = [111, 95, 100]
@@ -57,3 +62,4 @@ OBSTACLE_THRESHOLD = 5.0 # Stop if obstacle closer than 15cm
 BRIDGE_IP = "127.0.0.1"
 SENSOR_PORT = 5555
 MOTOR_PORT = 5556
+MISSION_STATE_HEARTBEAT = 1.0

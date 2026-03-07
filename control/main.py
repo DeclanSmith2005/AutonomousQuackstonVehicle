@@ -135,12 +135,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
             return True
         
         # Get camera trajectory
-        trajectory_msg = server.receive_trajectory()
-
-        if trajectory_msg is not None:
-            trajectory_points, _distance_line = trajectory_msg
-        else:
-            trajectory_points = None
+        trajectory_points = server.receive_trajectory()
 
         if trajectory_points and len(trajectory_points) > 0:
             # Pure Pursuit: always target a point at fixed distance ahead
@@ -350,12 +345,14 @@ def main():
     server = ServerManager()
     last_published_state = None
     last_published_no_line_turn = None
+    last_mission_publish_time = 0.0
 
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     history = []
     start_time = time.time()
     last_valid_line_time = time.time()
     last_pid_time = time.time()
+    no_line_distance_hits = 0
 
     try:
         while not stop_flag:
@@ -406,10 +403,16 @@ def main():
                 pid.reset()
 
             # --- PUBLISH MISSION STATE ON CHANGE ---
-            if mission.current_state != last_published_state or no_line_turn != last_published_no_line_turn:
+            should_heartbeat_publish = (time.time() - last_mission_publish_time) >= config.MISSION_STATE_HEARTBEAT
+            if (
+                mission.current_state != last_published_state
+                or no_line_turn != last_published_no_line_turn
+                or should_heartbeat_publish
+            ):
                 server.publish_mission_state(mission.current_state, mission.mission_queue, no_line_turn)
                 last_published_state = mission.current_state
                 last_published_no_line_turn = no_line_turn
+                last_mission_publish_time = time.time()
 
             # 4) State Machine Failsafes
             if mission.current_state == RobotState.IDLE:
@@ -433,15 +436,24 @@ def main():
             # This only applies when operator/planner has flagged no-line mode.
             if no_line_turn:
                 distance_line = server.receive_intersection_distance()
-                if distance_line is not None and 0 < distance_line < config.MAX_TURN_PROXIMITY:
-                    if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
-                        turn_dir = "left"
-                    elif mission.current_state == RobotState.RIGHT:
-                        turn_dir = "right"
-                    else:
-                        turn_dir = None
+                if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
+                    turn_dir = "left"
+                elif mission.current_state == RobotState.RIGHT:
+                    turn_dir = "right"
+                else:
+                    turn_dir = None
 
-                    if turn_dir is not None:
+                if turn_dir is None:
+                    no_line_distance_hits = 0
+                else:
+                    in_range = distance_line is not None and distance_line < config.MAX_TURN_PROXIMITY
+                    if in_range:
+                        no_line_distance_hits += 1
+                    else:
+                        no_line_distance_hits = 0
+
+                    if no_line_distance_hits >= config.NO_LINE_TRIGGER_SAMPLES:
+                        no_line_distance_hits = 0
                         if config.TURN_USE_CAMERA:
                             success = execute_turn_with_camera(px, eyes, turn_dir, pid, mission, server)
                         else:
@@ -450,6 +462,8 @@ def main():
                             no_line_turn = False
                             mission.advance_mission()
                         continue
+            else:
+                no_line_distance_hits = 0
 
             # Line Lost Failsafe
             if not eyes.last_line_seen:
