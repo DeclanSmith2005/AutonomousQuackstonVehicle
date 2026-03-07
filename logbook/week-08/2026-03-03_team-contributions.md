@@ -87,30 +87,32 @@ This session improved the maintainability of the control pipeline and set up cle
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** [Add time]  
-**Activity Type:** [Add activity type]  
-**Status:** [Add status]  
-**Estimated Effort:** [Add hours]  
+**Time:** 14:30-16:30 (team session) 
+**Activity Type:** Data Collection, Testing  
+**Status:** Completed  
+**Estimated Effort:** 2.5 h  
 
 ### Work Performed
 
-- [To be added by Nolan]
-
-### Decisions
-
-- [To be added by Nolan]
+- Tested Object detection model iteration where the car class only included images of cars from a side view
+- Took more images of the duck class (60) with a different background and some images when the duck is on the track to help guide the model.
+- Annotated new duck images
+- Brainstorm with Control (Rafael) on what he would like from CTE 
+- Split work with Ishaan regarding CTE, since Ishaan completed some turn filtering work, I will work on cleaning it up a bit more, and getting y_reference points so they can be passed to control.
 
 ### Issues Encountered
 
-- [To be added by Nolan]
+- Model still struggles to detect the duck class
 
 ### Next Steps
 
-- [ ] [To be added by Nolan]
+- [ ] Test the new model to see if the duck class improves
+- [ ] Finish Development of CTE
+- [ ] Discuss with a Professor on issues with duck detection
 
 ### Reflection
 
-[To be added by Nolan]
+As the demo day approaches there are still quite a few unfinished tasks/problems that are critical to the success of the project, things like duck detection, CTE, VPFS, and integration. Despite this the team has set clear timelines for when we are expected to have these tasks completed, I think that our continued consistency regarding meeting twice a week is helping the team keep on track and manage our time well. If the duck detection and CTE are completed by next tuesday then I think that perception will be in a great spot to start integrating and helping out other parts of the team. 
 
 ---
 
@@ -149,7 +151,7 @@ This session improved the maintainability of the control pipeline and set up cle
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ✅ | Control deadband/config refactor, log analysis improvements, run-log collection |
 | Ishaan Grewal | [Add] | [Add] | [To be added] |
-| Nolan Su-Hackett | [Add] | [Add] | [To be added] |
+| Nolan Su-Hackett | 2.5h | ✅ | Data Collection, Annotation |
 | Declan Smith | [Add] | [Add] | [To be added] |
 
 ---
