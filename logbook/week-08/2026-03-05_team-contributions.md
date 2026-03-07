@@ -93,30 +93,29 @@ This was a high-impact integration session. Rapid iteration between implementati
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** [Add time]  
-**Activity Type:** [Add activity type]  
-**Status:** [Add status]  
-**Estimated Effort:** [Add hours]  
+**Time:** 15:00-16:30 
+**Activity Type:** Testing, Team Sync  
+**Status:** Completed  
+**Estimated Effort:** 1.5 h  
 
 ### Work Performed
 
-- [To be added by Nolan]
-
-### Decisions
-
-- [To be added by Nolan]
+- Tested CTE with improved polyfit and the 10 y_ref points using live feed.
+- Testing was done at the boundaries of stop lines, one test would occur at the front of the stopline (furthest away from the intersection, and one at the end of the stopline (closest to the intersection). CTE performed better closer to the intersection as the image is clearer and the trapezoid captures more of it, but still works adequately at our worst case distance. Images of the testing outputs can be seen in Ishaans Section.
+- Discussed with Rafael whether he would prefer the polynomial coefficients or the 10 y_ref CTE offsets that are currently being calculated.
+- Tested object detection model with extra duck images
 
 ### Issues Encountered
 
-- [To be added by Nolan]
+- Ducks are still not detected by the model even after increasing the number of images
 
 ### Next Steps
 
-- [ ] [To be added by Nolan]
+- [ ] Discuss at next studio with a professor on improvements that can be made to detect the duck class.
 
 ### Reflection
 
-[To be added by Nolan]
+With CTE working the Perception team is in a good spot relative to the demo date, the remaining issue seems to be the detection of the duck class. All the other classes are consistently being detected. One aspect that is slightly worrisome is that while the perception team was running the detect_objects python file which now includes the CTE code it was discovered that there is some startup delay before the CTE output appears. After the startup delay there isnt much issue with the execution of the program but this needs to be tested with other functionalities to ensure that the load is not too much for the Pi.
 
 ---
 
@@ -155,7 +154,7 @@ This was a high-impact integration session. Rapid iteration between implementati
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ✅ | ZMQ integration, camera-guided turns, Pure Pursuit refactor, telemetry logs |
 | Ishaan Grewal | [Add] | [Add] | [To be added] |
-| Nolan Su-Hackett | [Add] | [Add] | [To be added] |
+| Nolan Su-Hackett | 1.5h | ✅] | Testing, Team Sync |
 | Declan Smith | [Add] | [Add] | [To be added] |
 
 ---
