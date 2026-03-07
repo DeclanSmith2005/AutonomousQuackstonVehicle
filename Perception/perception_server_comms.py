@@ -14,6 +14,7 @@ class _VehicleStateManager:
         self.sub_socket.connect("tcp://127.0.0.1:5555")
         self.sub_socket.subscribe("")  # Subscribe to all topics
         self.current_state = None
+        self.no_line_turn = False
     
     def update(self):
         """Process all pending messages and update state (non-blocking)."""
@@ -23,6 +24,7 @@ class _VehicleStateManager:
                     msg = self.sub_socket.recv_json(flags=zmq.NOBLOCK)
                     if msg.get("topic") == "MISSION_STATE":
                         self.current_state = msg.get("state")
+                        self.no_line_turn = bool(msg.get("no_line", False))
                 except zmq.Again:
                     # No more messages available
                     break
@@ -32,6 +34,10 @@ class _VehicleStateManager:
     def get_state(self):
         """Return the current vehicle state."""
         return self.current_state
+
+    def get_no_line_turn(self):
+        """Return True when control indicates a no-stop-line turn is planned."""
+        return self.no_line_turn
 
 class _CTESender:
     """Manages persistent ZMQ connection for sending CTE (Cross-Track Error) data."""
@@ -66,6 +72,12 @@ def get_vehicle_state():
     """
     _state_manager.update()
     return _state_manager.get_state()
+
+
+def get_no_line_turn():
+    """Return no-stop-line turn intent from latest MISSION_STATE message."""
+    _state_manager.update()
+    return _state_manager.get_no_line_turn()
 
 def send_cte_to_server(cte_meters):
     """Send the CTE in meters to the server.

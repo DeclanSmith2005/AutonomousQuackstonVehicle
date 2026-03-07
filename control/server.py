@@ -26,18 +26,20 @@ class ServerManager:
         self.trajectory = None
         self.trajectory_timestamp = 0
         self.trajectory_timeout = 0.3  # Trajectory valid for 300ms
+        self.trajectory_distance_line = None
         
         # Give sockets time to bind
         time.sleep(0.1)
         print(f"[ZMQ] Publishing on port {pub_port}, Subscribing on port {sub_port}")
     
-    def publish_mission_state(self, state, mission_queue):
+    def publish_mission_state(self, state, mission_queue, no_line):
         """Publish current mission state to subscribers."""
         try:
             msg = {
                 "topic": "MISSION_STATE",
                 "state": state.name if hasattr(state, 'name') else str(state),
-                "queue": [s.name if hasattr(s, 'name') else str(s) for s in mission_queue]
+                "queue": [s.name if hasattr(s, 'name') else str(s) for s in mission_queue],
+                "no_line": no_line
             }
             self.pub_socket.send_json(msg)
         except Exception as e:
@@ -72,6 +74,11 @@ class ServerManager:
                     elif topic == "TRAJECTORY":
                         self.trajectory = msg.get("points")
                         self.trajectory_timestamp = time.time()
+                        distance_line = msg.get("distance_line")
+                        try:
+                            self.trajectory_distance_line = float(distance_line) if distance_line is not None else None
+                        except (TypeError, ValueError):
+                            self.trajectory_distance_line = None
                         
                 except zmq.Again:
                     # No more messages
@@ -90,13 +97,19 @@ class ServerManager:
         return None
     
     def receive_trajectory(self):
-        """Non-blocking receive of trajectory points. Returns list of (dist_cm, cte_cm) or None."""
+        """Non-blocking receive of trajectory points and distance to line.
+
+        Returns
+        -------
+        tuple or None
+            (points, distance_line_cm) where points is list[(dist_cm, cte_cm)].
+        """
         self._process_incoming_messages()
         
         # Return trajectory only if it's fresh
-        if self.trajectory is not None:
+        if self.trajectory is not None and self.trajectory_distance_line is not None:
             if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
-                return self.trajectory
+                return self.trajectory, self.trajectory_distance_line
         return None
     
     def close(self):

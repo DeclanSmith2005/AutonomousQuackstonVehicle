@@ -17,6 +17,7 @@ current_motor_speed = 0
 force_line_lost = False
 force_intersection = False
 run_calibration_flag = False
+no_line_turn = False
 
 
 # --- CAMERA-GUIDED TURN HELPERS (Pure Pursuit / Adaptive Lookahead) ---
@@ -106,6 +107,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     print(f"Executing camera-guided {direction} turn (lookahead={config.LOOKAHEAD_DISTANCE_CM}cm)...")
     
     # 1) Stop at intersection
+    time.sleep(0.25)
     px.stop()
     current_motor_speed = 0
     time.sleep(config.TURN_STOP_HOLD_TIME)
@@ -133,11 +135,16 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
             return True
         
         # Get camera trajectory
-        trajectory = server.receive_trajectory()
-        
-        if trajectory and len(trajectory) > 0:
+        trajectory_msg = server.receive_trajectory()
+
+        if trajectory_msg is not None:
+            trajectory_points, _distance_line = trajectory_msg
+        else:
+            trajectory_points = None
+
+        if trajectory_points and len(trajectory_points) > 0:
             # Pure Pursuit: always target a point at fixed distance ahead
-            cte_cm = get_lookahead_cte(trajectory, config.LOOKAHEAD_DISTANCE_CM)
+            cte_cm = get_lookahead_cte(trajectory_points, config.LOOKAHEAD_DISTANCE_CM)
             
             if cte_cm is not None:
                 # P-controller acting on the lookahead point
@@ -173,7 +180,7 @@ def key_listener(mission):
     fi: trigger forced intersection detection (simulates crossing)
     wiggle: run wiggle calibration
     """
-    global stop_flag, force_line_lost, force_intersection, run_calibration_flag
+    global stop_flag, force_line_lost, force_intersection, run_calibration_flag, no_line_turn
     print("Keyboard listener active.")
     print("Commands: s=stop, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
     print("          n=next, reset=reset, fl=force line lost, fi=force intersection")
@@ -187,37 +194,62 @@ def key_listener(mission):
             elif cmd == "st":
                 mission.current_state = RobotState.STRAIGHT
                 mission.crossings_seen = 0
+                no_line_turn = False
                 print("Manual State: STRAIGHT")
             elif cmd == "a":
                 mission.current_state = RobotState.APPROACH_STOP
                 mission.crossings_seen = 0
+                no_line_turn = False
                 print("Manual State: APPROACH STOP")
             elif cmd == "l1":
                 mission.current_state = RobotState.LEFT_1
                 mission.crossings_seen = 0
+                no_line_turn = False
                 print("Manual State: LEFT_1")
             elif cmd == "l2":
                 mission.current_state = RobotState.LEFT_2
                 mission.crossings_seen = 0
+                no_line_turn = False
                 print("Manual State: LEFT_2")
             elif cmd == "r":
                 mission.current_state = RobotState.RIGHT
                 mission.crossings_seen = 0
+                no_line_turn = False
                 print("Manual State: RIGHT")
             elif cmd == "cal":
                 mission.current_state = RobotState.CALIBRATE
+                no_line_turn = False
                 print("Manual State: CALIBRATE")
             elif cmd == "idle":
                 mission.current_state = RobotState.IDLE
+                no_line_turn = False
                 print("Manual State: IDLE")
             elif cmd in ("", "n", "next"):
                 mission.request_step()
+                no_line_turn = False
                 print("Mission step requested.")
             elif cmd in ("reset", "mr"):
+                no_line_turn = False
                 mission.reset_mission()
             elif cmd == "wiggle":
                 run_calibration_flag = True
                 print("Wiggle calibration requested...")
+            elif cmd == "rnl":
+                mission.current_state = RobotState.RIGHT
+                mission.crossings_seen = 0
+                no_line_turn = True
+                print("Manual State: RIGHT_NO_LINE")
+            elif cmd == "lnl_1":
+                mission.current_state = RobotState.LEFT_1
+                mission.crossings_seen = 0
+                no_line_turn = True
+                print("Manual State: LEFT_1_NO_LINE")
+            elif cmd == "lnl_2":
+                mission.current_state = RobotState.LEFT_2
+                mission.crossings_seen = 0
+                no_line_turn = True
+                print("Manual State: LEFT_2_NO_LINE")
+
         except EOFError:
             break
 
@@ -239,24 +271,6 @@ def execute_turn(px, eyes, direction, pid, mission):
     px.set_dir_servo_angle(steer)
     current_motor_speed = config.TURN_PWM
     time.sleep(1.5) 
-
-    #entry_start = time.time()
-    
-    # while (time.time() - entry_start) < config.TURN_ENTRY_TIMEOUT:
-    #     raw = px.get_grayscale_data()
-    #     full_line_seen = all(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
-    #     if full_line_seen:
-    #         print("Full-width line detected.")
-    #         break
-    #     time.sleep(config.TURN_SCAN_INTERVAL)
-    #
-    # if not full_line_seen:
-    #     print("Turn aborted: No marker detected.")
-    #     px.stop()
-    #     current_motor_speed = 0
-    #     pid.reset()
-    #     mission.current_state = RobotState.IDLE
-    #     return False
 
     line_found = False
     start_scan = time.time()
@@ -292,6 +306,7 @@ def ignore_intersection(px, speed):
 
 def stop_at_line(px, base_speed):
     global current_motor_speed
+    time.sleep(config.STOP_DELAY)
     px.stop()
     current_motor_speed = 0
     time.sleep(config.STOP_HOLD_TIME)
@@ -300,7 +315,7 @@ def stop_at_line(px, base_speed):
     time.sleep(config.STOP_CLEAR_TIME)
 
 def main():
-    global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag
+    global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag, no_line_turn
 
     # --- SENSORS & ACTUATORS ---
     px = Picarx()
@@ -314,7 +329,8 @@ def main():
         RobotState.LEFT_2,
         RobotState.STRAIGHT,
         RobotState.RIGHT,
-        RobotState.STRAIGHT
+        RobotState.STRAIGHT,
+        RobotState.APPROACH_STOP
     ]
     mission = MissionManager(initial_mission)
 
@@ -333,6 +349,7 @@ def main():
     # --- ZMQ SERVER ---
     server = ServerManager()
     last_published_state = None
+    last_published_no_line_turn = None
 
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     history = []
@@ -389,9 +406,10 @@ def main():
                 pid.reset()
 
             # --- PUBLISH MISSION STATE ON CHANGE ---
-            if mission.current_state != last_published_state:
-                server.publish_mission_state(mission.current_state, mission.mission_queue)
+            if mission.current_state != last_published_state or no_line_turn != last_published_no_line_turn:
+                server.publish_mission_state(mission.current_state, mission.mission_queue, no_line_turn)
                 last_published_state = mission.current_state
+                last_published_no_line_turn = no_line_turn
 
             # 4) State Machine Failsafes
             if mission.current_state == RobotState.IDLE:
@@ -410,6 +428,30 @@ def main():
                 print("Approaching STOP LINE...")
                 px.forward(config.TURN_ENTRY_SPEED)
                 current_motor_speed = config.TURN_ENTRY_SPEED
+
+            trajectory_msg = server.receive_trajectory()
+
+            # Trigger no-stop-line turn using camera-provided distance to intersection.
+            # This only applies when operator/planner has flagged no-line mode.
+            if no_line_turn and trajectory_msg is not None:
+                _trajectory_points, distance_line = trajectory_msg
+                if distance_line is not None and 0 < distance_line < config.MAX_TURN_PROXIMITY:
+                    if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
+                        turn_dir = "left"
+                    elif mission.current_state == RobotState.RIGHT:
+                        turn_dir = "right"
+                    else:
+                        turn_dir = None
+
+                    if turn_dir is not None:
+                        if config.TURN_USE_CAMERA:
+                            success = execute_turn_with_camera(px, eyes, turn_dir, pid, mission, server)
+                        else:
+                            success = execute_turn(px, eyes, turn_dir, pid, mission)
+                        if success:
+                            no_line_turn = False
+                            mission.advance_mission()
+                        continue
 
             # Line Lost Failsafe
             if not eyes.last_line_seen:
@@ -436,6 +478,7 @@ def main():
                     else:
                         success = execute_turn(px, eyes, "left", pid, mission)
                     if success:
+                        no_line_turn = False
                         mission.advance_mission()
                     continue
                 elif mission.current_state == RobotState.LEFT_2:
@@ -446,6 +489,7 @@ def main():
                         else:
                             success = execute_turn(px, eyes, "left", pid, mission)
                         if success:
+                            no_line_turn = False
                             mission.advance_mission()
                     else:
                         print(f"Skipping intersection {mission.crossings_seen}/2")
@@ -457,6 +501,7 @@ def main():
                     else:
                         success = execute_turn(px, eyes, "right", pid, mission)
                     if success:
+                        no_line_turn = False
                         mission.advance_mission()
                     continue
 

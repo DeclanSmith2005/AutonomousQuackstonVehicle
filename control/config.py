@@ -25,6 +25,7 @@ APPROACH_SPEED = 10
 TURN_PWM = 3
 STOP_HOLD_TIME = 2.0
 STOP_CLEAR_TIME = 0.5
+STOP_DELAY = 0.25
 
 # --- TURN TUNING ---
 TURN_TIME = 2.0
@@ -38,6 +39,7 @@ TURN_STABILIZE_TIME = 0.1
 TURN_ENTRY_TIMEOUT = 5.0
 TURN_ENTRY_SPEED = 10
 TURN_STOP_HOLD_TIME = 1.0
+MAX_TURN_PROXIMITY = 20 # in cm
 
 # --- CAMERA-GUIDED TURN TUNING (Pure Pursuit / Adaptive Lookahead) ---
 TURN_USE_CAMERA = True           # Enable camera-guided turns (set False to use old blind turn)
