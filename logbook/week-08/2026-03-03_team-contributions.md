@@ -15,10 +15,10 @@ This team work session centered on stabilizing and cleaning the control stack be
 
 ## Entry - Rafael Costa
 
-**Time:** 14:30-16:30 (team session), Mar 4 follow-up commits  
+**Time:** 14:30-16:30, Mar 4 follow-up commits  
 **Activity Type:** Implementation, Refactoring, Testing, Documentation  
 **Status:** Completed  
-**Estimated Effort:** 2.5 h  
+**Estimated Effort:** 2 h  
 
 ### Work Performed
 
