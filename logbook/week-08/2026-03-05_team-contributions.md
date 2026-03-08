@@ -64,30 +64,40 @@ This was a high-impact integration session. Rapid iteration between implementati
 
 ## Entry - Ishaan Grewal
 
-**Time:** [Add time]  
-**Activity Type:** [Add activity type]  
-**Status:** [Add status]  
-**Estimated Effort:** [Add hours]  
+**Time:** 15:00-16:30  
+**Activity Type:** Implementation, Testing, Team Sync  
+**Status:** Completed, In Progress  
+**Estimated Effort:** 1.5  
 
-### Work Performed
+### Work Performed & Testing Results
 
-- [To be added by Ishaan]
+- **Object Detection Model - Implementation & Testing:** Tested the retained object detection model with Nolan. The major revision to this model's dataset was the addition of 60 new images for the Duck class, since the previous model failed to detect the class altogether.
+- **CTE Turn Implementation - Perception Team Sync:** Went over the new code that Nolan wrote to finish the CTE implementation for right and left turns. Modified/optimized the lane filtering to improve the polynomial fit (which was also changed to a third degree to better fit the turning curve).
+- **CTE Turn Implementation - Track Testing:** Nolan and I tested the new CTE (`lane_detection_and_cte.py`) for right and left turns via the live camera feed. Testing was conducted at intersections with stop signs, in which the grayscale sensor was positioned at different locations on the stop line to represent different detection scenarios. For example, CTE was observed at the front of the stop line (furthest away from the intersection), the middle of the stop line, and the end of the stop line (closest to the intersection). These three cases represented the worst, middle, and best case scenarios for where the car would stop, respectively. In addition to stop intersections, the CTE for turns was also tested at normal right and left turns. All testing images can be found [Here](https://github.com/ELEC-392/elec-392-project-duclair_2/tree/main/images/week-08/Perception_CTE_Testing) 
 
-### Decisions
+As expected, the CTE performed better closer to the intersection (at the end of the stop line) since the image is clearer and the source points trapezoid better captures the lanes of interest. The image below (on the left) showcases the lane detection for a left turn at the end of the stop line, with the curve fit (red dotted curve) and y_ref points (green). The image (on the right) also shows the original BEV transform before filtering and curve fitting.
 
-- [To be added by Ishaan]
+![Alt Text](../../images/week-08/Perception_CTE_Testing/end_of_stop_line_left.png)
+
+That being said, even in the worst case where the car stops at the front of the stop line (furtherest from the intersection), the curve fitting and CTE calculations still work as illustrated below for a left turn.
+
+![Alt Text](../../images/week-08/Perception_CTE_Testing/front_of_stop_line_left.png)
 
 ### Issues Encountered
 
-- [To be added by Ishaan]
+- **Object Detection Model:** Despite adding 60 new images to the model's dataset, it still fails to detect the Duck class. The team is unsure about what could be causing this issue and will discuss with Professor Paulo Araujo in the next studio/lab section.
 
 ### Next Steps
 
-- [ ] [To be added by Ishaan]
+- [ ] Modify `perception_server_comms.py` to include a means of sending object detections (and their distances) to the server.
+- [ ] Modify `perception_server_comms.py` to send the newly formatted CTE for turns (list of CTEs at various y_ref locations)
+- [ ] Discuss issues with the Duck class with Professor Paulo Araujo to finalize the object detection model once tested.
+- [ ] Test real-time perception integration with the server.
+- [ ] Test CTE for turns live and fully integrated with the PID control loop.
 
 ### Reflection
 
-[To be added by Ishaan]
+This work session reinforced the importance of iterative testing and collaboration when integrating perception algorithms with other subsystems. Through testing the updated CTE implementation for turns, I learned how sensitive lane detection and curve fitting are to the vehicle's stopping position relative to the intersection. Adjusting the lane filtering and switching to a third-degree polynomial improved the curve approximation, and testing across multiple stop-line positions helped validate that the CTE calculations remain usable even in less ideal conditions. This highlighted the value of testing algorithms across realistic edge cases rather than only ideal scenarios. The object detection model's continued inability to detect the Duck class, even after adding new training images, reveals a serious issue that needs to be addressed immediately, since this is a critical class to detect for safety considerations. That being said, with the CTE working, the Perception team is in a good spot relative to team timelines and has enough time to test and improve the CTE by testing it fully integrated with the PID loop. Moving forward, I will be focusing on designing perception outputs to better support downstream integration with the control system and server communications. Furthermore, future work will involve lots of hands-on testing with Rafael to ensure both systems integrate effectively and that Perception is providing the right inputs at the right time.
 
 ---
 
@@ -153,7 +163,7 @@ With CTE working the Perception team is in a good spot relative to the demo date
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ✅ | ZMQ integration, camera-guided turns, Pure Pursuit refactor, telemetry logs |
-| Ishaan Grewal | [Add] | [Add] | [To be added] |
+| Ishaan Grewal | 1.5 h | ✅/⚠️ | Object Detection Model (⚠️), CTE Turn Implementation (✅), Team Sync (✅) |
 | Nolan Su-Hackett | 1.5h | ✅] | Testing, Team Sync |
 | Declan Smith | [Add] | [Add] | [To be added] |
 
