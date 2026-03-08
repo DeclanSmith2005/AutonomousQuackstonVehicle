@@ -3,13 +3,13 @@ title: "Team Contributions - Team Work Session"
 date: 2026-03-03
 week: 8
 hours: X.X
-tags: [Control, Refactoring, Testing, Logging, Team Sync]
+tags: [Control, Refactoring, Testing, Logging, Perception, Team Sync]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 ---
 
 ## Daily Summary
 
-This team work session centered on stabilizing and cleaning the control stack before deeper CTE integration. Rafael refactored deadband handling into shared configuration, cleaned structure in control modules, expanded log-analysis capability, and collected a large set of run logs for tuning. The team also continued integration planning across subsystems. Teammate sections are left open below so each member can add their own details.
+This team work session centered on stabilizing and cleaning the control stack before deeper CTE integration. Rafael refactored deadband handling into shared configuration, cleaned the structure in control modules, expanded log-analysis capability, and collected a large set of run logs for tuning. On the Perception side, Ishaan and Nolan tested a retrained object detection model where the Vehicle class was restricted to side-view wheel images, which reduced previous false positives from track features. They also collected and annotated additional images for the Duck class to improve training data and continued development of the CTE pipeline for turn handling, including lane filtering and generation of reference points to pass to the control system. The team also held a cross-team discussion to clarify what CTE outputs the control loop requires for navigating turns, helping align perception outputs with control integration plans moving forward.
 
 ---
 
@@ -58,30 +58,34 @@ This session improved the maintainability of the control pipeline and set up cle
 
 ## Entry - Ishaan Grewal
 
-**Time:** [Add time]  
-**Activity Type:** [Add activity type]  
-**Status:** [Add status]  
-**Estimated Effort:** [Add hours]  
+**Time:** 14:30-16:30  
+**Activity Type:** Implementation, Testing, Coding   
+**Status:** In Progress, Completed  
+**Estimated Effort:** 2  
 
 ### Work Performed
 
-- [To be added by Ishaan]
+- **Object Detection Model - Implementation & Testing:** Tested the retrained object detection model with Nolan. The major revision in this model's dataset was reducing the Vehicle class to only images of the wheels from the side view (rather than having the front view as well). We found that with this improvement, the model was no longer misclassifying black rectangular shapes or sections of the mat as vehicles. On the contrary, the model still fails to detect ducks.
+- **CTE Implementation - Testing & Discussion:** Tested the CTE implementation for straight lines via live camera feed. Discussed with Control (Rafael) what elements of the implemented straight line CTE he wanted to use. Additionally, Nolan, Rafael, and I revisited how the CTE can be helpful for making turns, specifically discussing what exact outputs Rafael is looking for. Decisions made are discussed below.
+- **CTE For Turns - Coding/Development:** Modified `lane_detection_and_cte.py` to implement CTE calculations for making right and left turns. Primarily focused on helping Nolan with filtering out unwanted lane pixels based on the different vehicle state scenarios.
 
 ### Decisions
 
-- [To be added by Ishaan]
+- **CTE Implementation On Straight Roads:** After showcasing the CTE implementation to Rafael via live camera feed, we decided that, although this is a helpful feature, given the effectiveness of the current PID loop that has been implemented with the grayscale sensor, the implementation of CTE on straight paths of travel will be set aside for now. The primary reasons behind this decision are (1) the current PID loop handles straights and curves successfully, (2) with the competition 2 weeks away, if we wanted to implement the CTE into the current PID loop to make it more accurate, this would require significant parameter tuning and testing, which is not feasible with only 2 days a week of testing available on the mats, and (3) similar to the previous point, given the testing time constraints, it is project critical to prioritize CTE implementation for turns instead.
+- **CTE Implementation for Turns:** The Perception team's discussion with Rafael has clarified that for turns, the Control loop will stop the car briefly at the intersection and send an updated vehicle state command to the server. When the Perception pipeline acknowledges this update, it will compute a curve approximation for the turn, calculate 10 different CTE values along this curve at equally spaced distances, and then output the CTE at each y_ref point and the distance of each y_ref point to the server for the Control loop to read. Using these outputs, the PID loop will be guided through the turns.
 
 ### Issues Encountered
 
-- [To be added by Ishaan]
+- **Object Detection Model:** As mentioned above, the major issue with the current object detection model is that it is unable to detect the Duck class at all. Given this, Nolan and I decided to take more pictures of the ducks on the track in varying lighting conditions and to retrain the model on these images for Thursday's test session.
 
 ### Next Steps
 
-- [ ] [To be added by Ishaan]
+- [ ] Test the retrained Object Detection Model to see if it can classify the Duck Class.
+- [ ] Worth with Nolan on finishing CTE implementation for turns.
 
 ### Reflection
 
-[To be added by Ishaan]
+This work session highlighted the importance of aligning perception development with both dataset quality and system-level requirements. Testing the retrained object detection model showed how refining the dataset, specifically limiting the Vehicle class to side-view wheel images, can significantly reduce false positives, reinforcing that dataset design is critical to model performance. On the other hand, the model's inability to detect the Duck class revealed a gap in training data diversity, particularly across lighting conditions, indicating the need for more diverse data collection. Work and discussion on the CTE implementation also illustrated how perception outputs must directly support the control system, and how intertwined these two systems are. Due to limited testing time before competition, the team prioritized implementing CTE for turns rather than integrating it into straight-line control, highlighting how time and validation constraints influence engineering decisions. 
 
 ---
 
@@ -150,7 +154,7 @@ As the demo day approaches there are still quite a few unfinished tasks/problems
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ✅ | Control deadband/config refactor, log analysis improvements, run-log collection |
-| Ishaan Grewal | [Add] | [Add] | [To be added] |
+| Ishaan Grewal | [2.0 h | ✅/⚠️ | Testing (✅), CTE Implementation Planning (✅), CTE Turn Implementation(⚠️) |
 | Nolan Su-Hackett | 2.5h | ✅ | Data Collection, Annotation |
 | Declan Smith | [Add] | [Add] | [To be added] |
 
