@@ -154,7 +154,7 @@ As the demo day approaches there are still quite a few unfinished tasks/problems
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
 | Rafael Costa | 2.5 h | ✅ | Control deadband/config refactor, log analysis improvements, run-log collection |
-| Ishaan Grewal | [2.0 h | ✅/⚠️ | Testing (✅), CTE Implementation Planning (✅), CTE Turn Implementation(⚠️) |
+| Ishaan Grewal | 2.0 h | ✅/⚠️ | Testing (✅), CTE Implementation Planning (✅), CTE Turn Implementation(⚠️) |
 | Nolan Su-Hackett | 2.5h | ✅ | Data Collection, Annotation |
 | Declan Smith | [Add] | [Add] | [To be added] |
 
