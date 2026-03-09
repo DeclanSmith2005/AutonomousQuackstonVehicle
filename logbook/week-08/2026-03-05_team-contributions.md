@@ -2,7 +2,7 @@
 title: "Team Contributions - Team Work Session"
 date: 2026-03-05
 week: 8
-hours: X.X
+hours: 6.5
 tags: [Control, Perception, Integration, ZMQ, Testing]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 ---
@@ -131,32 +131,35 @@ With CTE working the Perception team is in a good spot relative to the demo date
 
 ## Entry - Declan Smith
 
-**Time:** [Add time]  
-**Activity Type:** [Add activity type]  
-**Status:** [Add status]  
-**Estimated Effort:** [Add hours]  
+**Time:** 16:00-16:30   
+**Activity Type:** Programming
+**Status:** Completed 
+**Estimated Effort:** 30 mins 
 
 ### Work Performed
 
-- [To be added by Declan]
+- Currently, having completed most tasks and waiting on further updates from the teaching team to finalize the wayfinding subsystem, so there was not much to do.
+- Wrote some preliminary test cases for the Dijkstra's implementation, which it passed.
+- Conferred with team memebers and agreed to work on the housing for the duck in future sessions given that I seem to be closest to completing my subsystem of the team, to make everyone's lives a little easier. 
 
 ### Decisions
 
-- [To be added by Declan]
+- N/A
 
 ### Issues Encountered
 
-- [To be added by Declan]
+- N/A
 
 ### Next Steps
 
-- [ ] [To be added by Declan]
+- [ ] Fare selection function (once documentation by the teaching team is completed)
+- [ ] Write more test cases to thoroughly test the subsystem virtually before sending instructions to the robot.
+- [ ] VFPS interaction  (once documentation by the teaching team is completed)
+- [ ] Create housing for the duck + laser sensor to check if it is in place.
 
 ### Reflection
 
-[To be added by Declan]
-
----
+Still waiting on the teaching team to provide the necessary resources to finish the subsystem, so there was not much work for me to do this session. I talked with teammates about what they have to go, and we worked through some potential problems we may face in the future, but there was not a lot of expertise I could leverage to help them with their specific tasks. My current main concern with the routing algorithm is with the difficulty of properly handling the roundabout; our existing logic, where we're boiling down the path finding into left, right, straight instructions, I think will suffer when it becomes ambiguous whether or not the car has arrived at its destination. We will have to conduct live testing with the car to determine how much of a problem this is and what can be done to fix it. ---
 
 ## Team Metrics
 
@@ -165,7 +168,7 @@ With CTE working the Perception team is in a good spot relative to the demo date
 | Rafael Costa | 3.0 h | ✅ | ZMQ integration, camera-guided turns, Pure Pursuit refactor, telemetry logs |
 | Ishaan Grewal | 1.5 h | ✅/⚠️ | Object Detection Model (⚠️), CTE Turn Implementation (✅), Team Sync (✅) |
 | Nolan Su-Hackett | 1.5h | ✅] | Testing, Team Sync |
-| Declan Smith | [Add] | [Add] | [To be added] |
+| Declan Smith | 30m | ✅ | Testing✅, Team Coordination / Planning ✅|
 
 ---
 
