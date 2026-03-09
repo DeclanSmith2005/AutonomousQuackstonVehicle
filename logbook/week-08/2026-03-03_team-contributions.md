@@ -2,7 +2,7 @@
 title: "Team Contributions - Team Work Session"
 date: 2026-03-03
 week: 8
-hours: X.X
+hours: 9.5
 tags: [Control, Refactoring, Testing, Logging, Perception, Team Sync]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 ---
@@ -120,32 +120,28 @@ As the demo day approaches there are still quite a few unfinished tasks/problems
 
 ---
 
-## Entry - Declan Smith
+## Entry – Declan Smith
 
-**Time:** [Add time]  
-**Activity Type:** [Add activity type]  
-**Status:** [Add status]  
-**Estimated Effort:** [Add hours]  
+**Time:** 14:30-16:30  
+**Activity Type:** Software Dev
+**Status:** In progress  
+**Estimated Effort:** 2.0h  
 
 ### Work Performed
+- Improved and revised the function that converts graph nodes to left / right / straight directions. Now properly accounts for T intersections and generally is more dynamic ( before it broke each direction into a section of angles to be catagorized, whereas now it looks at the releative direction of each possible path to each other.)
+- Above changes were made after interaction with team leads on line following to make the the function more compatible with their existing architecture.
+- Consulted with TA's on car placement at the beginning of each round of the competition. Once the path following is in progress, its easy to know exactly where the car is/is moving, but before it first moves, it can be ambiguous which way it is pointing, so we need to choose some rule to hard-code so that we know which way it is pointing at the start. Fortunately, we were told that the placement around the start area was up to us, which gives me the flexibility I need to approach the problem.
+- Consulted with TA's on the VFPS documentation, which has so far been lacking in depth. They told us that there is a major update coming later in the week, which I look forward to looking over soon. 
 
-- [To be added by Declan]
-
-### Decisions
-
-- [To be added by Declan]
-
-### Issues Encountered
-
-- [To be added by Declan]
 
 ### Next Steps
+- Complete fare selection
+- wait for teaching team to provide necessary resources to include VFPS
+- write test cases to ensure exsiting way finding funcitons are working as intended. 
 
-- [ ] [To be added by Declan]
 
 ### Reflection
-
-[To be added by Declan]
+I have almost completely completed work on the wayfinding and fare selection subsystem. I still need to write the algorithm for accepting fares and interact with VFPS to regularly gather my position data, but both tasks are somewhat reliant on updates from the teaching team, so for now there isn't much work to be done. We seem to be on pace for a successful competition in week 11. 
 
 ---
 
@@ -156,7 +152,7 @@ As the demo day approaches there are still quite a few unfinished tasks/problems
 | Rafael Costa | 2.5 h | ✅ | Control deadband/config refactor, log analysis improvements, run-log collection |
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Testing (✅), CTE Implementation Planning (✅), CTE Turn Implementation(⚠️) |
 | Nolan Su-Hackett | 2.5h | ✅ | Data Collection, Annotation |
-| Declan Smith | [Add] | [Add] | [To be added] |
+| Declan Smith | 2.5h | ✅ | Conferring with teaching team ✅, update routing algorithm ✅|
 
 ---
 
