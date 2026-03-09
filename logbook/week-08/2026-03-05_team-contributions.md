@@ -67,7 +67,7 @@ This was a high-impact integration session. Rapid iteration between implementati
 **Time:** 15:00-16:30  
 **Activity Type:** Implementation, Testing, Team Sync  
 **Status:** Completed, In Progress  
-**Estimated Effort:** 1.5  
+**Estimated Effort:** 1.5 h
 
 ### Work Performed & Testing Results
 
@@ -134,7 +134,7 @@ With CTE working the Perception team is in a good spot relative to the demo date
 **Time:** 16:00-16:30   
 **Activity Type:** Programming
 **Status:** Completed 
-**Estimated Effort:** 30 mins 
+**Estimated Effort:** 0.5 h 
 
 ### Work Performed
 
@@ -167,8 +167,8 @@ Still waiting on the teaching team to provide the necessary resources to finish 
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ✅ | ZMQ integration, camera-guided turns, Pure Pursuit refactor, telemetry logs |
 | Ishaan Grewal | 1.5 h | ✅/⚠️ | Object Detection Model (⚠️), CTE Turn Implementation (✅), Team Sync (✅) |
-| Nolan Su-Hackett | 1.5h | ✅] | Testing, Team Sync |
-| Declan Smith | 30m | ✅ | Testing✅, Team Coordination / Planning ✅|
+| Nolan Su-Hackett | 1.5h | ✅ | Testing, Team Sync |
+| Declan Smith | 0.5 h | ✅ | Testing✅, Team Coordination / Planning ✅|
 
 ---
 
