@@ -2,7 +2,7 @@
 title: "Team Contributions - Team Work Session"
 date: 2026-03-03
 week: 8
-hours: 9.5
+hours: 8.0
 tags: [Control, Refactoring, Testing, Logging, Perception, Team Sync]
 contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 ---
@@ -18,7 +18,7 @@ This team work session centered on stabilizing and cleaning the control stack be
 **Time:** 14:30-16:30, Mar 4 follow-up commits  
 **Activity Type:** Implementation, Refactoring, Testing, Documentation  
 **Status:** Completed  
-**Estimated Effort:** 2 h  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 
@@ -61,7 +61,7 @@ This session improved the maintainability of the control pipeline and set up cle
 **Time:** 14:30-16:30  
 **Activity Type:** Implementation, Testing, Coding   
 **Status:** In Progress, Completed  
-**Estimated Effort:** 2  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 
@@ -94,7 +94,7 @@ This work session highlighted the importance of aligning perception development 
 **Time:** 14:30-16:30 (team session) 
 **Activity Type:** Data Collection, Testing  
 **Status:** Completed  
-**Estimated Effort:** 2.5 h  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 
@@ -125,7 +125,7 @@ As the demo day approaches there are still quite a few unfinished tasks/problems
 **Time:** 14:30-16:30  
 **Activity Type:** Software Dev
 **Status:** In progress  
-**Estimated Effort:** 2.0h  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 - Improved and revised the function that converts graph nodes to left / right / straight directions. Now properly accounts for T intersections and generally is more dynamic ( before it broke each direction into a section of angles to be catagorized, whereas now it looks at the releative direction of each possible path to each other.)
@@ -149,10 +149,10 @@ I have almost completely completed work on the wayfinding and fare selection sub
 
 | Member | Hours | Status | Key Contribution |
 |--------|-------|--------|------------------|
-| Rafael Costa | 2.5 h | ✅ | Control deadband/config refactor, log analysis improvements, run-log collection |
+| Rafael Costa | 2.0 h | ✅ | Control deadband/config refactor, log analysis improvements, run-log collection |
 | Ishaan Grewal | 2.0 h | ✅/⚠️ | Testing (✅), CTE Implementation Planning (✅), CTE Turn Implementation(⚠️) |
-| Nolan Su-Hackett | 2.5h | ✅ | Data Collection, Annotation |
-| Declan Smith | 2.5h | ✅ | Conferring with teaching team ✅, update routing algorithm ✅|
+| Nolan Su-Hackett | 2.0 h | ✅ | Data Collection, Annotation |
+| Declan Smith | 2.0 h | ✅ | Conferring with teaching team ✅, update routing algorithm ✅|
 
 ---
 
