@@ -9,7 +9,7 @@ contributors: [Rafael Costa, Ishaan Grewal, Nolan Su-Hackett, Declan Smith]
 
 ## Daily Summary
 
-This session focused on subsystem integration between Control and Perception using ZeroMQ and camera-guided turn logic. Rafael implemented mission-state publishing and CTE reception, iterated through a temporary ZMQ disable/enable cycle for testing, introduced camera-guided turn handling, and then refactored the approach to a Pure Pursuit style controller with adaptive lookahead. Follow-up commits on Mar 6 simplified trajectory handling in perception modules and added more run logs from testing. Teammate sections are intentionally left open for individual additions.
+This session focused on subsystem integration between Control and Perception using ZeroMQ and camera-guided turn logic. Rafael implemented mission-state publishing and CTE reception, iterated through a temporary ZMQ disable/enable cycle for testing, introduced camera-guided turn handling, and then refactored the approach to a Pure Pursuit style controller with adaptive lookahead. Follow-up commits on Mar 6 simplified trajectory handling in perception modules and added more run logs from testing. Perception focused mainly on testing the new object detection model aswell as the revised CTE code using the live camera on the car.
 
 ---
 
