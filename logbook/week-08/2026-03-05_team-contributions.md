@@ -167,7 +167,7 @@ Still waiting on the teaching team to provide the necessary resources to finish 
 |--------|-------|--------|------------------|
 | Rafael Costa | 3.0 h | ✅ | ZMQ integration, camera-guided turns, Pure Pursuit refactor, telemetry logs |
 | Ishaan Grewal | 1.5 h | ✅/⚠️ | Object Detection Model (⚠️), CTE Turn Implementation (✅), Team Sync (✅) |
-| Nolan Su-Hackett | 1.5h | ✅] | Testing, Team Sync |
+| Nolan Su-Hackett | 1.5h | ✅ | Testing, Team Sync |
 | Declan Smith | 30m | ✅ | Testing✅, Team Coordination / Planning ✅|
 
 ---
