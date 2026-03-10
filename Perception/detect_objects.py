@@ -23,21 +23,23 @@ REAL_HEIGHTS = {
     "Yield": 0.047,
     "DNE": 0.04,
     "Duck": 0.03
-} # Need to add  cars
+}  # Need to add  cars
 
 # Camera focal length in pixels, obtained from camera calibration
 fy = 616.13761171
 
-def compute_distance(label, pixel_height): 
+
+def compute_distance(label, pixel_height):
     if pixel_height <= 0:
         return None
-    
+
     real_height = REAL_HEIGHTS.get(label, None)
     if real_height is None:
         return None
-    
+
     distance = (real_height * fy) / pixel_height
     return distance
+
 
 for frame in vision.get_frames(display=False):
     start_time = time.time()
@@ -82,6 +84,5 @@ print(f"\nProcessed {frame_count} frames total")
 if frame_count > 0:
     avg_time = total_processing_time / frame_count
     fps = 1.0 / avg_time if avg_time > 0 else 0
-    print(f"Average processing time per frame: {avg_time*1000:.2f} ms")
+    print(f"Average processing time per frame: {avg_time * 1000:.2f} ms")
     print(f"Average FPS: {fps:.2f}")
-
