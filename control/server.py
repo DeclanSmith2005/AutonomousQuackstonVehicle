@@ -3,6 +3,21 @@ import math
 import zmq
 import config
 
+
+def _validate_distance_cm(value):
+    """Return a sane distance in cm or None for invalid/outlier data."""
+    try:
+        distance_cm = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(distance_cm):
+        return None
+    if not (config.DISTANCE_MIN_CM <= distance_cm <= config.DISTANCE_MAX_CM):
+        return None
+    return distance_cm
+
+
 class ServerManager:
     """Manages ZMQ sockets for mission state publishing and CTE/trajectory reception."""
     
@@ -37,14 +52,15 @@ class ServerManager:
         time.sleep(0.1)
         print(f"[ZMQ] Publishing on port {pub_port}, Subscribing on port {sub_port}")
     
-    def publish_mission_state(self, state, mission_queue, no_line):
+    def publish_mission_state(self, state, mission_queue, no_line, stopped):
         """Publish current mission state to subscribers."""
         try:
             msg = {
                 "topic": "MISSION_STATE",
                 "state": state.name if hasattr(state, 'name') else str(state),
                 "queue": [s.name if hasattr(s, 'name') else str(s) for s in mission_queue],
-                "no_line": no_line
+                "no_line": no_line,
+                "stopped": stopped
             }
             self.pub_socket.send_json(msg)
         except Exception as e:
@@ -77,11 +93,12 @@ class ServerManager:
                         self.camera_cte_timestamp = time.time()
                     
                     elif topic == "TRAJECTORY":
-                        self.trajectory = msg.get("points")
+                        self.trajectory = msg.get("cte") # in meters
+                        self.trajectory = msg.get("y_ref") # in meters
                         self.trajectory_timestamp = time.time()
                     
-                    elif topic == "DISTANCE":
-                        distance_line = self._validate_distance_cm(msg.get("distance_line"))
+                    elif topic == "DISTANCE_TO_STOP":
+                        distance_line = _validate_distance_cm(msg.get("distance_line"))
                         if distance_line is not None:
                             self.intersection_distance_cm = distance_line
                             self.intersection_distance_timestamp = time.time()
@@ -102,19 +119,6 @@ class ServerManager:
                 return self.camera_cte
         return None
 
-    def _validate_distance_cm(self, value):
-        """Return a sane distance in cm or None for invalid/outlier data."""
-        try:
-            distance_cm = float(value)
-        except (TypeError, ValueError):
-            return None
-
-        if not math.isfinite(distance_cm):
-            return None
-        if not (config.DISTANCE_MIN_CM <= distance_cm <= config.DISTANCE_MAX_CM):
-            return None
-        return distance_cm
-    
     def receive_intersection_distance(self):
         """Non-blocking receive of distance to intersection from camera system.
         

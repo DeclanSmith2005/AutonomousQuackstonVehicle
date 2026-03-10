@@ -54,7 +54,7 @@ class LineSensor:
         # left, center, right = signals
         
         # All three sensors detect line = intersection or stop
-        if (all(s > self.LOGIC_DETECT for s in signals)):  # center and right
+        if all(s > self.LOGIC_DETECT for s in signals):  # center and right
             return "CROSS"
 
         # At least one sensor detects white line

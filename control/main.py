@@ -18,6 +18,7 @@ force_line_lost = False
 force_intersection = False
 run_calibration_flag = False
 no_line_turn = False
+stopped = False
 
 
 # --- CAMERA-GUIDED TURN HELPERS (Pure Pursuit / Adaptive Lookahead) ---
@@ -102,13 +103,14 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     making turn behavior speed-invariant. Steers until grayscale sensor
     re-acquires the line.
     """
-    global current_motor_speed
+    global current_motor_speed, stopped
     
     print(f"Executing camera-guided {direction} turn (lookahead={config.LOOKAHEAD_DISTANCE_CM}cm)...")
     
     # 1) Stop at intersection
-    time.sleep(0.25)
+    time.sleep(0.10)
     px.stop()
+    stopped = True
     current_motor_speed = 0
     time.sleep(config.TURN_STOP_HOLD_TIME)
     
@@ -310,7 +312,7 @@ def stop_at_line(px, base_speed):
     time.sleep(config.STOP_CLEAR_TIME)
 
 def main():
-    global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag, no_line_turn
+    global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag, no_line_turn, stopped
 
     # --- SENSORS & ACTUATORS ---
     px = Picarx()
@@ -409,7 +411,7 @@ def main():
                 or no_line_turn != last_published_no_line_turn
                 or should_heartbeat_publish
             ):
-                server.publish_mission_state(mission.current_state, mission.mission_queue, no_line_turn)
+                server.publish_mission_state(mission.current_state, mission.mission_queue, no_line_turn, stopped)
                 last_published_state = mission.current_state
                 last_published_no_line_turn = no_line_turn
                 last_mission_publish_time = time.time()
