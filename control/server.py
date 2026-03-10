@@ -95,7 +95,7 @@ class ServerManager:
                     elif topic == "TRAJECTORY":
                         self.trajectory = msg.get("cte") # in meters
                         self.trajectory = msg.get("y_ref") # in meters
-                        self.trajectory_timestamp = time.time()
+                        self.trajectory_timestamp = msg.get("timestamp")
                     
                     elif topic == "DISTANCE_TO_STOP":
                         distance_line = _validate_distance_cm(msg.get("distance_line"))
