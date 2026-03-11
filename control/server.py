@@ -18,6 +18,33 @@ def _validate_distance_cm(value):
     return distance_cm
 
 
+def _parse_csv_floats(value):
+    """Parse a comma-separated string into a list of floats.
+    
+    Parameters
+    ----------
+    value : str
+        Comma-separated float values, e.g. "0.1,0.2,0.3"
+    
+    Returns
+    -------
+    list of float or None
+        Parsed list, or None if parsing fails.
+    """
+    if value is None:
+        return None
+    try:
+        if isinstance(value, str):
+            return [float(x.strip()) for x in value.split(',') if x.strip()]
+        elif isinstance(value, (list, tuple)):
+            return [float(x) for x in value]
+        else:
+            return [float(value)]
+    except (TypeError, ValueError) as e:
+        print(f"[ZMQ] Error parsing CSV floats: {e}")
+        return None
+
+
 class ServerManager:
     """Manages ZMQ sockets for mission state publishing and CTE/trajectory reception."""
     
@@ -39,7 +66,8 @@ class ServerManager:
         self.camera_cte_timeout = 0.5  # CTE valid for 500ms
         
         # Trajectory state for turns
-        self.trajectory = None
+        self.trajectory_cte = None  # CTE in meters from perception
+        self.trajectory_distance = None  # Lookahead distance in meters from perception
         self.trajectory_timestamp = 0
         self.trajectory_timeout = config.TRAJECTORY_TIMEOUT
 
@@ -93,9 +121,14 @@ class ServerManager:
                         self.camera_cte_timestamp = time.time()
                     
                     elif topic == "TRAJECTORY":
-                        self.trajectory = msg.get("cte") # in meters
-                        self.trajectory = msg.get("y_ref") # in meters
-                        self.trajectory_timestamp = msg.get("timestamp")
+                        # Parse comma-separated strings into lists of floats
+                        cte_list = _parse_csv_floats(msg.get("cte"))
+                        # Support both "distance" (new) and "y_ref" (legacy) keys
+                        distance_list = _parse_csv_floats(msg.get("distance") or msg.get("y_ref"))
+                        if cte_list is not None and distance_list is not None:
+                            self.trajectory_cte = cte_list  # list of CTE values in meters
+                            self.trajectory_distance = distance_list  # list of lookahead distances in meters
+                            self.trajectory_timestamp = time.time()  # Use local receive time for freshness check
                     
                     elif topic == "DISTANCE_TO_STOP":
                         distance_line = _validate_distance_cm(msg.get("distance_line"))
@@ -135,19 +168,23 @@ class ServerManager:
         return None
     
     def receive_trajectory(self):
-        """Non-blocking receive of trajectory points.
+        """Non-blocking receive of trajectory data.
 
         Returns
         -------
-        list or None
-            points list[(dist_cm, cte_cm)] when fresh.
+        dict or None
+            {'cte': list[float], 'distance': list[float]} in meters when fresh, None otherwise.
+            Each list contains values parsed from comma-separated strings.
+            - cte: Cross-Track Error at each lookahead point (meters)
+            - distance: Lookahead distance from car (meters)
         """
         self._process_incoming_messages()
         
         # Return trajectory only if it's fresh
-        if self.trajectory is not None:
+        if self.trajectory_cte is not None:
             if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
-                return self.trajectory
+                print(f"[ZMQ] Trajectory: cte={self.trajectory_cte}, distance={self.trajectory_distance}")
+                return {'cte': self.trajectory_cte, 'distance': self.trajectory_distance}
         return None
     
     def close(self):

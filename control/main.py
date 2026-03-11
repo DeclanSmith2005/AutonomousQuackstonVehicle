@@ -108,7 +108,6 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     print(f"Executing camera-guided {direction} turn (lookahead={config.LOOKAHEAD_DISTANCE_CM}cm)...")
     
     # 1) Stop at intersection
-    time.sleep(0.10)
     px.stop()
     stopped = True
     current_motor_speed = 0
@@ -116,10 +115,10 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     
     # 2) Initial rotation to point toward exit lane
     initial_steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
-    px.set_dir_servo_angle(initial_steer)
-    px.forward(config.TURN_PWM)
-    current_motor_speed = config.TURN_PWM
-    time.sleep(config.TURN_INITIAL_ROTATION_TIME)
+    # px.set_dir_servo_angle(initial_steer)
+    # px.forward(config.TURN_PWM)
+    # current_motor_speed = config.TURN_PWM
+    # time.sleep(config.TURN_INITIAL_ROTATION_TIME)
     
     # 3) Camera-guided trajectory following with Pure Pursuit
     turn_start = time.time()
@@ -136,25 +135,40 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
             px.forward(5)
             return True
         
-        # Get camera trajectory
-        trajectory_points = server.receive_trajectory()
+        # Get camera trajectory (cte and distance lists in meters)
+        trajectory_data = server.receive_trajectory()
 
-        if trajectory_points and len(trajectory_points) > 0:
-            # Pure Pursuit: always target a point at fixed distance ahead
-            cte_cm = get_lookahead_cte(trajectory_points, config.LOOKAHEAD_DISTANCE_CM)
+        if trajectory_data is not None:
+            cte_list = trajectory_data.get('cte')  # list of CTE values in meters
+            distance_list = trajectory_data.get('distance')  # list of lookahead distances in meters
             
-            if cte_cm is not None:
-                # P-controller acting on the lookahead point
-                # Negative sign: positive CTE (lane to right) → steer right (negative angle)
-                steering = -cte_cm * config.TRAJECTORY_KP
-                steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
+            if cte_list and distance_list and len(cte_list) == len(distance_list):
+                # Build trajectory as list of (distance_cm, cte_cm) for Pure Pursuit
+                trajectory = [(d * 100, c * 100) for d, c in zip(distance_list, cte_list)]
                 
-                px.set_dir_servo_angle(steering)
+                # Use Pure Pursuit to find CTE at lookahead distance
+                cte_cm = get_lookahead_cte(trajectory, config.LOOKAHEAD_DISTANCE_CM)
+                
+                if cte_cm is not None:
+                    # P-controller acting on CTE
+                    # Negative sign: positive CTE (lane to right) → steer right (negative angle)
+                    steering = -cte_cm * config.TRAJECTORY_KP
+                    steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
+                    
+                    px.set_dir_servo_angle(steering)
+                    px.forward(config.TURN_PWM)
+                    
+                    # Debug output (throttled to ~2.5Hz)
+                    if int(time.time() * 5) % 2 == 0:
+                        print(f"  Camera CTE={cte_cm:.1f}cm @ {config.LOOKAHEAD_DISTANCE_CM}cm → Steer={steering:.1f}°")
+                else:
+                    # Couldn't interpolate - use initial steering
+                    px.set_dir_servo_angle(initial_steer)
+                    px.forward(config.TURN_PWM)
+            else:
+                print(f"[TURN] Invalid trajectory: cte={len(cte_list) if cte_list else 0}, distance={len(distance_list) if distance_list else 0}")
+                px.set_dir_servo_angle(initial_steer)
                 px.forward(config.TURN_PWM)
-                
-                # Debug output (throttled to ~2.5Hz)
-                if int(time.time() * 5) % 2 == 0:
-                    print(f"  Lookahead: CTE={cte_cm:.1f}cm @ {config.LOOKAHEAD_DISTANCE_CM}cm → Steer={steering:.1f}°")
         else:
             # No camera data — maintain initial steering direction
             px.set_dir_servo_angle(initial_steer)
@@ -318,16 +332,15 @@ def main():
     px = Picarx()
     eyes = LineSensor(config.OFFSETS)
     pid = PIDController(config.KP, config.KI, config.KD, min_out=-config.MAX_STEER, max_out=config.MAX_STEER)
-
     # --- MISSION ---
     # Default mission from main_old.py
     initial_mission = [
         RobotState.STRAIGHT,
-        RobotState.LEFT_2,
+        RobotState.RIGHT,
         RobotState.STRAIGHT,
         RobotState.RIGHT,
         RobotState.STRAIGHT,
-        RobotState.APPROACH_STOP
+        RobotState.RIGHT
     ]
     mission = MissionManager(initial_mission)
 
@@ -431,6 +444,7 @@ def main():
             if (mission.current_state == RobotState.APPROACH_STOP or mission.current_state == RobotState.LEFT_1
                     or mission.current_state == RobotState.LEFT_2 or mission.current_state == RobotState.RIGHT):
                 print("Approaching STOP LINE...")
+                px.set_cam_tilt_angle(-30)
                 px.forward(config.TURN_ENTRY_SPEED)
                 current_motor_speed = config.TURN_ENTRY_SPEED
 
