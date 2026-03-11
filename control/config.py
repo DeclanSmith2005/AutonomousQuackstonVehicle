@@ -41,14 +41,19 @@ TURN_STOP_HOLD_TIME = 3.0
 MAX_TURN_PROXIMITY = 20 # in cm
 NO_LINE_TRIGGER_SAMPLES = 3
 
-# --- CAMERA-GUIDED TURN TUNING (Pure Pursuit / Adaptive Lookahead) ---
+# --- CAMERA-GUIDED TURN TUNING (Snapshot-based) ---
 TURN_USE_CAMERA = True           # Enable camera-guided turns (set False to use old blind turn)
-LOOKAHEAD_DISTANCE_CM = 3.0     # Physical distance ahead to target (Pure Pursuit)
-TRAJECTORY_KP = 1.0              # Steering gain per cm of CTE (higher = more aggressive curve following)
-TURN_CAMERA_TIMEOUT = 4.0        # Max time for camera-guided turn before fallback
+SNAPSHOT_WAIT_TIMEOUT = 1.0      # Max time to wait for trajectory snapshot (s)
+TRAJECTORY_KP = 1.0              # Steering gain per cm of CTE (higher = more aggressive)
+TURN_CAMERA_TIMEOUT = 4.0        # Max turn duration before fallback (s)
 TURN_INITIAL_ROTATION_TIME = 0.3 # Brief initial rotation to point toward exit lane
 TRAJECTORY_TIMEOUT = 0.3         # Freshness window for trajectory points (s)
 INTERSECTION_DISTANCE_TIMEOUT = 0.4  # Freshness window for distance_line (s)
+
+# --- VELOCITY CALIBRATION (v = VELOCITY_SLOPE * PWM + VELOCITY_INTERCEPT) ---
+# Calibrated relationship: velocity (m/s) = 0.2431 * PWM + 0.1861
+VELOCITY_SLOPE = 0.2431          # m/s per PWM unit
+VELOCITY_INTERCEPT = 0.1861      # m/s at PWM=0
 DISTANCE_MIN_CM = 1.0
 DISTANCE_MAX_CM = 300.0
 

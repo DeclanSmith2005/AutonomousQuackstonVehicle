@@ -96,16 +96,26 @@ def scan_for_line_fallback(px, eyes, mission, pid):
     return True
 
 
-def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
-    """Camera-guided turn using Pure Pursuit (adaptive lookahead).
+def pwm_to_velocity(pwm):
+    """Convert PWM value to velocity in m/s using calibrated linear model.
     
-    Uses a fixed lookahead distance to find the target point on the trajectory,
-    making turn behavior speed-invariant. Steers until grayscale sensor
-    re-acquires the line.
+    Calibration: v = VELOCITY_SLOPE * PWM + VELOCITY_INTERCEPT (m/s)
+    Default: v = 0.2431 * PWM + 0.1861
+    """
+    return config.VELOCITY_SLOPE * pwm + config.VELOCITY_INTERCEPT
+
+
+def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
+    """Camera-guided turn using a single trajectory snapshot.
+    
+    Captures the trajectory once at the start of the turn, then follows it
+    open-loop by stepping through CTE points based on actual distance traveled
+    (using calibrated PWM-to-velocity model).
+    Exits when grayscale sensor re-acquires the line.
     """
     global current_motor_speed, stopped
     
-    print(f"Executing camera-guided {direction} turn (lookahead={config.LOOKAHEAD_DISTANCE_CM}cm)...")
+    print(f"Executing snapshot-based {direction} turn...")
     
     # 1) Stop at intersection
     px.stop()
@@ -113,15 +123,44 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     current_motor_speed = 0
     time.sleep(config.TURN_STOP_HOLD_TIME)
     
-    # 2) Initial rotation to point toward exit lane
+    # 2) Default steering direction if no camera data
     initial_steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
-    # px.set_dir_servo_angle(initial_steer)
-    # px.forward(config.TURN_PWM)
-    # current_motor_speed = config.TURN_PWM
-    # time.sleep(config.TURN_INITIAL_ROTATION_TIME)
     
-    # 3) Camera-guided trajectory following with Pure Pursuit
+    # 3) Capture single trajectory snapshot (wait up to 1 second)
+    print("  Waiting for trajectory snapshot...")
+    snapshot_trajectory = None
+    snapshot_start = time.time()
+    
+    while (time.time() - snapshot_start) < config.SNAPSHOT_WAIT_TIMEOUT:
+        trajectory_data = server.receive_trajectory()
+        if trajectory_data is not None:
+            cte_list = trajectory_data.get('cte')
+            distance_list = trajectory_data.get('distance')
+            
+            if cte_list and distance_list and len(cte_list) == len(distance_list):
+                # Build trajectory as list of (distance_cm, cte_cm)
+                snapshot_trajectory = [(d * 100, c * 100) for d, c in zip(distance_list, cte_list)]
+                print(f"  Captured trajectory with {len(snapshot_trajectory)} points")
+                print(f"  Distance range: {snapshot_trajectory[0][0]:.1f}cm to {snapshot_trajectory[-1][0]:.1f}cm")
+                break
+        time.sleep(0.05)
+    
+    if snapshot_trajectory is None:
+        print("  No trajectory received — using blind turn")
+        px.set_dir_servo_angle(initial_steer)
+        px.forward(config.TURN_PWM)
+        time.sleep(config.TURN_BLIND_TIME)
+        return scan_for_line_fallback(px, eyes, mission, pid)
+    
+    # 4) Follow the snapshot trajectory using distance-based stepping
+    # Calculate velocity from PWM: v = 0.2431 * PWM + 0.1861 (m/s)
+    velocity_mps = pwm_to_velocity(config.TURN_PWM)
+    velocity_cmps = velocity_mps * 100  # Convert to cm/s
+    print(f"  Turn velocity: {velocity_cmps:.2f} cm/s (PWM={config.TURN_PWM})")
+    
     turn_start = time.time()
+    last_time = turn_start
+    distance_traveled_cm = 0.0
     
     while (time.time() - turn_start) < config.TURN_CAMERA_TIMEOUT:
         
@@ -129,54 +168,53 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
         raw = px.get_grayscale_data()
         on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
         if on_line:
-            print("Line re-acquired by grayscale — exiting turn")
+            print(f"Line re-acquired by grayscale at {distance_traveled_cm:.1f}cm — exiting turn")
             mission.current_state = RobotState.STRAIGHT
             pid.reset()
             px.forward(5)
             return True
         
-        # Get camera trajectory (cte and distance lists in meters)
-        trajectory_data = server.receive_trajectory()
-
-        if trajectory_data is not None:
-            cte_list = trajectory_data.get('cte')  # list of CTE values in meters
-            distance_list = trajectory_data.get('distance')  # list of lookahead distances in meters
-            
-            if cte_list and distance_list and len(cte_list) == len(distance_list):
-                # Build trajectory as list of (distance_cm, cte_cm) for Pure Pursuit
-                trajectory = [(d * 100, c * 100) for d, c in zip(distance_list, cte_list)]
-                
-                # Use Pure Pursuit to find CTE at lookahead distance
-                cte_cm = get_lookahead_cte(trajectory, config.LOOKAHEAD_DISTANCE_CM)
-                
-                if cte_cm is not None:
-                    # P-controller acting on CTE
-                    # Negative sign: positive CTE (lane to right) → steer right (negative angle)
-                    steering = -cte_cm * config.TRAJECTORY_KP
-                    steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
-                    
-                    px.set_dir_servo_angle(steering)
-                    px.forward(config.TURN_PWM)
-                    
-                    # Debug output (throttled to ~2.5Hz)
-                    if int(time.time() * 5) % 2 == 0:
-                        print(f"  Camera CTE={cte_cm:.1f}cm @ {config.LOOKAHEAD_DISTANCE_CM}cm → Steer={steering:.1f}°")
-                else:
-                    # Couldn't interpolate - use initial steering
-                    px.set_dir_servo_angle(initial_steer)
-                    px.forward(config.TURN_PWM)
-            else:
-                print(f"[TURN] Invalid trajectory: cte={len(cte_list) if cte_list else 0}, distance={len(distance_list) if distance_list else 0}")
-                px.set_dir_servo_angle(initial_steer)
-                px.forward(config.TURN_PWM)
-        else:
-            # No camera data — maintain initial steering direction
-            px.set_dir_servo_angle(initial_steer)
-            px.forward(config.TURN_PWM)
+        # Update distance traveled
+        current_time = time.time()
+        dt = current_time - last_time
+        last_time = current_time
+        distance_traveled_cm += velocity_cmps * dt
         
-        time.sleep(0.05)  # ~20Hz camera loop
+        # Find the trajectory point closest to our current distance
+        # Trajectory points are (distance_cm, cte_cm) sorted near-to-far
+        cte_cm = None
+        for i, (dist, cte) in enumerate(snapshot_trajectory):
+            if distance_traveled_cm <= dist:
+                # Interpolate between previous and current point
+                if i == 0:
+                    cte_cm = cte
+                else:
+                    prev_dist, prev_cte = snapshot_trajectory[i - 1]
+                    # Linear interpolation
+                    ratio = (distance_traveled_cm - prev_dist) / (dist - prev_dist) if dist != prev_dist else 0
+                    cte_cm = prev_cte + ratio * (cte - prev_cte)
+                break
+        
+        # If we've traveled past all points, use the last one
+        if cte_cm is None:
+            cte_cm = snapshot_trajectory[-1][1]
+        
+        # P-controller: positive CTE (lane right) → steer right (negative angle)
+        steering = -cte_cm * config.TRAJECTORY_KP
+        steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
+        
+        px.set_dir_servo_angle(steering)
+        px.forward(config.TURN_PWM)
+        current_motor_speed = config.TURN_PWM
+        
+        # Debug output (throttled to ~2.5Hz)
+        if int(time.time() * 5) % 2 == 0:
+            print(f"  Traveled={distance_traveled_cm:.1f}cm, CTE={cte_cm:.1f}cm → Steer={steering:.1f}°")
+        
+        time.sleep(0.05)  # ~20Hz control loop
     
-    # 4) Camera timeout — fall back to grayscale scan
+    # 5) Timeout — fall back to grayscale scan
+    print(f"  Turn timeout at {distance_traveled_cm:.1f}cm traveled")
     return scan_for_line_fallback(px, eyes, mission, pid)
 
 
