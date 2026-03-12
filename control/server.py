@@ -123,17 +123,15 @@ class ServerManager:
                     elif topic == "TRAJECTORY":
                         # Parse comma-separated strings into lists of floats
                         cte_list = _parse_csv_floats(msg.get("cte"))
-                        distance_list = _parse_csv_floats(msg.get("distance") or msg.get("y_ref"))
+                        distance_list = _parse_csv_floats(msg.get("distance"))
+                        distance_line = _validate_distance_cm(msg.get("distance_to_line"))
+                        if distance_line is not None:
+                            self.intersection_distance_cm = distance_line
+                            self.intersection_distance_timestamp = time.time()
                         if cte_list is not None and distance_list is not None:
                             self.trajectory_cte = cte_list  # list of CTE values in meters
                             self.trajectory_distance = distance_list  # list of lookahead distances in meters
                             self.trajectory_timestamp = time.time()  # Use local receive time for freshness check
-                    
-                    elif topic == "DISTANCE_TO_STOP":
-                        distance_line = _validate_distance_cm(msg.get("distance_line"))
-                        if distance_line is not None:
-                            self.intersection_distance_cm = distance_line
-                            self.intersection_distance_timestamp = time.time()
                         
                 except zmq.Again:
                     # No more messages
