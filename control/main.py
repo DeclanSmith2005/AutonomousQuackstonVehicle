@@ -1,4 +1,5 @@
 import csv
+import math
 import os
 import threading
 import time
@@ -19,7 +20,6 @@ force_intersection = False
 run_calibration_flag = False
 no_line_turn = False
 stopped = False
-
 
 # --- CAMERA-GUIDED TURN HELPERS (Pure Pursuit / Adaptive Lookahead) ---
 def get_lookahead_cte(trajectory, target_distance):
@@ -109,8 +109,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     """Camera-guided turn using a single trajectory snapshot.
     
     Captures the trajectory once at the start of the turn, then follows it
-    open-loop by stepping through CTE points based on actual distance traveled
-    (using calibrated PWM-to-velocity model).
+    open-loop by stepping through CTE points on a fixed time schedule.
     Exits when grayscale sensor re-acquires the line.
     """
     global current_motor_speed, stopped
@@ -152,70 +151,107 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
         px.forward(config.TURN_PWM)
         time.sleep(config.TURN_BLIND_TIME)
         return scan_for_line_fallback(px, eyes, mission, pid)
+
+    # Use near-to-far ordering: (elapsed_distance_cm, cte_cm) starting from 0.0
+    start_distance_cm = snapshot_trajectory[0][0]
+    turn_profile = [(dist - start_distance_cm, cte) for dist, cte in snapshot_trajectory]
+
+    print(
+        f"  Turn profile (near-to-far): {len(turn_profile)} samples from "
+        f"{turn_profile[0][0]:.1f}cm to {turn_profile[-1][0]:.1f}cm"
+    )
     
-    # 4) Follow the snapshot trajectory using distance-based stepping
-    # Calculate velocity from PWM: v = 0.2431 * PWM + 0.1861 (m/s)
-    velocity_mps = pwm_to_velocity(config.TURN_PWM)
-    velocity_cmps = velocity_mps * 100  # Convert to cm/s
-    print(f"  Turn velocity: {velocity_cmps:.2f} cm/s (PWM={config.TURN_PWM})")
+    # 4) Follow the snapshot trajectory on a fixed timeline.
+    profile_duration = max(config.TURN_PROFILE_DURATION, 0.01)
+    profile_span = turn_profile[-1][0] if turn_profile else 0.0
+    print(f"  Turn profile duration: {profile_duration:.2f}s")
+
+    # Start with full steering lock, then blend into the camera trajectory.
+    px.set_dir_servo_angle(initial_steer)
+    px.forward(config.TURN_PWM)
+    current_motor_speed = config.TURN_PWM
     
     turn_start = time.time()
-    last_time = turn_start
-    distance_traveled_cm = 0.0
     
     while (time.time() - turn_start) < config.TURN_CAMERA_TIMEOUT:
+        current_time = time.time()
+        elapsed = current_time - turn_start
+        profile_position = min(elapsed / profile_duration, 1.0) * profile_span if profile_span > 0 else 0.0
         
         # Check grayscale — if line found, handoff to straight mode
-        raw = px.get_grayscale_data()
-        on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
-        if on_line:
-            print(f"Line re-acquired by grayscale at {distance_traveled_cm:.1f}cm — exiting turn")
-            mission.current_state = RobotState.STRAIGHT
-            pid.reset()
-            px.forward(5)
-            return True
+        # Only check after the turn profile is complete to avoid detecting the intersection line.
+        # For right turns, monitor right sensor (index 2); for left turns, monitor left sensor (index 0)
+        if elapsed >= profile_duration:
+            raw = px.get_grayscale_data()
+            sensor_idx = 2 if direction == "right" else 0  # right=2, left=0
+            on_line = eyes.color_signal(raw[sensor_idx], sensor_idx) > eyes.LOGIC_DETECT
+            if on_line:
+                print(f"Line re-acquired by {direction} grayscale (sensor {sensor_idx}) at {elapsed:.2f}s — exiting turn")
+                mission.current_state = RobotState.STRAIGHT
+                pid.reset()
+                px.forward(5)
+                return True
         
-        # Update distance traveled
-        current_time = time.time()
-        dt = current_time - last_time
-        last_time = current_time
-        distance_traveled_cm += velocity_cmps * dt
-        
-        # Find the trajectory point closest to our current distance
-        # Trajectory points are (distance_cm, cte_cm) sorted near-to-far
+        # Step through the turn profile from the strongest turn command
+        # toward smaller CTE values as time accumulates.
         cte_cm = None
-        for i, (dist, cte) in enumerate(snapshot_trajectory):
-            if distance_traveled_cm <= dist:
+        for i, (dist, cte) in enumerate(turn_profile):
+            if profile_position <= dist:
                 # Interpolate between previous and current point
                 if i == 0:
                     cte_cm = cte
                 else:
-                    prev_dist, prev_cte = snapshot_trajectory[i - 1]
+                    prev_dist, prev_cte = turn_profile[i - 1]
                     # Linear interpolation
-                    ratio = (distance_traveled_cm - prev_dist) / (dist - prev_dist) if dist != prev_dist else 0
+                    ratio = (profile_position - prev_dist) / (dist - prev_dist) if dist != prev_dist else 0
                     cte_cm = prev_cte + ratio * (cte - prev_cte)
                 break
-        
+
         # If we've traveled past all points, use the last one
         if cte_cm is None:
-            cte_cm = snapshot_trajectory[-1][1]
+            cte_cm = turn_profile[-1][1]
         
-        # P-controller: positive CTE (lane right) → steer right (negative angle)
-        steering = -cte_cm * config.TRAJECTORY_KP
-        steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
+        # Bicycle model steering: delta = arctan(2 * L * CTE / y_ref^2)
+        # Negative CTE maps to positive (right) steering for right turns
+        # where L = wheelbase, CTE = lateral error, y_ref = distance to point
+        y_ref_cm = max(start_distance_cm + profile_position, config.TURN_LOOKAHEAD_MIN_CM)
+        if y_ref_cm > 0:
+            numerator = -2 * config.WHEELBASE_CM * cte_cm
+            denominator = y_ref_cm * y_ref_cm
+            raw_steering = math.degrees(math.atan(numerator / denominator))
+        else:
+            raw_steering = 0.0
+        trajectory_steering = raw_steering
+        trajectory_steering = max(-config.MAX_STEER, min(config.MAX_STEER, trajectory_steering))
+
+        if config.TURN_INITIAL_ROTATION_TIME > 0 and elapsed < config.TURN_INITIAL_ROTATION_TIME:
+            blend = elapsed / config.TURN_INITIAL_ROTATION_TIME
+            steering = initial_steer + blend * (trajectory_steering - initial_steer)
+        else:
+            steering = trajectory_steering
         
+
+        if(direction == "right"):
+            steering += 20
+        else:
+            steering -= 18
+
         px.set_dir_servo_angle(steering)
         px.forward(config.TURN_PWM)
         current_motor_speed = config.TURN_PWM
         
         # Debug output (throttled to ~2.5Hz)
         if int(time.time() * 5) % 2 == 0:
-            print(f"  Traveled={distance_traveled_cm:.1f}cm, CTE={cte_cm:.1f}cm → Steer={steering:.1f}°")
+            print(
+                f"  Elapsed={elapsed:.2f}s, Profile={profile_position:.1f}, CTE={cte_cm:.1f}cm, "
+                f"y_ref={y_ref_cm:.1f}cm → Steer={steering:.1f}° "
+                f"(target={trajectory_steering:.1f}°, raw={raw_steering:.1f}°)"
+            )
         
         time.sleep(0.05)  # ~20Hz control loop
     
     # 5) Timeout — fall back to grayscale scan
-    print(f"  Turn timeout at {distance_traveled_cm:.1f}cm traveled")
+    print(f"  Turn timeout at {time.time() - turn_start:.2f}s elapsed")
     return scan_for_line_fallback(px, eyes, mission, pid)
 
 
@@ -375,7 +411,7 @@ def main():
     # Default mission from main_old.py
     initial_mission = [
         RobotState.STRAIGHT,
-        RobotState.RIGHT,
+        RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.RIGHT,
         RobotState.STRAIGHT,
