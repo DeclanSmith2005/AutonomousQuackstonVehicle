@@ -123,7 +123,6 @@ class ServerManager:
                     elif topic == "TRAJECTORY":
                         # Parse comma-separated strings into lists of floats
                         cte_list = _parse_csv_floats(msg.get("cte"))
-                        # Support both "distance" (new) and "y_ref" (legacy) keys
                         distance_list = _parse_csv_floats(msg.get("distance") or msg.get("y_ref"))
                         if cte_list is not None and distance_list is not None:
                             self.trajectory_cte = cte_list  # list of CTE values in meters
