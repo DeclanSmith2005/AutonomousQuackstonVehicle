@@ -118,6 +118,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     print(f"Executing snapshot-based {direction} turn...")
     
     # 1) Stop at intersection
+    time.sleep(0.1)
     px.stop()
     stopped = True
     current_motor_speed = 0
