@@ -113,7 +113,8 @@ class ServerManager:
                 "topic": "MISSION_STATE",
                 "state": state.name if hasattr(state, 'name') else str(state),
                 "queue": [s.name if hasattr(s, 'name') else str(s) for s in mission_queue],
-                "no_line": no_line,
+                "no_line": bool(no_line),
+                "no_line_turn": bool(no_line),
                 "stopped": stopped
             }
             self.pub_socket.send_json(msg)
@@ -150,6 +151,31 @@ class ServerManager:
                             self.trajectory_cte = cte_list  # list of CTE values in meters
                             self.trajectory_distance = distance_list  # list of lookahead distances in meters
                             self.trajectory_timestamp = time.time()  # Use local receive time for freshness check
+
+                        # Perception may stream "NONE" until a stop line is visible, then send meters.
+                        if "distance_to_line" in msg:
+                            line_distance_value = msg.get("distance_to_line")
+                            if isinstance(line_distance_value, str) and line_distance_value.strip().upper() == "NONE":
+                                self.intersection_distance_cm = None
+                                self.intersection_distance_timestamp = time.time()
+                            else:
+                                try:
+                                    self.intersection_distance_cm = float(line_distance_value) * 100.0
+                                    self.intersection_distance_timestamp = time.time()
+                                except (TypeError, ValueError):
+                                    pass
+
+                    elif topic in ("DISTANCE_TO_LINE", "DISTANCE"):
+                        line_distance_value = msg.get("distance_to_line", msg.get("distance"))
+                        if isinstance(line_distance_value, str) and line_distance_value.strip().upper() == "NONE":
+                            self.intersection_distance_cm = None
+                            self.intersection_distance_timestamp = time.time()
+                        else:
+                            try:
+                                self.intersection_distance_cm = float(line_distance_value) * 100.0
+                                self.intersection_distance_timestamp = time.time()
+                            except (TypeError, ValueError):
+                                pass
 
                     duck_visible = _extract_duck_visible(msg)
                     if duck_visible is not None:

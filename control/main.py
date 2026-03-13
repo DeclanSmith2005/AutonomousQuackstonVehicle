@@ -21,50 +21,6 @@ run_calibration_flag = False
 no_line_turn = False
 stopped = False
 
-# --- CAMERA-GUIDED TURN HELPERS (Pure Pursuit) ---
-def get_lookahead_cte(trajectory, target_distance):
-    """
-    Find the CTE at the desired lookahead distance using linear interpolation.
-    
-    This implements Pure Pursuit: always steer toward a point a fixed physical
-    distance ahead, making turn behavior speed-invariant.
-    
-    Parameters
-    ----------
-    trajectory : list
-        List of (distance_cm, cte_cm) tuples, sorted near to far.
-    target_distance : float
-        Lookahead distance in cm (e.g., 15.0).
-    
-    Returns
-    -------
-    float or None
-        Interpolated CTE in cm at the lookahead distance, or None if invalid.
-    """
-    if not trajectory or len(trajectory) < 2:
-        return None
-    
-    # Search for the two points that bracket the target distance
-    for i in range(len(trajectory) - 1):
-        d1, cte1 = trajectory[i]
-        d2, cte2 = trajectory[i + 1]
-        
-        # If target distance falls between these two points, interpolate
-        if d1 <= target_distance <= d2:
-            if d2 - d1 > 0:  # Avoid division by zero
-                ratio = (target_distance - d1) / (d2 - d1)
-                return cte1 + ratio * (cte2 - cte1)
-            else:
-                return cte1
-    
-    # If target is closer than the nearest point, use nearest
-    if target_distance < trajectory[0][0]:
-        return trajectory[0][1]
-    
-    # If target is further than our vision, use the furthest point
-    return trajectory[-1][1]
-
-
 def scan_for_line_fallback(px, eyes, mission, pid):
     """Fallback: scan for line using grayscale after camera timeout."""
     global current_motor_speed
@@ -97,36 +53,44 @@ def scan_for_line_fallback(px, eyes, mission, pid):
 
 def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     """Camera-guided turn using a single trajectory snapshot.
-    
+
     Captures the trajectory once at the start of the turn, then follows it
     open-loop by stepping through CTE points on a fixed time schedule.
     Exits when grayscale sensor re-acquires the line.
     """
     global current_motor_speed, stopped
-    
+
     print(f"Executing snapshot-based {direction} turn...")
-    
+
+    # Grab the newest trajectory immediately when turn is requested, before
+    # stop-hold delays can let fresh data expire.
+    server._process_incoming_messages()
+    pre_turn_trajectory = server.receive_trajectory()
+
     # 1) Stop at intersection
     time.sleep(0.1)
     px.stop()
+    time.sleep(0.5)
     stopped = True
     current_motor_speed = 0
     time.sleep(config.TURN_STOP_HOLD_TIME)
-    
+
     # 2) Default steering direction if no camera data
     initial_steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
-    
-    # 3) Capture single trajectory snapshot (wait up to 1 second)
+
+    # 3) Capture single trajectory snapshot (wait up to timeout)
     print("  Waiting for trajectory snapshot...")
     snapshot_trajectory = None
     snapshot_start = time.time()
-    
+
     while (time.time() - snapshot_start) < config.SNAPSHOT_WAIT_TIMEOUT:
+        # Keep draining ZMQ while waiting so fresh trajectory packets are ingested.
+        server._process_incoming_messages()
         trajectory_data = server.receive_trajectory()
         if trajectory_data is not None:
             cte_list = trajectory_data.get('cte')
             distance_list = trajectory_data.get('distance')
-            
+
             if cte_list and distance_list and len(cte_list) == len(distance_list):
                 # Build trajectory as list of (distance_cm, cte_cm)
                 snapshot_trajectory = [(d * 100, c * 100) for d, c in zip(distance_list, cte_list)]
@@ -134,6 +98,13 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
                 print(f"  Distance range: {snapshot_trajectory[0][0]:.1f}cm to {snapshot_trajectory[-1][0]:.1f}cm")
                 break
         time.sleep(0.05)
+
+    if snapshot_trajectory is None and pre_turn_trajectory is not None:
+        cte_list = pre_turn_trajectory.get('cte')
+        distance_list = pre_turn_trajectory.get('distance')
+        if cte_list and distance_list and len(cte_list) == len(distance_list):
+            snapshot_trajectory = [(d * 100, c * 100) for d, c in zip(distance_list, cte_list)]
+            print(f"  Using pre-turn trajectory snapshot with {len(snapshot_trajectory)} points")
     
     if snapshot_trajectory is None:
         print("  No trajectory received — using blind turn")
@@ -212,12 +183,13 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
         else:
             raw_steering = 0.0
 
+
         steering = max(-config.MAX_STEER, min(config.MAX_STEER, raw_steering))
 
-        # if direction == "right":
-        #     steering += config.ANGLE_BUFFER_RIGHT
-        # else:
-        #     steering -= config.ANGLE_BUFFER_LEFT
+        if direction == "right":
+             steering += config.ANGLE_BUFFER_RIGHT
+        else:
+             steering -= config.ANGLE_BUFFER_LEFT
 
         px.set_dir_servo_angle(steering)
         px.forward(config.TURN_PWM)
@@ -232,6 +204,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
         
         time.sleep(0.05)  # ~20Hz control loop
     
+    px.set_cam_tilt_angle(0)
     # 5) Timeout — fall back to grayscale scan
     print(f"  Turn timeout at {time.time() - turn_start:.2f}s elapsed")
     return scan_for_line_fallback(px, eyes, mission, pid)
@@ -373,7 +346,7 @@ def execute_pivot_turn(px, eyes, direction, pid, mission):
     print(f"Executing in-place {direction} turn...")
 
     # Stop and center steering before pivoting.
-    time.sleep(0.3)
+    time.sleep(0.1)
     px.stop()
     stopped = True
     current_motor_speed = 0
@@ -385,35 +358,27 @@ def execute_pivot_turn(px, eyes, direction, pid, mission):
     pivot_sign = 1 if direction == "right" else -1
     pivot_speed = config.PIVOT_TURN_PWM * pivot_sign
 
-    line_found = False
-    start_scan = time.time()
-    while (time.time() - start_scan) < config.PIVOT_SCAN_TIMEOUT:
+    pivot_start = time.time()
+    while (time.time() - pivot_start) < config.PIVOT_SCAN_TIMEOUT:
         px.set_motor_speed(1, pivot_speed)
         px.set_motor_speed(2, pivot_speed)
 
-        raw = px.get_grayscale_data()
-        sensor_idx = 2 if direction == "right" else 0
-        on_line = eyes.color_signal(raw[sensor_idx], sensor_idx) > eyes.LOGIC_DETECT
-        if on_line:
-            print(f"Line re-acquired during pivot ({direction}).")
-            line_found = True
-            mission.current_state = RobotState.STRAIGHT
-            px.forward(config.TURN_POST_SPEED)
-            current_motor_speed = config.TURN_POST_SPEED
-            break
-
         time.sleep(config.TURN_SCAN_INTERVAL)
 
-    if not line_found:
-        print("Pivot turn failed to re-acquire line.")
-        px.stop()
-        current_motor_speed = 0
-        pid.reset()
-        mission.current_state = RobotState.IDLE
-        return False
+    px.stop()
+    current_motor_speed = 0
+    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
 
-    pid.reset()
-    return True
+    print("Pivot complete. Driving forward before line scan...")
+    px.forward(config.TURN_POST_SPEED)
+    current_motor_speed = config.TURN_POST_SPEED
+    stopped = False
+    time.sleep(config.PIVOT_FORWARD_SETTLE_TIME)
+
+    success = scan_for_line_fallback(px, eyes, mission, pid)
+    if success:
+        stopped = False
+    return success
 
 def ignore_intersection(px, speed):
     """Drive straight through an intersection without turning."""
@@ -454,16 +419,22 @@ def main():
     mission = MissionManager(initial_mission)
 
     # Preload the horn sound once so duck events can trigger immediate playback.
-    horn_file = os.path.join(os.path.dirname(__file__), "testing", "sound", "car-double-horn.wav")
+    control_dir = os.path.dirname(__file__)
+    project_dir = os.path.dirname(control_dir)
+    horn_candidates = [
+        os.path.join(control_dir, "testing", "sound", "car-double-horn.wav"),
+        os.path.join(project_dir, "sound", "car-double-horn.wav"),
+    ]
+    horn_file = next((path for path in horn_candidates if os.path.exists(path)), None)
     horn_player = None
-    if os.path.exists(horn_file):
+    if horn_file is not None:
         try:
             horn_player = Music()
             horn_player.music_set_volume(100)
         except Exception as e:
             print(f"Horn audio unavailable: {e}")
     else:
-        print(f"Horn sound file not found: {horn_file}")
+        print("Horn sound file not found in expected locations.")
 
     # True while perception reports a duck in view; blocks all motion commands.
     duck_stop_active = False
@@ -522,6 +493,7 @@ def main():
                 raw = [4095, 4095, 4095] 
 
             pattern = eyes.analyze_pattern(raw)
+            full_cross_detected = eyes.is_full_cross(raw)
             error, stop_detected, base_speed = eyes.compute_error(raw)
 
             # 3) Handle Mission Stages
@@ -609,13 +581,36 @@ def main():
                 else:
                     turn_dir = None
 
-                if turn_dir is not None and pattern == "CROSS":
-                    print(f"No-stop-line CROSS detected. Executing pivot {turn_dir} turn.")
-                    success = execute_pivot_turn(px, eyes, turn_dir, pid, mission)
+                line_distance_cm = server.receive_intersection_distance()
+                should_turn = (
+                    turn_dir is not None
+                    and line_distance_cm is not None
+                )
+
+                if should_turn:
+                    px.set_cam_tilt_angle(-30)
+                    no_line_turn = False
+                    no_line_turn_mode = str(getattr(config, "NO_LINE_TURN_MODE", "pivot")).strip().lower()
+                    print(f"No-stop-line turn flag received (distance_to_line={line_distance_cm:.1f}cm).")
+
+                    if no_line_turn_mode == "camera":
+                        print(f"Executing no-stop-line camera turn: {turn_dir}")
+                        success = execute_turn_with_camera(px, eyes, turn_dir, pid, mission, server)
+                    elif no_line_turn_mode == "pivot":
+                        print(f"Executing no-stop-line pivot turn: {turn_dir}")
+                        success = execute_pivot_turn(px, eyes, turn_dir, pid, mission)
+                    else:
+                        print(
+                            f"Unknown NO_LINE_TURN_MODE='{no_line_turn_mode}', falling back to pivot for {turn_dir}."
+                        )
+                        success = execute_pivot_turn(px, eyes, turn_dir, pid, mission)
+
                     if success:
                         no_line_turn = False
                         mission.advance_mission()
                     continue
+            
+            px.set_cam_tilt_angle(0)
             # Line Lost Failsafe
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > config.LOST_LINE_TIMEOUT:
@@ -625,7 +620,7 @@ def main():
             else:
                 last_valid_line_time = time.time()
 
-            if pattern == "CROSS":
+            if full_cross_detected and not no_line_turn:
                 if mission.current_state == RobotState.STRAIGHT:
                     print("Ignoring intersection (STRAIGHT mode).")
                     ignore_intersection(px, base_speed)
@@ -663,16 +658,22 @@ def main():
                         ignore_intersection(px, base_speed)
                     continue
                 elif mission.current_state == RobotState.RIGHT:
-                    if config.TURN_USE_CAMERA:
-                        success = execute_turn_with_camera(px, eyes, "right", pid, mission, server)
-                    elif config.TURN_USE_PIVOT:
-                        success = execute_pivot_turn(px, eyes, "right", pid, mission)
+                    mission.crossings_seen += 1
+                    if mission.crossings_seen >= 2:
+                        if config.TURN_USE_CAMERA:
+                            success = execute_turn_with_camera(px, eyes, "right", pid, mission, server)
+                        elif config.TURN_USE_PIVOT:
+                            success = execute_pivot_turn(px, eyes, "right", pid, mission)
+                        else:
+                            success = execute_turn(px, eyes, "right", pid, mission)
+                        if success:
+                            no_line_turn = False
+                            mission.advance_mission()
                     else:
-                        success = execute_turn(px, eyes, "right", pid, mission)
-                    if success:
-                        no_line_turn = False
-                        mission.advance_mission()
+                        print(f"Skipping intersection {mission.crossings_seen}/2")
+                        ignore_intersection(px, base_speed)
                     continue
+                    
 
             # 6) PID CONTROL
             current_time = time.time()

@@ -54,7 +54,7 @@ class LineSensor:
         # left, center, right = signals
         
         # All three sensors detect line = intersection or stop
-        if all(s > self.LOGIC_DETECT for s in signals):  # center and right
+        if self.is_full_cross(raw):
             return "CROSS"
 
         # At least one sensor detects white line
@@ -66,6 +66,11 @@ class LineSensor:
             return "LINE"
         
         return "NONE"
+
+    def is_full_cross(self, raw):
+        """Strict CROSS detection: requires all three sensors above threshold."""
+        signals = [self.color_signal(raw[i], i) for i in range(3)]
+        return all(s > self.LOGIC_DETECT for s in signals)
 
     def compute_error(self, raw):
         """
