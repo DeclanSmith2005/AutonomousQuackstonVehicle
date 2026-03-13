@@ -17,54 +17,9 @@ from calibration import load_calibration, run_wiggle_calibration
 stop_flag = False
 current_motor_speed = 0
 force_line_lost = False
-force_intersection = False
 run_calibration_flag = False
 no_line_turn = False
 stopped = False
-
-# --- CAMERA-GUIDED TURN HELPERS (Pure Pursuit / Adaptive Lookahead) ---
-def get_lookahead_cte(trajectory, target_distance):
-    """
-    Find the CTE at the desired lookahead distance using linear interpolation.
-    
-    This implements Pure Pursuit: always steer toward a point a fixed physical
-    distance ahead, making turn behavior speed-invariant.
-    
-    Parameters
-    ----------
-    trajectory : list
-        List of (distance_cm, cte_cm) tuples, sorted near to far.
-    target_distance : float
-        Lookahead distance in cm (e.g., 15.0).
-    
-    Returns
-    -------
-    float or None
-        Interpolated CTE in cm at the lookahead distance, or None if invalid.
-    """
-    if not trajectory or len(trajectory) < 2:
-        return None
-    
-    # Search for the two points that bracket the target distance
-    for i in range(len(trajectory) - 1):
-        d1, cte1 = trajectory[i]
-        d2, cte2 = trajectory[i + 1]
-        
-        # If target distance falls between these two points, interpolate
-        if d1 <= target_distance <= d2:
-            if d2 - d1 > 0:  # Avoid division by zero
-                ratio = (target_distance - d1) / (d2 - d1)
-                return cte1 + ratio * (cte2 - cte1)
-            else:
-                return cte1
-    
-    # If target is closer than the nearest point, use nearest
-    if target_distance < trajectory[0][0]:
-        return trajectory[0][1]
-    
-    # If target is further than our vision, use the furthest point
-    return trajectory[-1][1]
-
 
 def scan_for_line_fallback(px, eyes, mission, pid):
     """Fallback: scan for line using grayscale after camera timeout."""
@@ -81,7 +36,7 @@ def scan_for_line_fallback(px, eyes, mission, pid):
             print("Line re-acquired by grayscale.")
             line_found = True
             mission.current_state = RobotState.STRAIGHT
-            px.forward(5)
+            px.forward(config.BASE_SPEED)
             break
         time.sleep(config.TURN_SCAN_INTERVAL)
     
@@ -95,16 +50,6 @@ def scan_for_line_fallback(px, eyes, mission, pid):
     
     pid.reset()
     return True
-
-
-def pwm_to_velocity(pwm):
-    """Convert PWM value to velocity in m/s using calibrated linear model.
-    
-    Calibration: v = VELOCITY_SLOPE * PWM + VELOCITY_INTERCEPT (m/s)
-    Default: v = 0.2431 * PWM + 0.1861
-    """
-    return config.VELOCITY_SLOPE * pwm + config.VELOCITY_INTERCEPT
-
 
 def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     """Camera-guided turn using a single trajectory snapshot.
@@ -168,9 +113,9 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
     print(f"  Turn profile duration: {profile_duration:.2f}s")
 
     # Start with full steering lock, then blend into the camera trajectory.
-    px.set_dir_servo_angle(initial_steer)
-    px.forward(config.TURN_PWM)
-    current_motor_speed = config.TURN_PWM
+    # px.set_dir_servo_angle(initial_steer)
+    # px.forward(config.TURN_PWM)
+    # current_motor_speed = config.TURN_PWM
     
     turn_start = time.time()
     
@@ -182,16 +127,16 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
         # Check grayscale — if line found, handoff to straight mode
         # Only check after the turn profile is complete to avoid detecting the intersection line.
         # For right turns, monitor right sensor (index 2); for left turns, monitor left sensor (index 0)
-        if elapsed >= profile_duration:
-            raw = px.get_grayscale_data()
-            sensor_idx = 2 if direction == "right" else 0  # right=2, left=0
-            on_line = eyes.color_signal(raw[sensor_idx], sensor_idx) > eyes.LOGIC_DETECT
-            if on_line:
-                print(f"Line re-acquired by {direction} grayscale (sensor {sensor_idx}) at {elapsed:.2f}s — exiting turn")
-                mission.current_state = RobotState.STRAIGHT
-                pid.reset()
-                px.forward(5)
-                return True
+        # if elapsed >= profile_duration:
+        #     raw = px.get_grayscale_data()
+        #     sensor_idx = 2 if direction == "right" else 0  # right=2, left=0
+        #     on_line = eyes.color_signal(raw[sensor_idx], sensor_idx) > eyes.LOGIC_DETECT
+        #     if on_line:
+        #         print(f"Line re-acquired by {direction} grayscale (sensor {sensor_idx}) at {elapsed:.2f}s — exiting turn")
+        #         mission.current_state = RobotState.STRAIGHT
+        #         pid.reset()
+        #         px.forward(5)
+        #         return True
         
         # Step through the turn profile from the strongest turn command
         # toward smaller CTE values as time accumulates.
@@ -222,20 +167,13 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
             raw_steering = math.degrees(math.atan(numerator / denominator))
         else:
             raw_steering = 0.0
-        trajectory_steering = raw_steering
-        trajectory_steering = max(-config.MAX_STEER, min(config.MAX_STEER, trajectory_steering))
 
-        if config.TURN_INITIAL_ROTATION_TIME > 0 and elapsed < config.TURN_INITIAL_ROTATION_TIME:
-            blend = elapsed / config.TURN_INITIAL_ROTATION_TIME
-            steering = initial_steer + blend * (trajectory_steering - initial_steer)
-        else:
-            steering = trajectory_steering
-        
+        steering = max(-config.MAX_STEER, min(config.MAX_STEER, raw_steering))
 
-        if(direction == "right"):
-            steering += 20
-        else:
-            steering -= 18
+        # if direction == "right":
+        #     steering += config.ANGLE_BUFFER_RIGHT
+        # else:
+        #     steering -= config.ANGLE_BUFFER_LEFT
 
         px.set_dir_servo_angle(steering)
         px.forward(config.TURN_PWM)
@@ -245,8 +183,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server):
         if int(time.time() * 5) % 2 == 0:
             print(
                 f"  Elapsed={elapsed:.2f}s, Profile={profile_position:.1f}, CTE={cte_cm:.1f}cm, "
-                f"y_ref={y_ref_cm:.1f}cm → Steer={steering:.1f}° "
-                f"(target={trajectory_steering:.1f}°, raw={raw_steering:.1f}°)"
+                f"y_ref={y_ref_cm:.1f}cm → Steer={steering:.1f}° (raw={raw_steering:.1f}°)"
             )
         
         time.sleep(0.05)  # ~20Hz control loop
@@ -264,63 +201,63 @@ def key_listener(mission):
     n: next mission stage
     reset: reset mission
     fl: toggle forced line lost (simulates sensor failure)
-    fi: trigger forced intersection detection (simulates crossing)
     wiggle: run wiggle calibration
     """
-    global stop_flag, force_line_lost, force_intersection, run_calibration_flag, no_line_turn
+    global stop_flag, force_line_lost, run_calibration_flag, no_line_turn
     print("Keyboard listener active.")
     print("Commands: s=stop, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
-    print("          n=next, reset=reset, fl=force line lost, fi=force intersection")
+    print("          n=next, reset=reset, fl=force line lost")
     print("          wiggle=run wiggle calibration")
     
     while not stop_flag:
         try:
             cmd = input().strip().lower()
+            if not cmd:
+                continue
+
+            # Default: reset no_line_turn unless command is one of the *_no_line variants
+            if cmd not in ("rnl", "lnl_1", "lnl_2"):
+                no_line_turn = False
+
             if cmd == "s":
                 stop_flag = True
             elif cmd == "st":
                 mission.current_state = RobotState.STRAIGHT
                 mission.crossings_seen = 0
-                no_line_turn = False
                 print("Manual State: STRAIGHT")
             elif cmd == "a":
                 mission.current_state = RobotState.APPROACH_STOP
                 mission.crossings_seen = 0
-                no_line_turn = False
                 print("Manual State: APPROACH STOP")
             elif cmd == "l1":
                 mission.current_state = RobotState.LEFT_1
                 mission.crossings_seen = 0
-                no_line_turn = False
                 print("Manual State: LEFT_1")
             elif cmd == "l2":
                 mission.current_state = RobotState.LEFT_2
                 mission.crossings_seen = 0
-                no_line_turn = False
                 print("Manual State: LEFT_2")
             elif cmd == "r":
                 mission.current_state = RobotState.RIGHT
                 mission.crossings_seen = 0
-                no_line_turn = False
                 print("Manual State: RIGHT")
             elif cmd == "cal":
                 mission.current_state = RobotState.CALIBRATE
-                no_line_turn = False
                 print("Manual State: CALIBRATE")
             elif cmd == "idle":
                 mission.current_state = RobotState.IDLE
-                no_line_turn = False
                 print("Manual State: IDLE")
-            elif cmd in ("", "n", "next"):
+            elif cmd in ("n", "next"):
                 mission.request_step()
-                no_line_turn = False
                 print("Mission step requested.")
             elif cmd in ("reset", "mr"):
-                no_line_turn = False
                 mission.reset_mission()
             elif cmd == "wiggle":
                 run_calibration_flag = True
                 print("Wiggle calibration requested...")
+            elif cmd == "fl":
+                force_line_lost = not force_line_lost
+                print(f"Forced line lost: {force_line_lost}")
             elif cmd == "rnl":
                 mission.current_state = RobotState.RIGHT
                 mission.crossings_seen = 0
@@ -357,18 +294,18 @@ def execute_turn(px, eyes, direction, pid, mission):
     px.forward(config.TURN_PWM)
     px.set_dir_servo_angle(steer)
     current_motor_speed = config.TURN_PWM
-    time.sleep(1.5)  # Blind turn duration before scanning for line
+    time.sleep(config.TURN_BLIND_TIME)  # Blind turn duration before scanning for line
 
     line_found = False
     start_scan = time.time()
     while (time.time() - start_scan) < config.TURN_SCAN_TIMEOUT:
         raw = px.get_grayscale_data()
-        on_line = eyes.color_signal(raw[0], 0) > eyes.LOGIC_DETECT or eyes.color_signal(raw[1], 1) > eyes.LOGIC_DETECT or eyes.color_signal(raw[2], 2) > eyes.LOGIC_DETECT 
+        on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
         if on_line:
             print("Line re-acquired.")
             line_found = True
             mission.current_state = RobotState.STRAIGHT
-            px.forward(5)
+            px.forward(config.TURN_POST_SPEED)
             break
         time.sleep(config.TURN_SCAN_INTERVAL)
 
@@ -417,8 +354,8 @@ def execute_pivot_turn(px, eyes, direction, pid, mission):
             print(f"Line re-acquired during pivot ({direction}).")
             line_found = True
             mission.current_state = RobotState.STRAIGHT
-            px.forward(5)
-            current_motor_speed = 5
+            px.forward(config.TURN_POST_SPEED)
+            current_motor_speed = config.TURN_POST_SPEED
             break
 
         time.sleep(config.TURN_SCAN_INTERVAL)
@@ -454,14 +391,14 @@ def stop_at_line(px, base_speed):
     time.sleep(config.STOP_CLEAR_TIME)
 
 def main():
-    global stop_flag, current_motor_speed, force_line_lost, force_intersection, run_calibration_flag, no_line_turn, stopped
+    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped
 
     # --- SENSORS & ACTUATORS ---
     px = Picarx()
     eyes = LineSensor(config.OFFSETS)
     pid = PIDController(config.KP, config.KI, config.KD, min_out=-config.MAX_STEER, max_out=config.MAX_STEER)
     # --- MISSION ---
-    # Default mission from main_old.py
+    # Current active mission
     initial_mission = [
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
@@ -514,6 +451,9 @@ def main():
     try:
         while not stop_flag:
             loop_start = time.time()
+            
+            # Process all incoming ZMQ messages once per loop
+            server._process_incoming_messages()
 
             # Check for calibration request
             if run_calibration_flag:
@@ -546,11 +486,7 @@ def main():
 
             # --- PUBLISH MISSION STATE ON CHANGE ---
             should_heartbeat_publish = (time.time() - last_mission_publish_time) >= config.MISSION_STATE_HEARTBEAT
-            if (
-                mission.current_state != last_published_state
-                or no_line_turn != last_published_no_line_turn
-                or should_heartbeat_publish
-            ):
+            if mission.current_state != last_published_state or no_line_turn != last_published_no_line_turn or should_heartbeat_publish:
                 server.publish_mission_state(mission.current_state, mission.mission_queue, no_line_turn, stopped)
                 last_published_state = mission.current_state
                 last_published_no_line_turn = no_line_turn

@@ -31,6 +31,7 @@ TURN_ANGLE = 31
 TURN_STABILIZE_TIME = 0.1
 TURN_ENTRY_TIMEOUT = 5.0
 TURN_ENTRY_SPEED = 5
+TURN_POST_SPEED = 5
 TURN_STOP_HOLD_TIME = 3.0
 MAX_TURN_PROXIMITY = 20 # in cm
 
@@ -46,6 +47,8 @@ TURN_PROFILE_DURATION = 2.0      # Time to walk through the captured turn profil
 TURN_MIN_LINE_CHECK_TIME = 0.9   # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3         # Freshness window for trajectory points (s)
 INTERSECTION_DISTANCE_TIMEOUT = 0.4  # Freshness window for distance_line (s)
+ANGLE_BUFFER_RIGHT = 20
+ANGLE_BUFFER_LEFT = 20
 
 # --- PIVOT TURN TUNING ---
 PIVOT_TURN_PWM = 7               # PWM used for in-place pivot turning (0-100)
@@ -55,7 +58,7 @@ PIVOT_SCAN_TIMEOUT = 3.0         # Max pivot duration before declaring turn fail
 OFFSETS = [111, 95, 100]  # Per-sensor grayscale offsets [left, center, right].
 LOST_LINE_TIMEOUT = 5.0
 CALIBRATION_TIMEOUT = 8.0
-OBSTACLE_THRESHOLD = 5.0 # Stop if obstacle closer than 5cm
+OBSTACLE_THRESHOLD = 3.0 # Stop if obstacle closer than 5cm
 
 # --- NETWORK CONFIG ---
 BRIDGE_IP = "127.0.0.1"

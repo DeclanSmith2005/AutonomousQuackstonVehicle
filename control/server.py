@@ -78,21 +78,6 @@ def _extract_duck_visible(msg):
 
     return None
 
-
-def _validate_distance_cm(value):
-    """Return a sane distance in cm or None for invalid/outlier data."""
-    try:
-        distance_cm = float(value)
-    except (TypeError, ValueError):
-        return None
-
-    if not math.isfinite(distance_cm):
-        return None
-    if not (config.DISTANCE_MIN_CM <= distance_cm <= config.DISTANCE_MAX_CM):
-        return None
-    return distance_cm
-
-
 def _parse_csv_floats(value):
     """Parse a comma-separated string into a list of floats.
     
@@ -134,11 +119,6 @@ class ServerManager:
         self.sub_socket = self.context.socket(zmq.SUB)
         self.sub_socket.bind(f"tcp://*:{sub_port}")
         self.sub_socket.subscribe("")  # Subscribe to all topics
-        
-        # Camera CTE state
-        self.camera_cte = None
-        self.camera_cte_timestamp = 0
-        self.camera_cte_timeout = 0.5  # CTE valid for 500ms
         
         # Trajectory state for turns
         self.trajectory_cte = None  # CTE in meters from perception
@@ -196,18 +176,10 @@ class ServerManager:
                     msg = self.sub_socket.recv_json(flags=zmq.NOBLOCK)
                     topic = msg.get("topic")
                     
-                    if topic == "CTE":
-                        self.camera_cte = msg.get("cte")
-                        self.camera_cte_timestamp = time.time()
-                    
-                    elif topic == "TRAJECTORY":
+                    if topic == "TRAJECTORY":
                         # Parse comma-separated strings into lists of floats
                         cte_list = _parse_csv_floats(msg.get("cte"))
                         distance_list = _parse_csv_floats(msg.get("distance"))
-                        distance_line = _validate_distance_cm(msg.get("distance_to_line"))
-                        if distance_line is not None:
-                            self.intersection_distance_cm = distance_line
-                            self.intersection_distance_timestamp = time.time()
                         if cte_list is not None and distance_list is not None:
                             self.trajectory_cte = cte_list  # list of CTE values in meters
                             self.trajectory_distance = distance_list  # list of lookahead distances in meters
@@ -224,16 +196,6 @@ class ServerManager:
         except Exception as e:
             print(f"[ZMQ] Error receiving: {e}")
     
-    def receive_camera_cte(self):
-        """Non-blocking receive of CTE from camera system. Returns CTE or None."""
-        self._process_incoming_messages()
-        
-        # Return CTE only if it's fresh
-        if self.camera_cte is not None:
-            if (time.time() - self.camera_cte_timestamp) < self.camera_cte_timeout:
-                return self.camera_cte
-        return None
-
     def receive_intersection_distance(self):
         """Non-blocking receive of distance to intersection from camera system.
         
@@ -242,8 +204,6 @@ class ServerManager:
         float or None
             Distance to intersection in cm.
         """
-        self._process_incoming_messages()
-        
         if self.intersection_distance_cm is not None:
             if (time.time() - self.intersection_distance_timestamp) < self.intersection_distance_timeout:
                 return self.intersection_distance_cm
@@ -260,8 +220,6 @@ class ServerManager:
             - cte: Cross-Track Error at each lookahead point (meters)
             - distance: Lookahead distance from car (meters)
         """
-        self._process_incoming_messages()
-        
         # Return trajectory only if it's fresh
         if self.trajectory_cte is not None:
             if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
@@ -270,8 +228,6 @@ class ServerManager:
 
     def receive_duck_visible(self):
         """Return whether a duck is currently visible from perception."""
-        self._process_incoming_messages()
-
         # If perception stops publishing duck state entirely, expire to False.
         if (time.time() - self.duck_visible_timestamp) > self.duck_visible_timeout:
             return False
