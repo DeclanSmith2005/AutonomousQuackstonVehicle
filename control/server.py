@@ -37,43 +37,9 @@ def _extract_duck_visible(msg):
     topic = str(msg.get("topic", "")).strip().upper()
 
     if topic == "DUCK":
-        for key in ("visible", "detected", "is_visible", "present"):
-            if key in msg:
-                parsed = _parse_bool(msg.get(key))
-                if parsed is not None:
-                    return parsed
-        label = msg.get("label") or msg.get("class") or msg.get("name")
-        if _is_duck_label(label):
-            return True
-
-    if topic in {"OBJECT", "OBJECTS", "DETECTION", "DETECTIONS", "OBJECT_DETECTION"}:
-        objects = msg.get("objects") or msg.get("detections")
-        if isinstance(objects, list):
-            duck_seen = False
-            for obj in objects:
-                if not isinstance(obj, dict):
-                    continue
-                label = obj.get("label") or obj.get("class") or obj.get("name")
-                if _is_duck_label(label):
-                    duck_seen = True
-                    for key in ("visible", "detected", "is_visible", "present"):
-                        if key in obj:
-                            parsed = _parse_bool(obj.get(key))
-                            if parsed is not None:
-                                if parsed:
-                                    return True
-                                break
-                    else:
-                        return True
-            return duck_seen
-
-        label = msg.get("label") or msg.get("class") or msg.get("name")
-        if _is_duck_label(label):
-            for key in ("visible", "detected", "is_visible", "present"):
-                if key in msg:
-                    parsed = _parse_bool(msg.get(key))
-                    if parsed is not None:
-                        return parsed
+        # Perception currently publishes DUCK packets only on active detections,
+        # typically with distance fields but no explicit visibility boolean.
+        if any(key in msg for key in ("distance", "horizontal_distance", "timestamp_duck")):
             return True
 
     return None

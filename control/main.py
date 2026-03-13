@@ -21,6 +21,50 @@ run_calibration_flag = False
 no_line_turn = False
 stopped = False
 
+# --- CAMERA-GUIDED TURN HELPERS (Pure Pursuit) ---
+def get_lookahead_cte(trajectory, target_distance):
+    """
+    Find the CTE at the desired lookahead distance using linear interpolation.
+    
+    This implements Pure Pursuit: always steer toward a point a fixed physical
+    distance ahead, making turn behavior speed-invariant.
+    
+    Parameters
+    ----------
+    trajectory : list
+        List of (distance_cm, cte_cm) tuples, sorted near to far.
+    target_distance : float
+        Lookahead distance in cm (e.g., 15.0).
+    
+    Returns
+    -------
+    float or None
+        Interpolated CTE in cm at the lookahead distance, or None if invalid.
+    """
+    if not trajectory or len(trajectory) < 2:
+        return None
+    
+    # Search for the two points that bracket the target distance
+    for i in range(len(trajectory) - 1):
+        d1, cte1 = trajectory[i]
+        d2, cte2 = trajectory[i + 1]
+        
+        # If target distance falls between these two points, interpolate
+        if d1 <= target_distance <= d2:
+            if d2 - d1 > 0:  # Avoid division by zero
+                ratio = (target_distance - d1) / (d2 - d1)
+                return cte1 + ratio * (cte2 - cte1)
+            else:
+                return cte1
+    
+    # If target is closer than the nearest point, use nearest
+    if target_distance < trajectory[0][0]:
+        return trajectory[0][1]
+    
+    # If target is further than our vision, use the furthest point
+    return trajectory[-1][1]
+
+
 def scan_for_line_fallback(px, eyes, mission, pid):
     """Fallback: scan for line using grayscale after camera timeout."""
     global current_motor_speed
@@ -423,6 +467,7 @@ def main():
 
     # True while perception reports a duck in view; blocks all motion commands.
     duck_stop_active = False
+    duck_resume_state = None
 
     print("="*40)
     print("PICARX DIRECT CONTROL STARTED")
@@ -499,6 +544,8 @@ def main():
                 if not duck_stop_active:
                     print("Duck detected: stopping vehicle and playing horn.")
                     duck_stop_active = True
+                    if mission.current_state != RobotState.IDLE:
+                        duck_resume_state = mission.current_state
                     # Freeze in IDLE so downstream logic cannot reissue drive commands.
                     mission.current_state = RobotState.IDLE
                     pid.reset()
@@ -522,7 +569,11 @@ def main():
                 # Duck is gone: clear lockout and return to lane-following state.
                 duck_stop_active = False
                 stopped = False
-                mission.current_state = RobotState.STRAIGHT
+                if duck_resume_state is not None:
+                    mission.current_state = duck_resume_state
+                    duck_resume_state = None
+                else:
+                    mission.current_state = RobotState.STRAIGHT
                 pid.reset()
                 # Reset timing state to avoid derivative and failsafe spikes on resume.
                 last_pid_time = time.time()
@@ -622,7 +673,6 @@ def main():
                         no_line_turn = False
                         mission.advance_mission()
                     continue
-
 
             # 6) PID CONTROL
             current_time = time.time()
