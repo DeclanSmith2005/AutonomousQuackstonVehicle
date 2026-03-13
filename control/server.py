@@ -4,6 +4,81 @@ import zmq
 import config
 
 
+def _parse_bool(value):
+    """Best-effort conversion of common boolean encodings."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "y", "on", "visible"}:
+            return True
+        if lowered in {"0", "false", "no", "n", "off", "hidden", "not_visible"}:
+            return False
+    return None
+
+
+def _is_duck_label(value):
+    """Return True when a label/class/name value refers to a duck."""
+    if value is None:
+        return False
+    return str(value).strip().lower() == "duck"
+
+
+def _extract_duck_visible(msg):
+    """Extract duck visibility from a perception message.
+
+    Returns True/False when duck visibility can be determined, else None.
+    """
+    if not isinstance(msg, dict):
+        return None
+
+    topic = str(msg.get("topic", "")).strip().upper()
+
+    if topic == "DUCK":
+        for key in ("visible", "detected", "is_visible", "present"):
+            if key in msg:
+                parsed = _parse_bool(msg.get(key))
+                if parsed is not None:
+                    return parsed
+        label = msg.get("label") or msg.get("class") or msg.get("name")
+        if _is_duck_label(label):
+            return True
+
+    if topic in {"OBJECT", "OBJECTS", "DETECTION", "DETECTIONS", "OBJECT_DETECTION"}:
+        objects = msg.get("objects") or msg.get("detections")
+        if isinstance(objects, list):
+            duck_seen = False
+            for obj in objects:
+                if not isinstance(obj, dict):
+                    continue
+                label = obj.get("label") or obj.get("class") or obj.get("name")
+                if _is_duck_label(label):
+                    duck_seen = True
+                    for key in ("visible", "detected", "is_visible", "present"):
+                        if key in obj:
+                            parsed = _parse_bool(obj.get(key))
+                            if parsed is not None:
+                                if parsed:
+                                    return True
+                                break
+                    else:
+                        return True
+            return duck_seen
+
+        label = msg.get("label") or msg.get("class") or msg.get("name")
+        if _is_duck_label(label):
+            for key in ("visible", "detected", "is_visible", "present"):
+                if key in msg:
+                    parsed = _parse_bool(msg.get(key))
+                    if parsed is not None:
+                        return parsed
+            return True
+
+    return None
+
+
 def _validate_distance_cm(value):
     """Return a sane distance in cm or None for invalid/outlier data."""
     try:
@@ -75,6 +150,11 @@ class ServerManager:
         self.intersection_distance_cm = None
         self.intersection_distance_timestamp = 0
         self.intersection_distance_timeout = config.INTERSECTION_DISTANCE_TIMEOUT
+
+        # Duck visibility state from perception
+        self.duck_visible = False
+        self.duck_visible_timestamp = 0
+        self.duck_visible_timeout = 0.75
         
         # Give sockets time to bind
         time.sleep(0.1)
@@ -132,6 +212,11 @@ class ServerManager:
                             self.trajectory_cte = cte_list  # list of CTE values in meters
                             self.trajectory_distance = distance_list  # list of lookahead distances in meters
                             self.trajectory_timestamp = time.time()  # Use local receive time for freshness check
+
+                    duck_visible = _extract_duck_visible(msg)
+                    if duck_visible is not None:
+                        self.duck_visible = duck_visible
+                        self.duck_visible_timestamp = time.time()
                         
                 except zmq.Again:
                     # No more messages
@@ -180,9 +265,17 @@ class ServerManager:
         # Return trajectory only if it's fresh
         if self.trajectory_cte is not None:
             if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
-                print(f"[ZMQ] Trajectory: cte={self.trajectory_cte}, distance={self.trajectory_distance}")
                 return {'cte': self.trajectory_cte, 'distance': self.trajectory_distance}
         return None
+
+    def receive_duck_visible(self):
+        """Return whether a duck is currently visible from perception."""
+        self._process_incoming_messages()
+
+        # If perception stops publishing duck state entirely, expire to False.
+        if (time.time() - self.duck_visible_timestamp) > self.duck_visible_timeout:
+            return False
+        return bool(self.duck_visible)
     
     def close(self):
         """Clean up ZMQ resources."""

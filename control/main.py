@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from picarx import Picarx
+from robot_hat import Music
 
 import config
 from pid_controller import PIDController
@@ -356,7 +357,7 @@ def execute_turn(px, eyes, direction, pid, mission):
     px.forward(config.TURN_PWM)
     px.set_dir_servo_angle(steer)
     current_motor_speed = config.TURN_PWM
-    time.sleep(1.5) 
+    time.sleep(1.5)  # Blind turn duration before scanning for line
 
     line_found = False
     start_scan = time.time()
@@ -383,7 +384,58 @@ def execute_turn(px, eyes, direction, pid, mission):
     pid.reset()
     return True
 
+
+def execute_pivot_turn(px, eyes, direction, pid, mission):
+    """Turn in place using direct left/right motor control."""
+    global current_motor_speed, stopped
+
+    print(f"Executing in-place {direction} turn...")
+
+    # Stop and center steering before pivoting.
+    time.sleep(0.3)
+    px.stop()
+    stopped = True
+    current_motor_speed = 0
+    time.sleep(config.TURN_STOP_HOLD_TIME)
+    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+
+    # Picarx API is indexed: 1=left motor, 2=right motor.
+    # Due motor orientation, same signed values produce opposite wheel motion physically.
+    pivot_sign = 1 if direction == "right" else -1
+    pivot_speed = config.PIVOT_TURN_PWM * pivot_sign
+
+    line_found = False
+    start_scan = time.time()
+    while (time.time() - start_scan) < config.PIVOT_SCAN_TIMEOUT:
+        px.set_motor_speed(1, pivot_speed)
+        px.set_motor_speed(2, pivot_speed)
+
+        raw = px.get_grayscale_data()
+        sensor_idx = 2 if direction == "right" else 0
+        on_line = eyes.color_signal(raw[sensor_idx], sensor_idx) > eyes.LOGIC_DETECT
+        if on_line:
+            print(f"Line re-acquired during pivot ({direction}).")
+            line_found = True
+            mission.current_state = RobotState.STRAIGHT
+            px.forward(5)
+            current_motor_speed = 5
+            break
+
+        time.sleep(config.TURN_SCAN_INTERVAL)
+
+    if not line_found:
+        print("Pivot turn failed to re-acquire line.")
+        px.stop()
+        current_motor_speed = 0
+        pid.reset()
+        mission.current_state = RobotState.IDLE
+        return False
+
+    pid.reset()
+    return True
+
 def ignore_intersection(px, speed):
+    """Drive straight through an intersection without turning."""
     global current_motor_speed
     px.forward(speed)
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
@@ -391,6 +443,7 @@ def ignore_intersection(px, speed):
     time.sleep(config.PASS_TIME)
 
 def stop_at_line(px, base_speed):
+    """Stop at a stop line, hold, then drive forward to clear it."""
     global current_motor_speed
     time.sleep(config.STOP_DELAY)
     px.stop()
@@ -419,6 +472,21 @@ def main():
     ]
     mission = MissionManager(initial_mission)
 
+    # Preload the horn sound once so duck events can trigger immediate playback.
+    horn_file = os.path.join(os.path.dirname(__file__), "testing", "sound", "car-double-horn.wav")
+    horn_player = None
+    if os.path.exists(horn_file):
+        try:
+            horn_player = Music()
+            horn_player.music_set_volume(100)
+        except Exception as e:
+            print(f"Horn audio unavailable: {e}")
+    else:
+        print(f"Horn sound file not found: {horn_file}")
+
+    # True while perception reports a duck in view; blocks all motion commands.
+    duck_stop_active = False
+
     print("="*40)
     print("PICARX DIRECT CONTROL STARTED")
     print("="*40)
@@ -442,7 +510,6 @@ def main():
     start_time = time.time()
     last_valid_line_time = time.time()
     last_pid_time = time.time()
-    no_line_distance_hits = 0
 
     try:
         while not stop_flag:
@@ -458,7 +525,6 @@ def main():
             raw = px.get_grayscale_data()
             
             # Distance check (Obstacle avoidance failsafe)
-            #current_distance = None
             current_distance = px.ultrasonic.read()
             if 0 < current_distance < config.OBSTACLE_THRESHOLD:
                 print(f"!!! EMERGENCY STOP: Obstacle detected at {current_distance:.1f}cm !!!")
@@ -472,20 +538,6 @@ def main():
 
             pattern = eyes.analyze_pattern(raw)
             error, stop_detected, base_speed = eyes.compute_error(raw)
-
-            # --- RECEIVE CAMERA CTE ---
-            #camera_cte = server.receive_camera_cte()
-            #if camera_cte is not None:
-                # Camera CTE available - can be used for sensor fusion
-                # For now, log it; uncomment below to blend with line sensor
-                # error = camera_cte  # Use camera CTE directly
-                # error = 0.5 * error + 0.5 * camera_cte  # Blend both sources
-            #    pass
-
-            # Manual intersection trigger
-            #if force_intersection:
-            #   pattern = "CROSS"
-            #    force_intersection = False
 
             # 3) Handle Mission Stages
             if mission.check_step_requested():
@@ -504,10 +556,48 @@ def main():
                 last_published_no_line_turn = no_line_turn
                 last_mission_publish_time = time.time()
 
+            # Highest-priority perception safety override.
+            # While a duck is visible, stop, honk once on entry, and skip control actions.
+            duck_visible = server.receive_duck_visible()
+            if duck_visible:
+                if not duck_stop_active:
+                    print("Duck detected: stopping vehicle and playing horn.")
+                    duck_stop_active = True
+                    # Freeze in IDLE so downstream logic cannot reissue drive commands.
+                    mission.current_state = RobotState.IDLE
+                    pid.reset()
+                    px.stop()
+                    current_motor_speed = 0
+                    stopped = True
+                    # One-shot horn on transition False -> True.
+                    if horn_player is not None:
+                        try:
+                            horn_player.sound_play(horn_file, volume=100)
+                        except Exception as e:
+                            print(f"Horn playback failed: {e}")
+                else:
+                    # Keep applying stop while the duck remains visible.
+                    px.stop()
+                    current_motor_speed = 0
+                    stopped = True
+                time.sleep(config.LOOP_INTERVAL)
+                continue
+            elif duck_stop_active:
+                # Duck is gone: clear lockout and return to lane-following state.
+                duck_stop_active = False
+                stopped = False
+                mission.current_state = RobotState.STRAIGHT
+                pid.reset()
+                # Reset timing state to avoid derivative and failsafe spikes on resume.
+                last_pid_time = time.time()
+                last_valid_line_time = time.time()
+                print("Duck no longer visible: resuming motion.")
+
             # 4) State Machine Failsafes
             if mission.current_state == RobotState.IDLE:
                 px.stop()
                 current_motor_speed = 0
+                stopped = True
                 time.sleep(0.5)
                 continue
 
@@ -523,10 +613,8 @@ def main():
                 px.forward(config.TURN_ENTRY_SPEED)
                 current_motor_speed = config.TURN_ENTRY_SPEED
 
-            # Trigger no-stop-line turn using camera-provided distance to intersection.
-            # This only applies when operator/planner has flagged no-line mode.
+            # No-stop-line mode: wait for CROSS detection, then execute a pivot turn.
             if no_line_turn:
-                distance_line = server.receive_intersection_distance()
                 if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
                     turn_dir = "left"
                 elif mission.current_state == RobotState.RIGHT:
@@ -534,28 +622,13 @@ def main():
                 else:
                     turn_dir = None
 
-                if turn_dir is None:
-                    no_line_distance_hits = 0
-                else:
-                    in_range = distance_line is not None and distance_line < config.MAX_TURN_PROXIMITY
-                    if in_range:
-                        no_line_distance_hits += 1
-                    else:
-                        no_line_distance_hits = 0
-
-                    if no_line_distance_hits >= config.NO_LINE_TRIGGER_SAMPLES:
-                        no_line_distance_hits = 0
-                        if config.TURN_USE_CAMERA:
-                            success = execute_turn_with_camera(px, eyes, turn_dir, pid, mission, server)
-                        else:
-                            success = execute_turn(px, eyes, turn_dir, pid, mission)
-                        if success:
-                            no_line_turn = False
-                            mission.advance_mission()
-                        continue
-            else:
-                no_line_distance_hits = 0
-
+                if turn_dir is not None and pattern == "CROSS":
+                    print(f"No-stop-line CROSS detected. Executing pivot {turn_dir} turn.")
+                    success = execute_pivot_turn(px, eyes, turn_dir, pid, mission)
+                    if success:
+                        no_line_turn = False
+                        mission.advance_mission()
+                    continue
             # Line Lost Failsafe
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > config.LOST_LINE_TIMEOUT:
@@ -578,6 +651,8 @@ def main():
                     # Use camera-guided turn if enabled
                     if config.TURN_USE_CAMERA:
                         success = execute_turn_with_camera(px, eyes, "left", pid, mission, server)
+                    elif config.TURN_USE_PIVOT:
+                        success = execute_pivot_turn(px, eyes, "left", pid, mission)
                     else:
                         success = execute_turn(px, eyes, "left", pid, mission)
                     if success:
@@ -589,6 +664,8 @@ def main():
                     if mission.crossings_seen >= 2: # +1 more to account for the stop line
                         if config.TURN_USE_CAMERA:
                             success = execute_turn_with_camera(px, eyes, "left", pid, mission, server)
+                        elif config.TURN_USE_PIVOT:
+                            success = execute_pivot_turn(px, eyes, "left", pid, mission)
                         else:
                             success = execute_turn(px, eyes, "left", pid, mission)
                         if success:
@@ -601,6 +678,8 @@ def main():
                 elif mission.current_state == RobotState.RIGHT:
                     if config.TURN_USE_CAMERA:
                         success = execute_turn_with_camera(px, eyes, "right", pid, mission, server)
+                    elif config.TURN_USE_PIVOT:
+                        success = execute_pivot_turn(px, eyes, "right", pid, mission)
                     else:
                         success = execute_turn(px, eyes, "right", pid, mission)
                     if success:
@@ -622,15 +701,14 @@ def main():
                 smooth_error = 0.0
 
             steering = pid.update(-smooth_error, dt=dt)
-            # steering_with_offset = steering + config.STRAIGHT_ANGLE
             steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
 
             speed_drop = abs(steering) * config.SPEED_DROP_GAIN
             current_speed = max(base_speed - speed_drop, config.MIN_DRIVE_SPEED)
 
-            # set_speed_smooth(px, current_speed, steering_with_offset, ramp_rate=config.SPEED_RAMP_RATE)
             px.forward(current_speed)
             px.set_dir_servo_angle(steering)
+            stopped = False
 
             # 7) LOGGING & TELEMETRY
             history.append((time.time() - start_time, mission.current_state, smooth_error, steering, current_speed))
@@ -644,6 +722,7 @@ def main():
 
     except KeyboardInterrupt:
         print("\nStopping...")
+
     finally:
         px.stop()
         server.close()

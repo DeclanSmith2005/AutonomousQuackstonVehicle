@@ -1,22 +1,16 @@
-# control/config.py
-
-# --- PID TUNING ---
-# These should match pid.py's "feel" but account for dt=0.01
-# In pid.py, KD was 0.05 without / dt. To match that, KD should be 0.0005 if / dt is used.
-# However, if we keep / dt, we can tune it to a new value.
 KP = 0.25
 KI = 0.0
-KD = 0.008  # Adjusted to match pid.py's D-term which was 100x smaller (no / dt)
+KD = 0.008 
 ERROR_BUFFER_LEN = 5
 DEADBAND = 3.0
 
 # --- MOTION PARAMETERS ---
 BASE_SPEED = 15
 MAX_STEER = 30
-LOOP_INTERVAL = 0.01
+LOOP_INTERVAL = 0.01  # Main loop period (s), target 100 Hz update rate.
 STRAIGHT_ANGLE = 0
 MIN_DRIVE_SPEED = 8
-SPEED_DROP_GAIN = 0.25
+SPEED_DROP_GAIN = 0.25  # Reduce speed as steering angle grows.
 SPEED_RAMP_RATE = 2.0
 
 # --- APPROACH & STOP TUNING ---
@@ -39,10 +33,10 @@ TURN_ENTRY_TIMEOUT = 5.0
 TURN_ENTRY_SPEED = 5
 TURN_STOP_HOLD_TIME = 3.0
 MAX_TURN_PROXIMITY = 20 # in cm
-NO_LINE_TRIGGER_SAMPLES = 3
 
 # --- CAMERA-GUIDED TURN TUNING (Snapshot-based) ---
 TURN_USE_CAMERA = True           # Enable camera-guided turns (set False to use old blind turn)
+TURN_USE_PIVOT = False           # Enable in-place pivot turn using per-motor control when TURN_USE_CAMERA=False
 SNAPSHOT_WAIT_TIMEOUT = 1.0      # Max time to wait for trajectory snapshot (s)
 WHEELBASE_CM = 9.5               # Wheelbase length for bicycle model (cm)
 TURN_LOOKAHEAD_MIN_CM = 25.0     # Minimum y_ref used by bicycle model to avoid steering saturation
@@ -53,21 +47,18 @@ TURN_MIN_LINE_CHECK_TIME = 0.9   # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3         # Freshness window for trajectory points (s)
 INTERSECTION_DISTANCE_TIMEOUT = 0.4  # Freshness window for distance_line (s)
 
-# --- VELOCITY CALIBRATION (v = VELOCITY_SLOPE * PWM + VELOCITY_INTERCEPT) ---
-# Calibrated relationship: velocity (m/s) = 0.2431 * PWM + 0.1861
-VELOCITY_SLOPE = 0.2431          # m/s per PWM unit
-VELOCITY_INTERCEPT = 0.1861      # m/s at PWM=0
-DISTANCE_MIN_CM = 1.0
-DISTANCE_MAX_CM = 300.0
+# --- PIVOT TURN TUNING ---
+PIVOT_TURN_PWM = 7               # PWM used for in-place pivot turning (0-100)
+PIVOT_SCAN_TIMEOUT = 3.0         # Max pivot duration before declaring turn failure (s)
 
 # --- SENSOR & CALIBRATION ---
-OFFSETS = [111, 95, 100]
+OFFSETS = [111, 95, 100]  # Per-sensor grayscale offsets [left, center, right].
 LOST_LINE_TIMEOUT = 5.0
 CALIBRATION_TIMEOUT = 8.0
-OBSTACLE_THRESHOLD = 5.0 # Stop if obstacle closer than 15cm
+OBSTACLE_THRESHOLD = 5.0 # Stop if obstacle closer than 5cm
 
 # --- NETWORK CONFIG ---
 BRIDGE_IP = "127.0.0.1"
 SENSOR_PORT = 5555
 MOTOR_PORT = 5556
-MISSION_STATE_HEARTBEAT = 1.0
+MISSION_STATE_HEARTBEAT = 1.0  # Publish mission state at least this often, even without changes.
