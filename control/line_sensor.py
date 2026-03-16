@@ -5,7 +5,7 @@ Handles grayscale sensor signal processing and pattern detection.
 
 class LineSensor:
     # Detection threshold (fraction of calibrated range)
-    LOGIC_DETECT = 0.75  # sensor shows line at ~35%+ of range
+    LOGIC_DETECT = 0.5
 
     WHITE_DETECT = 0.90
 
@@ -45,15 +45,28 @@ class LineSensor:
         normalized = (corrected - cmin) / (cmax - cmin)
         return max(0.0, min(1.0, normalized))
 
+    def get_signals(self, raw):
+        """Return normalized [left, center, right] signals in [0, 1]."""
+        return [self.color_signal(raw[i], i) for i in range(3)]
+
+    def active_sensor_mask(self, raw, threshold=None):
+        """Return boolean mask [left, center, right] above threshold."""
+        detect_threshold = self.LOGIC_DETECT if threshold is None else threshold
+        return [self.color_signal(raw[i], i) > detect_threshold for i in range(3)]
+
+    def active_sensor_count(self, raw, threshold=None):
+        """Return count of sensors above threshold."""
+        return sum(self.active_sensor_mask(raw, threshold))
+
     def analyze_pattern(self, raw):
         """
         Analyze 3-sensor array to detect patterns.
         Returns: 'LINE', 'CROSS_GREEN', 'STOP_WHITE', or 'NONE'
         """
-        signals = [self.color_signal(raw[i], i) for i in range(3)]
-        # left, center, right = signals
-        
-        # All three sensors detect line = intersection or stop
+        signals = self.get_signals(raw)
+        left, center, right = [s > self.LOGIC_DETECT for s in signals]
+
+        # All three sensors detect line = intersection or stop.
         if self.is_full_cross(raw):
             return "CROSS"
 
@@ -69,7 +82,7 @@ class LineSensor:
 
     def is_full_cross(self, raw):
         """Strict CROSS detection: requires all three sensors above threshold."""
-        signals = [self.color_signal(raw[i], i) for i in range(3)]
+        signals = self.get_signals(raw)
         return all(s > self.LOGIC_DETECT for s in signals)
 
     def compute_error(self, raw):
@@ -79,7 +92,7 @@ class LineSensor:
         
         Error: positive = line is to the left (steer left), negative = line is to the right (steer right)
         """
-        signals = [self.color_signal(raw[i], i) for i in range(3)]
+        signals = self.get_signals(raw)
         left, center, right = signals
         
         pattern = self.analyze_pattern(raw)

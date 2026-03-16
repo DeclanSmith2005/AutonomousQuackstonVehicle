@@ -24,3 +24,6 @@ matplotlib>=3.7.0
 
 # Messaging for server bridge
 pyzmq>=27.0.0
+
+# Keyboard input helper for calibration scripts
+readchar>=4.2.1

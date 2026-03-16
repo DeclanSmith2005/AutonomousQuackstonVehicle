@@ -101,6 +101,11 @@ class ServerManager:
         self.duck_visible = False
         self.duck_visible_timestamp = 0
         self.duck_visible_timeout = 0.75
+
+        # Localization state (x, y in meters; heading in degrees)
+        self.localization_data = None
+        self.localization_timestamp = 0
+        self.localization_timeout = config.LOCALIZATION_TIMEOUT
         
         # Give sockets time to bind
         time.sleep(0.1)
@@ -177,6 +182,23 @@ class ServerManager:
                             except (TypeError, ValueError):
                                 pass
 
+                    elif topic in ("LOCALIZATION", "GPS"):
+                        heading_value = msg.get("heading", msg.get("yaw_deg", msg.get("yaw")))
+                        x_value = msg.get("x")
+                        y_value = msg.get("y")
+                        try:
+                            heading_deg = float(heading_value)
+                            x_m = float(x_value) if x_value is not None else None
+                            y_m = float(y_value) if y_value is not None else None
+                            self.localization_data = {
+                                "x": x_m,
+                                "y": y_m,
+                                "heading_deg": heading_deg,
+                            }
+                            self.localization_timestamp = time.time()
+                        except (TypeError, ValueError):
+                            pass
+
                     duck_visible = _extract_duck_visible(msg)
                     if duck_visible is not None:
                         self.duck_visible = duck_visible
@@ -224,6 +246,14 @@ class ServerManager:
         if (time.time() - self.duck_visible_timestamp) > self.duck_visible_timeout:
             return False
         return bool(self.duck_visible)
+
+    def receive_localization(self):
+        """Return fresh localization data dict or None when stale/unavailable."""
+        if self.localization_data is None:
+            return None
+        if (time.time() - self.localization_timestamp) > self.localization_timeout:
+            return None
+        return self.localization_data
     
     def close(self):
         """Clean up ZMQ resources."""
