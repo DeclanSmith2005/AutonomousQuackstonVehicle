@@ -1,5 +1,4 @@
 import time
-import math
 import zmq
 import config
 
@@ -140,8 +139,15 @@ class ServerManager:
         except Exception as e:
             print(f"[ZMQ] Error publishing telemetry: {e}")
     
-    def _process_incoming_messages(self):
-        """Process all pending messages from camera system."""
+    def process_incoming_messages(self):
+        """Process all pending messages from camera system.
+        
+        This method parses incoming ZMQ messages and updates the internal state for:
+        - TRAJECTORY: lists of CTE and lookahead distances.
+        - DISTANCE_TO_LINE: distance to the next intersection (cm).
+        - LOCALIZATION: (x, y) coordinates and heading.
+        - DUCK: visibility of obstacles.
+        """
         try:
             while True:
                 try:
@@ -159,28 +165,11 @@ class ServerManager:
 
                         # Perception may stream "NONE" until a stop line is visible, then send meters.
                         if "distance_to_line" in msg:
-                            line_distance_value = msg.get("distance_to_line")
-                            if isinstance(line_distance_value, str) and line_distance_value.strip().upper() == "NONE":
-                                self.intersection_distance_cm = None
-                                self.intersection_distance_timestamp = time.time()
-                            else:
-                                try:
-                                    self.intersection_distance_cm = float(line_distance_value) * 100.0
-                                    self.intersection_distance_timestamp = time.time()
-                                except (TypeError, ValueError):
-                                    pass
+                            self._handle_intersection_distance(msg.get("distance_to_line"))
 
                     elif topic in ("DISTANCE_TO_LINE", "DISTANCE"):
-                        line_distance_value = msg.get("distance_to_line", msg.get("distance"))
-                        if isinstance(line_distance_value, str) and line_distance_value.strip().upper() == "NONE":
-                            self.intersection_distance_cm = None
-                            self.intersection_distance_timestamp = time.time()
-                        else:
-                            try:
-                                self.intersection_distance_cm = float(line_distance_value) * 100.0
-                                self.intersection_distance_timestamp = time.time()
-                            except (TypeError, ValueError):
-                                pass
+                        val = msg.get("distance_to_line", msg.get("distance"))
+                        self._handle_intersection_distance(val)
 
                     elif topic in ("LOCALIZATION", "GPS"):
                         heading_value = msg.get("heading", msg.get("yaw_deg", msg.get("yaw")))
@@ -209,6 +198,19 @@ class ServerManager:
                     break
         except Exception as e:
             print(f"[ZMQ] Error receiving: {e}")
+
+    def _handle_intersection_distance(self, value):
+        """Internal helper to update intersection distance from various message formats."""
+        if isinstance(value, str) and value.strip().upper() == "NONE":
+            self.intersection_distance_cm = None
+            self.intersection_distance_timestamp = time.time()
+        else:
+            try:
+                # Convert meters from perception to centimeters for control logic
+                self.intersection_distance_cm = float(value) * 100.0
+                self.intersection_distance_timestamp = time.time()
+            except (TypeError, ValueError):
+                pass
     
     def receive_intersection_distance(self):
         """Non-blocking receive of distance to intersection from camera system.

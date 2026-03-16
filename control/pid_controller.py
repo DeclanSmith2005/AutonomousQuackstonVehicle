@@ -1,5 +1,18 @@
 class PIDController:
+    """
+    Standard PID controller for steering control.
+    """
     def __init__(self, kp, ki, kd, min_out, max_out):
+        """
+        Initialize the PID controller.
+
+        Parameters
+        ----------
+        kp, ki, kd : float
+            Proportional, Integral, and Derivative gains.
+        min_out, max_out : float
+            Lower and upper bounds for the controller output (e.g., servo limits).
+        """
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -13,36 +26,49 @@ class PIDController:
         
     def update(self, error, dt):
         """
-        Calculates the PID output.
-        :param error: The current error (Target - Current)
-        :param dt: Time elapsed since the last update (seconds)
-        """
+        Calculate the PID output based on current error and elapsed time.
 
+        Parameters
+        ----------
+        error : float
+            The current error (Target - Measured).
+        dt : float
+            Time elapsed since the last update (seconds).
+        
+        Returns
+        -------
+        float
+            Clamped controller output.
+        """
         if dt <= 0:
             return self.last_output
 
-        # P Term
+        # Proportional term
         P = self.kp * error
         
-        # I Term - Will always be 0
+        # Integral term
+        self.integral += error * dt
         I = self.ki * self.integral
         
-        # D Term
+        # Derivative term
         derivative = (error - self.last_error) / dt
         D = self.kd * derivative
         
-        # Calculate Output
+        # Calculate combined output
         output = P + I + D
         
-        # Save the error for the next loop
+        # Save state for the next update
         self.last_error = error
         
-        # Clamp output to servo limits
+        # Clamp output to specified limits
         self.last_output = max(self.min_out, min(self.max_out, output))
         return self.last_output
 
     def reset(self):
-        """Clears the memory (good for after a hard turn)"""
+        """
+        Reset controller memory to prevent windup or derivative spikes 
+        after a mode switch or long pause.
+        """
         self.last_error = 0.0
         self.integral = 0.0
         self.last_output = 0.0

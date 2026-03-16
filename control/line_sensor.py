@@ -4,18 +4,21 @@ Handles grayscale sensor signal processing and pattern detection.
 """
 
 class LineSensor:
+    """
+    Handles grayscale sensor signal processing and pattern detection.
+    """
     # Detection threshold (fraction of calibrated range)
     LOGIC_DETECT = 0.5
-
     WHITE_DETECT = 0.90
-
-    # Speed settings
-    BASE_SPEED = 20
-    MIN_SPEED = 5
 
     def __init__(self, offsets):
         """
-        offsets: [left_offset, center_offset, right_offset] in mm or arbitrary units
+        Initialize the LineSensor with hardware offsets.
+
+        Parameters
+        ----------
+        offsets : list of float
+            [left_offset, center_offset, right_offset] to correct sensor bias.
         """
         self.offsets = offsets
         self.cal_min = [0, 0, 0]
@@ -24,7 +27,16 @@ class LineSensor:
         self.last_error = 0.0
 
     def apply_calibration(self, cal_min, cal_max):
-        """Apply calibration values from wiggle routine."""
+        """
+        Apply calibration values from the wiggle routine.
+
+        Parameters
+        ----------
+        cal_min : list of int
+            Minimum ADC values seen for each sensor.
+        cal_max : list of int
+            Maximum ADC values seen for each sensor.
+        """
         self.cal_min = cal_min
         self.cal_max = cal_max
         print(f"Calibration applied: min={cal_min}, max={cal_max}")
@@ -34,7 +46,6 @@ class LineSensor:
         Convert raw ADC value to normalized signal [0.0, 1.0].
         0 = off line (low reflectance), 1 = on line (high reflectance)
         """
-
         corrected = raw_value - self.offsets[sensor_idx]  # apply bias correction
         cmin = self.cal_min[sensor_idx]
         cmax = self.cal_max[sensor_idx]
@@ -46,51 +57,61 @@ class LineSensor:
         return max(0.0, min(1.0, normalized))
 
     def get_signals(self, raw):
-        """Return normalized [left, center, right] signals in [0, 1]."""
+        """Return normalized [left, center, right] signals in range [0, 1]."""
         return [self.color_signal(raw[i], i) for i in range(3)]
 
     def active_sensor_mask(self, raw, threshold=None):
-        """Return boolean mask [left, center, right] above threshold."""
+        """Return boolean mask [left, center, right] indicating sensors above threshold."""
         detect_threshold = self.LOGIC_DETECT if threshold is None else threshold
         return [self.color_signal(raw[i], i) > detect_threshold for i in range(3)]
 
     def active_sensor_count(self, raw, threshold=None):
-        """Return count of sensors above threshold."""
+        """Return count of sensors currently above the threshold."""
         return sum(self.active_sensor_mask(raw, threshold))
 
     def analyze_pattern(self, raw):
         """
-        Analyze 3-sensor array to detect patterns.
-        Returns: 'LINE', 'CROSS_GREEN', 'STOP_WHITE', or 'NONE'
+        Analyze the 3-sensor array to detect specific track patterns.
+
+        Returns
+        -------
+        str
+            'CROSS' if all sensors see the line,
+            'BOUNDARY' if white boundary is detected,
+            'LINE' if at least one sensor sees the line,
+            'NONE' otherwise.
         """
         signals = self.get_signals(raw)
-        left, center, right = [s > self.LOGIC_DETECT for s in signals]
 
         # All three sensors detect line = intersection or stop.
-        if self.is_full_cross(raw):
+        if all(s > self.LOGIC_DETECT for s in signals):
             return "CROSS"
 
-        # At least one sensor detects white line
+        # At least one sensor detects white boundary (high reflectance)
         if any(s > self.WHITE_DETECT for s in signals):
             return "BOUNDARY"
 
-        # At least one sensor detects line
-        if any(s > self.LOGIC_DETECT for s in signals): # update main.py
+        # At least one sensor detects regular line
+        if any(s > self.LOGIC_DETECT for s in signals):
             return "LINE"
         
         return "NONE"
 
     def is_full_cross(self, raw):
-        """Strict CROSS detection: requires all three sensors above threshold."""
-        signals = self.get_signals(raw)
-        return all(s > self.LOGIC_DETECT for s in signals)
+        """Check if all three sensors are above the detection threshold."""
+        return self.analyze_pattern(raw) == "CROSS"
 
     def compute_error(self, raw):
         """
-        Compute lateral error from sensor readings using weighted average.
-        Returns: (error, stop_detected, base_speed)
+        Compute lateral error from sensor readings using a weighted average.
         
-        Error: positive = line is to the left (steer left), negative = line is to the right (steer right)
+        Returns
+        -------
+        tuple (float, bool)
+            (error, stop_detected)
+            error: positive = line is to the left (steer left), 
+                   negative = line is to the right (steer right)
+            stop_detected: True if a 'CROSS' pattern is detected.
         """
         signals = self.get_signals(raw)
         left, center, right = signals
@@ -105,7 +126,7 @@ class LineSensor:
             # No line detected - use last known error direction
             self.last_line_seen = False
             # Return last error amplified to encourage correction
-            return self.last_error * 1.3, stop_detected, self.BASE_SPEED
+            return self.last_error * 1.3, stop_detected
         
         self.last_line_seen = True
         
@@ -113,19 +134,10 @@ class LineSensor:
         # Left sensor = +1, Center = 0, Right = -1
         # Positive error = line to left = steer left (positive servo angle)
         # Negative error = line to right = steer right (negative servo angle)
-        
-        #if total_signal > 0.01:
         weighted_pos = (left - right) / total_signal
+        
         # Scale to -100 to +100 range
         error = weighted_pos * 100.0
-        #else:
-        #    error = 0.0
-        
         self.last_error = error
         
-        # Reduce speed when error is large
-        speed = self.BASE_SPEED
-        if abs(error) > 50:
-            speed = self.MIN_SPEED
-        
-        return error, stop_detected, speed
+        return error, stop_detected
