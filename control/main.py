@@ -307,13 +307,23 @@ def main():
     roundabout_circulate_start_time = None
     roundabout_exit_search_start_time = None
     roundabout_exit_branch_hits = 0
+    camera_tilt_cmd_deg = 0.0
+    straight_cross_streak = 0
+    last_straight_intersection_time = 0.0
+
+    def _set_cam_tilt(angle_deg):
+        """Set camera tilt and keep local command state for behavior gating."""
+        nonlocal camera_tilt_cmd_deg
+        px.set_cam_tilt_angle(angle_deg)
+        camera_tilt_cmd_deg = float(angle_deg)
 
     def _handle_duck_override():
         """Apply duck-stop safety behavior. Return True when the loop should continue early."""
         nonlocal duck_stop_active, duck_resume_state, last_pid_time, last_valid_line_time
         global current_motor_speed, stopped
 
-        duck_visible = server.receive_duck_visible()
+        duck_detection_enabled = abs(camera_tilt_cmd_deg) < 0.5
+        duck_visible = server.receive_duck_visible() if duck_detection_enabled else False
         if duck_visible:
             if not duck_stop_active:
                 print("Duck detected: stopping vehicle and playing horn.")
@@ -402,11 +412,14 @@ def main():
         return bool(handler())
 
     def _intersection_straight(base_speed, start_time):
+        nonlocal straight_cross_streak, last_straight_intersection_time
         startup_guard_s = float(config.STARTUP_INTERSECTION_GUARD_SEC)
         startup_guard_active = (time.time() - start_time) < startup_guard_s
         if not startup_guard_active:
             print("Ignoring full intersection (STRAIGHT mode).")
             ignore_intersection(px, base_speed)
+            last_straight_intersection_time = time.time()
+            straight_cross_streak = 0
             return True
         return False
 
@@ -481,30 +494,37 @@ def main():
     def _intersection_right(base_speed, _start_time):
         global no_line_turn, current_motor_speed, stopped
 
-        mission.crossings_seen += 1
-        if mission.crossings_seen >= 2:
-            execution_mode = _normalized_turn_mode()
-            success, current_motor_speed, stopped = _execute_turn_by_mode(
-                px,
-                eyes,
-                "right",
-                pid,
-                mission,
-                server,
-                current_motor_speed,
-                stopped,
-                execution_mode,
-            )
-            if success:
-                no_line_turn = False
-                mission.advance_mission()
-        else:
-            print(f"Skipping intersection {mission.crossings_seen}/2")
-            ignore_intersection(px, base_speed)
+    
+        execution_mode = _normalized_turn_mode()
+        success, current_motor_speed, stopped = _execute_turn_by_mode(
+            px,
+            eyes,
+            "right",
+            pid,
+            mission,
+            server,
+            current_motor_speed,
+            stopped,
+            execution_mode,
+        )
+        if success:
+            no_line_turn = False
+            mission.advance_mission()
+
         return True
 
     def _handle_intersection_event(base_speed, start_time, full_cross_triggered):
-        if not full_cross_triggered or no_line_turn:
+        if no_line_turn:
+            return False
+
+        intersection_triggered = full_cross_triggered
+        if mission.current_state == RobotState.STRAIGHT:
+            required_frames = max(1, int(getattr(config, "STRAIGHT_INTERSECTION_DEBOUNCE_FRAMES", 3)))
+            cooldown_s = max(0.0, float(getattr(config, "STRAIGHT_INTERSECTION_COOLDOWN_S", 0.8)))
+            in_cooldown = (time.time() - last_straight_intersection_time) < cooldown_s
+            intersection_triggered = full_cross_triggered and (straight_cross_streak >= required_frames) and not in_cooldown
+
+        if not intersection_triggered:
             return False
 
         state_handlers = {
@@ -549,7 +569,7 @@ def main():
         if not should_turn:
             return False
 
-        px.set_cam_tilt_angle(-30)
+        _set_cam_tilt(-30)
         no_line_turn = False
         execution_mode = _normalized_turn_mode()
         # Preserve backward compatibility for legacy no-line mode setting.
@@ -595,7 +615,7 @@ def main():
             if roundabout_exit_search_start_time is None:
                 roundabout_exit_search_start_time = time.time()
 
-            px.set_cam_tilt_angle(-30)
+            _set_cam_tilt(-30)
             px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
             search_speed = max(0, int(config.ROUNDABOUT_EXIT_SEARCH_SPEED))
             px.forward(search_speed)
@@ -745,7 +765,7 @@ def main():
         ):
             turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
             if turn_trigger_mode == "camera":
-                px.set_cam_tilt_angle(0)
+                _set_cam_tilt(0)
             print("Approaching STOP LINE...")
             px.forward(config.TURN_ENTRY_SPEED)
             current_motor_speed = config.TURN_ENTRY_SPEED
@@ -793,6 +813,11 @@ def main():
             full_cross_triggered = pattern == "CROSS"
             grayscale_turn_triggered = full_cross_triggered
 
+            if mission.current_state == RobotState.STRAIGHT and full_cross_triggered:
+                straight_cross_streak += 1
+            elif not full_cross_triggered:
+                straight_cross_streak = 0
+
             # Determine how we will exit the roundabout this run
             roundabout_exit_mode = str(config.ROUNDABOUT_EXIT_TRIGGER_MODE).strip().lower()
 
@@ -826,7 +851,7 @@ def main():
             if _handle_no_line_turn(grayscale_turn_triggered, line_distance_cm):
                 continue
             
-            px.set_cam_tilt_angle(0)
+            _set_cam_tilt(0)
             # Line Lost Failsafe
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > config.LOST_LINE_TIMEOUT:
