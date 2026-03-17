@@ -864,14 +864,23 @@ def main():
             error_buffer.pop(0)
             smooth_error = sum(error_buffer) / len(error_buffer)
 
-            # Apply deadband to ignore minor oscillations
-            if abs(smooth_error) < config.DEADBAND:
-                smooth_error = 0.0
+            # Shift PID target toward an edge while approaching turn states.
+            target_error = 0.0
+            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
+                target_error = float(config.EDGE_OFFSET_LEFT_TURN)
+            elif mission.current_state == RobotState.RIGHT:
+                target_error = float(config.EDGE_OFFSET_RIGHT_TURN)
+
+            tracking_error = target_error - smooth_error
+
+            # Apply deadband to tracking error, not raw line error.
+            if abs(tracking_error) < config.DEADBAND:
+                tracking_error = 0.0
 
             # Calculate steering adjustment from the PID controller
-            steering = pid.update(-smooth_error, dt=dt)
+            steering = pid.update(tracking_error, dt=dt)
             # Add extra steering authority only in sharp curves to reduce understeer.
-            abs_error = abs(smooth_error)
+            abs_error = abs(tracking_error)
             boost_threshold = float(config.CURVE_STEER_BOOST_THRESHOLD)
             boost_gain = float(config.CURVE_STEER_BOOST_GAIN)
             boost_max = float(config.CURVE_STEER_BOOST_MAX)

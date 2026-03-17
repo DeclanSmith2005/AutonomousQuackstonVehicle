@@ -24,6 +24,11 @@ CURVE_STEER_BOOST_THRESHOLD = 20.0  # Error magnitude where extra steering autho
 CURVE_STEER_BOOST_GAIN = 0.75  # Higher = tighter response on hard curves.
 CURVE_STEER_BOOST_MAX = 1.5  # Cap on multiplicative steering boost in sharp curves.
 
+# --- EDGE FOLLOWING OFFSETS ---
+# 0 = centered. Around +/-50 biases tracking toward center+outer sensor overlap.
+EDGE_OFFSET_LEFT_TURN = -40.0
+EDGE_OFFSET_RIGHT_TURN = 40.0
+
 # --- SENSOR & OBSTACLE CONFIG ---
 OFFSETS = [111, 95, 100]  # Per-sensor grayscale offsets [left, center, right].
 LOST_LINE_TIMEOUT = 5.0
