@@ -245,11 +245,12 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
-        RobotState.STRAIGHT,
+        RobotState.RIGHT,
+        RobotState.RIGHT,
+        RobotState.RIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.RIGHT,
-        RobotState.STRAIGHT,
         RobotState.RIGHT
     ]
     mission = MissionManager(initial_mission)
@@ -298,6 +299,9 @@ def main():
     error_buffer_seeded = False
     history = []
     start_time = time.time()
+    def _turn_allowed():
+        """Return True when startup grace period (1s) has elapsed."""
+        return (time.time() - start_time) >= 1.0
     last_valid_line_time = time.time()
     last_pid_time = time.time()
     no_line_arm_time = 0.0
@@ -450,6 +454,10 @@ def main():
     def _intersection_left_1(_base_speed, _start_time):
         global no_line_turn, current_motor_speed, stopped
 
+        if not _turn_allowed():
+            print("Turn suppressed during startup grace period.")
+            return False
+
         execution_mode = _normalized_turn_mode()
         success, current_motor_speed, stopped = _execute_turn_by_mode(
             px,
@@ -472,6 +480,10 @@ def main():
 
         mission.crossings_seen += 1
         if mission.crossings_seen >= 2:  # +1 more to account for the stop line
+            if not _turn_allowed():
+                print("Turn suppressed during startup grace period.")
+                return False
+
             execution_mode = _normalized_turn_mode()
             success, current_motor_speed, stopped = _execute_turn_by_mode(
                 px,
@@ -495,6 +507,9 @@ def main():
     def _intersection_right(base_speed, _start_time):
         global no_line_turn, current_motor_speed, stopped
 
+        if not _turn_allowed():
+            print("Turn suppressed during startup grace period.")
+            return False
     
         execution_mode = _normalized_turn_mode()
         success, current_motor_speed, stopped = _execute_turn_by_mode(
@@ -547,6 +562,10 @@ def main():
         if not no_line_turn:
             return False
 
+        if not _turn_allowed():
+            print("Turn suppressed during startup grace period.")
+            return False
+
         if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
             turn_dir = "left"
         elif mission.current_state == RobotState.RIGHT:
@@ -583,6 +602,17 @@ def main():
             f"(trigger_mode={turn_trigger_mode}, trigger_hit={trigger_hit}, timeout={timed_out}, "
             f"distance_to_line={line_distance_cm})."
         )
+
+        # If camera-provided distance is available, print a clear, formatted message.
+        if line_distance_cm is not None:
+            try:
+                print(f"  [Camera] distance to line: {float(line_distance_cm):.1f} cm")
+            except Exception:
+                print(f"  [Camera] distance to line: {line_distance_cm}")
+        else:
+            if turn_trigger_mode == "camera":
+                print("  [Camera] distance to line: <no reading>")
+
         print(f"Executing no-stop-line {execution_mode} turn: {turn_dir}")
         success, current_motor_speed, stopped = _execute_turn_by_mode(
             px,
@@ -641,6 +671,10 @@ def main():
                 print(
                     f"Roundabout branch cue detected ({turn_dir}, hits={roundabout_exit_branch_hits}); executing pivot turn."
                 )
+                if not _turn_allowed():
+                    print("Roundabout pivot suppressed during startup grace period.")
+                    return True
+
                 success, current_motor_speed, stopped = execute_pivot_turn(
                     px,
                     eyes,
@@ -659,6 +693,9 @@ def main():
                     print(
                         f"Roundabout branch cue timeout ({elapsed_search:.2f}s); forcing pivot {turn_dir} exit."
                     )
+                    if not _turn_allowed():
+                        print("Roundabout pivot suppressed during startup grace period.")
+                        return True
                     success, current_motor_speed, stopped = execute_pivot_turn(
                         px,
                         eyes,
@@ -673,6 +710,9 @@ def main():
                 else:
                     return True
         else:
+            if not _turn_allowed():
+                print("Roundabout pivot suppressed during startup grace period.")
+                return True
             execution_mode = _normalized_turn_mode()
             success, current_motor_speed, stopped = _execute_turn_by_mode(
                 px,
