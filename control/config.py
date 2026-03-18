@@ -17,7 +17,7 @@ ERROR_BUFFER_LEN = 5
 DEADBAND = 5.0
 
 # --- MOTION PARAMETERS ---
-BASE_SPEED = 15
+BASE_SPEED = 30
 MAX_STEER = 30
 MIN_DRIVE_SPEED = 10
 SPEED_DROP_GAIN = 0.30  # Reduce speed as steering angle grows.
@@ -41,7 +41,7 @@ OBSTACLE_THRESHOLD = 3.0  # Stop if obstacle closer than 3cm
 APPROACH_SPEED = 10
 STOP_HOLD_TIME = 2.0
 STOP_CLEAR_TIME = 0.5
-PASS_TIME = 0.35
+PASS_TIME = 0.5
 STOP_DELAY = 0.25
 
 # --- TURN TUNING (Common) ---
@@ -52,9 +52,9 @@ TURN_TRIGGER_MODE = "camera"
 # Max distance to line (cm) from perception to arm/trigger a turn
 MAX_TURN_PROXIMITY = 10
 
-TURN_PWM = 7
-TURN_ENTRY_SPEED = 7
-TURN_POST_SPEED = 5
+TURN_PWM = 15
+TURN_ENTRY_SPEED = 10
+TURN_POST_SPEED = 10
 TURN_STOP_HOLD_TIME = 3.0
 TURN_BLIND_TIME = 0.5
 TURN_SCAN_TIMEOUT = 5.0
@@ -66,10 +66,10 @@ TURN_ENTRY_TIMEOUT = 5.0
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
 TURN_LOOKAHEAD_MIN_CM = 18  # Minimum y_ref used by bicycle model to avoid steering saturation
-TURN_CAMERA_TIMEOUT = 2.5  # Max turn duration before fallback (s)
+TURN_CAMERA_TIMEOUT = 3.0  # Max turn duration before fallback (s)
 TURN_INITIAL_ROTATION_TIME = 0.3  # Brief initial rotation to point toward exit lane
-TURN_PROFILE_DURATION = 2.0  # Time to walk through the captured turn profile (s)
-TURN_MIN_LINE_CHECK_TIME = 2.5  # Delay before grayscale can end the turn (s)
+TURN_PROFILE_DURATION = 4.0  # Time to walk through the captured turn profile (s)
+TURN_MIN_LINE_CHECK_TIME = 1.5  # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3  # Freshness window for trajectory points (s)
 TURN_TRAJECTORY_MAX_AGE = 0.5  # Max acceptable age of trajectory samples during trajectory turns (s)
 INTERSECTION_DISTANCE_TIMEOUT = 0.4  # Freshness window for distance_line (s)
@@ -77,7 +77,7 @@ TURN_TRAJECTORY_CAMERA_TILT_DOWN = -35  # Camera tilt angle before capturing tra
 TURN_FEEDFORWARD_GAIN = 1.5  # Base gain on bicycle-model steering command
 TURN_CTE_FEEDBACK_GAIN = 0.45  # Deg per cm of live CTE tracking error
 TURN_HEADING_FEEDBACK_GAIN = 0.8  # Gain on heading error inferred from trajectory slope
-TURN_STEER_SMOOTHING_ALPHA = 0.5  # Command low-pass: 0=no update, 1=no smoothing
+TURN_STEER_SMOOTHING_ALPHA = 0.45  # Command low-pass: 0=no update, 1=no smoothing
 
 # --- PIVOT TURN TUNING ---
 PIVOT_TURN_PWM = 20  # PWM used for in-place pivot turning (0-100)

@@ -106,8 +106,6 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
                 if cte_list and distance_list and len(cte_list) == len(distance_list):
                     # Build trajectory as list of (distance_cm, cte_cm)
                     snapshot_trajectory = [(d * 100, c * 100) for d, c in zip(distance_list, cte_list)]
-                    # Enforce closest-to-furthest order so steering angles progress along the path.
-                    snapshot_trajectory.sort(key=lambda p: p[0])
                     print(f"  Captured trajectory with {len(snapshot_trajectory)} points")
                     break
             time.sleep(0.05)
@@ -128,9 +126,6 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         # 4) Follow the snapshot trajectory on a fixed timeline.
         profile_duration = max(config.TURN_PROFILE_DURATION, 0.01)
         profile_span = turn_profile[-1][0] if turn_profile else 0.0
-        snapshot_max_abs_cte = max((abs(cte) for _, cte in turn_profile), default=1.0)
-        if snapshot_max_abs_cte <= 0.0:
-            snapshot_max_abs_cte = 1.0
         
         turn_start = time.time()
         smoothed_steering = 0.0
@@ -165,34 +160,32 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
                     if last_dist != prev_dist:
                         slope_cte_per_cm = (last_cte - prev_cte) / (last_dist - prev_dist)
 
-            # Progressive steering profile:
-            # - sign follows CTE direction
-            # - magnitude follows relative CTE size in the snapshot
-            # - command ramps up over profile time
-            cte_sign = -1.0 if cte_cm < 0.0 else (1.0 if cte_cm > 0.0 else 0.0)
-            cte_mag_norm = min(1.0, abs(cte_cm) / snapshot_max_abs_cte)
-            time_progress = min(max(elapsed / profile_duration, 0.0), 1.0)
-            steering_cmd = cte_sign * config.MAX_STEER * cte_mag_norm * time_progress
+            # Bicycle model: delta = arctan(2 * L * CTE / y_ref^2)
+            y_ref_cm = max(start_distance_cm + profile_position, config.TURN_LOOKAHEAD_MIN_CM)
+            if y_ref_cm > 0:
+                numerator = -2 * config.WHEELBASE_CM * cte_cm
+                denominator = y_ref_cm * y_ref_cm
+                raw_steering = math.degrees(math.atan(numerator / denominator))
+            else:
+                raw_steering = 0.0
+
+            # Feedforward-only tracking from the frozen snapshot trajectory.
+            steering_ff = config.TURN_FEEDFORWARD_GAIN * raw_steering
+
+            steering_cte_fb = 0.0
+            heading_error_deg = math.degrees(math.atan(slope_cte_per_cm))
+            steering_heading_fb = config.TURN_HEADING_FEEDBACK_GAIN * heading_error_deg
+
+            steering_cmd = steering_ff + steering_cte_fb + steering_heading_fb
             alpha = max(0.0, min(1.0, config.TURN_STEER_SMOOTHING_ALPHA))
             smoothed_steering = smoothed_steering + alpha * (steering_cmd - smoothed_steering)
             steering = max(-config.MAX_STEER, min(config.MAX_STEER, smoothed_steering))
-
-            # Keep steering sign consistent with the current target CTE.
-            if cte_cm < 0.0 and steering > 0.0:
-                steering = 0.0
-            elif cte_cm > 0.0 and steering < 0.0:
-                steering = 0.0
 
             servo_cmd = -steering
             if direction == "right" and servo_cmd < 0:
                 servo_cmd = 0.0
             elif direction == "left" and servo_cmd > 0:
                 servo_cmd = 0.0
-
-            if direction == "right":
-                servo_cmd += 27
-            else:
-                servo_cmd -= 27
 
             px.set_dir_servo_angle(servo_cmd)
             px.forward(config.TURN_PWM)
