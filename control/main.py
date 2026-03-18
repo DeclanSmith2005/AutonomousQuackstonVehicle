@@ -420,6 +420,7 @@ def main():
             ignore_intersection(px, base_speed)
             last_straight_intersection_time = time.time()
             straight_cross_streak = 0
+            mission.advance_mission()
             return True
         return False
 
