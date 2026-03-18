@@ -245,11 +245,12 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
-        RobotState.STRAIGHT,
+        RobotState.RIGHT,
+        RobotState.RIGHT,
+        RobotState.RIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.RIGHT,
-        RobotState.STRAIGHT,
         RobotState.RIGHT
     ]
     mission = MissionManager(initial_mission)
@@ -298,6 +299,9 @@ def main():
     error_buffer_seeded = False
     history = []
     start_time = time.time()
+    def _turn_allowed():
+        """Return True when startup grace period (1s) has elapsed."""
+        return (time.time() - start_time) >= 1.0
     last_valid_line_time = time.time()
     last_pid_time = time.time()
     no_line_arm_time = 0.0
@@ -307,13 +311,23 @@ def main():
     roundabout_circulate_start_time = None
     roundabout_exit_search_start_time = None
     roundabout_exit_branch_hits = 0
+    camera_tilt_cmd_deg = 0.0
+    straight_cross_streak = 0
+    last_straight_intersection_time = 0.0
+
+    def _set_cam_tilt(angle_deg):
+        """Set camera tilt and keep local command state for behavior gating."""
+        nonlocal camera_tilt_cmd_deg
+        px.set_cam_tilt_angle(angle_deg)
+        camera_tilt_cmd_deg = float(angle_deg)
 
     def _handle_duck_override():
         """Apply duck-stop safety behavior. Return True when the loop should continue early."""
         nonlocal duck_stop_active, duck_resume_state, last_pid_time, last_valid_line_time
         global current_motor_speed, stopped
 
-        duck_visible = server.receive_duck_visible()
+        duck_detection_enabled = abs(camera_tilt_cmd_deg) < 0.5
+        duck_visible = server.receive_duck_visible() if duck_detection_enabled else False
         if duck_visible:
             if not duck_stop_active:
                 print("Duck detected: stopping vehicle and playing horn.")
@@ -402,11 +416,15 @@ def main():
         return bool(handler())
 
     def _intersection_straight(base_speed, start_time):
+        nonlocal straight_cross_streak, last_straight_intersection_time
         startup_guard_s = float(config.STARTUP_INTERSECTION_GUARD_SEC)
         startup_guard_active = (time.time() - start_time) < startup_guard_s
         if not startup_guard_active:
             print("Ignoring full intersection (STRAIGHT mode).")
             ignore_intersection(px, base_speed)
+            last_straight_intersection_time = time.time()
+            straight_cross_streak = 0
+            mission.advance_mission()
             return True
         return False
 
@@ -436,6 +454,10 @@ def main():
     def _intersection_left_1(_base_speed, _start_time):
         global no_line_turn, current_motor_speed, stopped
 
+        if not _turn_allowed():
+            print("Turn suppressed during startup grace period.")
+            return False
+
         execution_mode = _normalized_turn_mode()
         success, current_motor_speed, stopped = _execute_turn_by_mode(
             px,
@@ -458,6 +480,10 @@ def main():
 
         mission.crossings_seen += 1
         if mission.crossings_seen >= 2:  # +1 more to account for the stop line
+            if not _turn_allowed():
+                print("Turn suppressed during startup grace period.")
+                return False
+
             execution_mode = _normalized_turn_mode()
             success, current_motor_speed, stopped = _execute_turn_by_mode(
                 px,
@@ -481,30 +507,40 @@ def main():
     def _intersection_right(base_speed, _start_time):
         global no_line_turn, current_motor_speed, stopped
 
-        mission.crossings_seen += 1
-        if mission.crossings_seen >= 2:
-            execution_mode = _normalized_turn_mode()
-            success, current_motor_speed, stopped = _execute_turn_by_mode(
-                px,
-                eyes,
-                "right",
-                pid,
-                mission,
-                server,
-                current_motor_speed,
-                stopped,
-                execution_mode,
-            )
-            if success:
-                no_line_turn = False
-                mission.advance_mission()
-        else:
-            print(f"Skipping intersection {mission.crossings_seen}/2")
-            ignore_intersection(px, base_speed)
+        if not _turn_allowed():
+            print("Turn suppressed during startup grace period.")
+            return False
+    
+        execution_mode = _normalized_turn_mode()
+        success, current_motor_speed, stopped = _execute_turn_by_mode(
+            px,
+            eyes,
+            "right",
+            pid,
+            mission,
+            server,
+            current_motor_speed,
+            stopped,
+            execution_mode,
+        )
+        if success:
+            no_line_turn = False
+            mission.advance_mission()
+
         return True
 
     def _handle_intersection_event(base_speed, start_time, full_cross_triggered):
-        if not full_cross_triggered or no_line_turn:
+        if no_line_turn:
+            return False
+
+        intersection_triggered = full_cross_triggered
+        if mission.current_state == RobotState.STRAIGHT:
+            required_frames = max(1, int(getattr(config, "STRAIGHT_INTERSECTION_DEBOUNCE_FRAMES", 3)))
+            cooldown_s = max(0.0, float(getattr(config, "STRAIGHT_INTERSECTION_COOLDOWN_S", 0.8)))
+            in_cooldown = (time.time() - last_straight_intersection_time) < cooldown_s
+            intersection_triggered = full_cross_triggered and (straight_cross_streak >= required_frames) and not in_cooldown
+
+        if not intersection_triggered:
             return False
 
         state_handlers = {
@@ -524,6 +560,10 @@ def main():
         global no_line_turn, no_line_arm_time, current_motor_speed, stopped
 
         if not no_line_turn:
+            return False
+
+        if not _turn_allowed():
+            print("Turn suppressed during startup grace period.")
             return False
 
         if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
@@ -549,7 +589,7 @@ def main():
         if not should_turn:
             return False
 
-        px.set_cam_tilt_angle(-30)
+        _set_cam_tilt(-30)
         no_line_turn = False
         execution_mode = _normalized_turn_mode()
         # Preserve backward compatibility for legacy no-line mode setting.
@@ -562,6 +602,17 @@ def main():
             f"(trigger_mode={turn_trigger_mode}, trigger_hit={trigger_hit}, timeout={timed_out}, "
             f"distance_to_line={line_distance_cm})."
         )
+
+        # If camera-provided distance is available, print a clear, formatted message.
+        if line_distance_cm is not None:
+            try:
+                print(f"  [Camera] distance to line: {float(line_distance_cm):.1f} cm")
+            except Exception:
+                print(f"  [Camera] distance to line: {line_distance_cm}")
+        else:
+            if turn_trigger_mode == "camera":
+                print("  [Camera] distance to line: <no reading>")
+
         print(f"Executing no-stop-line {execution_mode} turn: {turn_dir}")
         success, current_motor_speed, stopped = _execute_turn_by_mode(
             px,
@@ -595,7 +646,7 @@ def main():
             if roundabout_exit_search_start_time is None:
                 roundabout_exit_search_start_time = time.time()
 
-            px.set_cam_tilt_angle(-30)
+            _set_cam_tilt(-30)
             px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
             search_speed = max(0, int(config.ROUNDABOUT_EXIT_SEARCH_SPEED))
             px.forward(search_speed)
@@ -620,6 +671,10 @@ def main():
                 print(
                     f"Roundabout branch cue detected ({turn_dir}, hits={roundabout_exit_branch_hits}); executing pivot turn."
                 )
+                if not _turn_allowed():
+                    print("Roundabout pivot suppressed during startup grace period.")
+                    return True
+
                 success, current_motor_speed, stopped = execute_pivot_turn(
                     px,
                     eyes,
@@ -638,6 +693,9 @@ def main():
                     print(
                         f"Roundabout branch cue timeout ({elapsed_search:.2f}s); forcing pivot {turn_dir} exit."
                     )
+                    if not _turn_allowed():
+                        print("Roundabout pivot suppressed during startup grace period.")
+                        return True
                     success, current_motor_speed, stopped = execute_pivot_turn(
                         px,
                         eyes,
@@ -652,6 +710,9 @@ def main():
                 else:
                     return True
         else:
+            if not _turn_allowed():
+                print("Roundabout pivot suppressed during startup grace period.")
+                return True
             execution_mode = _normalized_turn_mode()
             success, current_motor_speed, stopped = _execute_turn_by_mode(
                 px,
@@ -745,7 +806,7 @@ def main():
         ):
             turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
             if turn_trigger_mode == "camera":
-                px.set_cam_tilt_angle(0)
+                _set_cam_tilt(0)
             print("Approaching STOP LINE...")
             px.forward(config.TURN_ENTRY_SPEED)
             current_motor_speed = config.TURN_ENTRY_SPEED
@@ -793,6 +854,11 @@ def main():
             full_cross_triggered = pattern == "CROSS"
             grayscale_turn_triggered = full_cross_triggered
 
+            if mission.current_state == RobotState.STRAIGHT and full_cross_triggered:
+                straight_cross_streak += 1
+            elif not full_cross_triggered:
+                straight_cross_streak = 0
+
             # Determine how we will exit the roundabout this run
             roundabout_exit_mode = str(config.ROUNDABOUT_EXIT_TRIGGER_MODE).strip().lower()
 
@@ -826,7 +892,7 @@ def main():
             if _handle_no_line_turn(grayscale_turn_triggered, line_distance_cm):
                 continue
             
-            px.set_cam_tilt_angle(0)
+            _set_cam_tilt(0)
             # Line Lost Failsafe
             if not eyes.last_line_seen:
                 if (time.time() - last_valid_line_time) > config.LOST_LINE_TIMEOUT:

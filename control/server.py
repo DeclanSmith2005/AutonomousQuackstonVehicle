@@ -225,7 +225,7 @@ class ServerManager:
                 return self.intersection_distance_cm
         return None
     
-    def receive_trajectory(self):
+    def receive_trajectory(self, max_age_s=None):
         """Non-blocking receive of trajectory data.
 
         Returns
@@ -236,9 +236,12 @@ class ServerManager:
             - cte: Cross-Track Error at each lookahead point (meters)
             - distance: Lookahead distance from car (meters)
         """
+        freshness_window = self.trajectory_timeout if max_age_s is None else float(max_age_s)
+        freshness_window = max(0.0, freshness_window)
+
         # Return trajectory only if it's fresh
         if self.trajectory_cte is not None:
-            if (time.time() - self.trajectory_timestamp) < self.trajectory_timeout:
+            if (time.time() - self.trajectory_timestamp) < freshness_window:
                 return {'cte': self.trajectory_cte, 'distance': self.trajectory_distance}
         return None
 
