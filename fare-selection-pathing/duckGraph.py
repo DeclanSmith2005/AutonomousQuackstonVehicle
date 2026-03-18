@@ -1,18 +1,20 @@
 from __future__ import annotations
-
+import requests
 from dataclasses import dataclass, field
 import math
 import matplotlib.pyplot as plt
 from collections import deque
 import heapq
+import time
+
+import duckAPI
 
 #### TO DOS ######
 """
-- CONFIRM W/ STAFF ABT ORIENTATION OF CAR WHEN WE START, AND HOW TO GET CURR POS, AND HOW TO GET LIST OF FARES
-- INTEGRATE WITH RAPHAEL'S SERVER
-- WRITE CODE TO CHOOSE NEXT PASSANGER
-- INTERACT WITH THEIR POSITIONING API
-- WRITE A FUNCTION THAT CONVERTS THE PATH LIST FROM DIJKSTRA'S TO A LIST OF TURNS / DIRECTIONS
+- INTEGRATE W RAPH
+- STRESS TEST ROUND ABOUT
+- NEED EITHER A U TURN INSTRUCTION OR TRIM GRAPH OPPOSITE THE CARS ORIENTATION
+- USE ORIENTATION FROM THE API INSTEAD OF THE DEFAULTS APPROACH
 """
 
 
@@ -33,7 +35,7 @@ class NavGraph:
         dy = self.y[a] - self.y[b]
         return math.hypot(dx, dy)
 
-    def readGraph(self, node_file: str = "graph.txt", adj_file: str = "adj.txt") -> None:
+    def readGraph(self, node_file, adj_file) -> None:
         try:
             with open(node_file, "r") as f:
                 node_lines = [ln.strip() for ln in f.readlines()]
@@ -45,7 +47,7 @@ class NavGraph:
         # drop empty lines (common if file ends with newline)
         node_lines = [ln for ln in node_lines if ln]
 
-        # parse: each line expected "x,y,speed,zone,stop"
+        # parse: each line expecte
         for i, ln in enumerate(node_lines):
             parts = [p.strip() for p in ln.split(",")]
             if len(parts) != 2:
@@ -121,6 +123,8 @@ class NavGraph:
                 best_d2 = d2
                 best_u = u
             if best_u != -1 and best_d2 <= snap_d2:
+                if best_u == 22:  
+                    return 23, 23              #one node is kinda buggy because of its proximity to a second node
                 return best_u, best_u
 
             ax, ay = self.x[u], self.y[u]
@@ -175,26 +179,28 @@ class NavGraph:
     # returns [u, v, p] where u and v are the nodes that it sits between and p is the requested node. 
     # returns [-1, -1, p] in case that the new location is on top of an existing node
     def addTempNode (self, nodeX: float, nodeY: float) -> tuple[int, int, int]:
-        u, v, p = (self.findClosestEdge(self, nodeX, nodeY), len(self.x)-1)
-        self.x.append[nodeX]
-        self.y.append[nodeY]
+        u, v = self.findClosestEdge(nodeX, nodeY)
         if u != v:
+            self.x.append(nodeX)
+            self.y.append(nodeY)
+            p = len(self.x)-1
             self.adj[u].append(p)
             if u in self.adj[v]:
-                self.adj[p] = [u, v]
+                self.adj.append([u, v])
                 self.adj[v].append(p)
             else:
-                self.adj[p] = [v]
+                self.adj.append([v])
             return [u, v, p]
         else:
             return [-1, -1, u]
 
     def removeTempNode(self, u: int, v: int) -> None:
-        # adj clean up
         self.adj[u].pop()
         if u in self.adj[v]:
             self.adj[v].pop()
         self.adj.pop()
+        self.x.pop()
+        self.y.pop()
 
     def findShortestPath(self, currentNode: int, targetNode: int) -> list:
         dists = [float('inf') for i in range(len(self.x))]
@@ -220,12 +226,30 @@ class NavGraph:
             n = prev[n]
 
         return list(path), dists[targetNode]
+    
+    def navigate(self, carX, carY, destX, destY):
+        futureRemovals = []
+        #passanger nodes that new node falls between and its current node
+        du, dv, d = self.addTempNode(destX, destY)
+        if du > -1 and dv > -1:
+            futureRemovals.append((du, dv))
+
+        cu, cv, c = self.addTempNode(carX, carY)
+        if cu > -1 and cv > -1:
+            futureRemovals.append((cu, cv))
+
+        path, dist = self.findShortestPath(c, d)
+        path = self.convertToDirections(path)
+        for u, v in reversed(futureRemovals):
+            self.removeTempNode(u, v)
+        return path, dist
 
     def convertToDirections(self, pathNodes: list) -> list:
         res= []
+        #print(pathNodes)
         for i in range(len(pathNodes)-2):
             curr, nxt = pathNodes[i], pathNodes[i+1]
-            if len(self.adj[nxt]) < 3:
+            if len(self.adj[nxt]) < 2:
                 continue
             else:
                 # curr angle
@@ -241,45 +265,77 @@ class NavGraph:
                 T_JUNCTION_THRESHOLD = math.radians(60)
                 dirs = {}
                 if abs(s_val) > T_JUNCTION_THRESHOLD:
-                    dirs[releativeAngles[-1][1]] = 'LEFT'
-                    dirs[releativeAngles[0][1]] = 'RIGHT'
+                    for val, node in releativeAngles:
+                        dirs[node] = 'RIGHT' if val < 0 else 'LEFT'
                 else:
                     dirs[s_node] = 'STRAIGHT'
-                    if len(releativeAngles) > 1:
-                        if releativeAngles[-1][1] != s_node:
-                            dirs[releativeAngles[-1][1]] = 'LEFT'
-                        if releativeAngles[0][1] != s_node:
-                            dirs[releativeAngles[0][1]] = 'RIGHT'
+                    sInd = releativeAngles.index((s_val, s_node))
+                    for k in range(len(releativeAngles)):
+                        if k < sInd:
+                            dirs[releativeAngles[k][1]] = 'RIGHT'
+                        elif k > sInd:
+                            dirs[releativeAngles[k][1]] = 'LEFT'
+                                        
                 res.append(dirs[pathNodes[i+2]])
         return res
-                
+    
+    def getBestFare(self):
+        self.updatePosition()
+        fareInfo = {} # {fareId : [score, pathTostart, pathtoFinishFromStart]}
+        fares = duckAPI.getFares()
+        bestFare, bestScore = -1, -1
+        #print(duckAPI.getMatchInfo())
+        #print(duckAPI.getCurrentLocation())
+        for fare in fares:
+            fareRate = 10 if fare['modifiers'] == 0 else 5
+            fareStartEndAbsDist = (math.sqrt((fare['src']['x'] - fare['dest']['x'])**2 + (fare['src']['y'] - fare['dest']['y'])**2))/100
+            dirs1, d1 = self.navigate(self.carX, self.carY, fare['src']['x'], fare['src']['y'])
+            dirs2, d2 = self.navigate(fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
+            score = (10 + (fareStartEndAbsDist*fareRate))/((d1 + d2)/100)
+            fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2]
+            if score > bestScore:
+                bestFare, bestScore = fare['id'], score
+        print("car pos" , self.carX, self.carY)
+        print("pasanger pos ", fare['src']['x'], fare['src']['y'])
+        print("destination pos", fare['dest']['x'], fare['dest']['y'])
+        print("dirs 1", dirs1)
+        print("dirs 2", dirs2)
+        return bestFare, fareInfo[bestFare]
+    
+    def updatePosition(self):
+        positionJSON = duckAPI.getCurrentLocation()
+        position = positionJSON['position']
+        self.carX, self.carY = position['x'], position['y']
+            
+
                 
 def main() -> None:
     g = NavGraph()
     g.readGraph("graph.txt", "adj.txt")
+    
+    g.getBestFare()
     g.showGraph()
-
     #main loop
-    # while True:
-    #     # get new passanger coordinates()
-    #     #example
-    #     futureRemovals = []
-    #     px, py = 256, 30
-    #     pu, pv, p = g.addTempNode(px, py)
-    #     if pu > -1 and pv > -1:
-    #          futureRemovals.append((pu, pv))
+    while True:
+        fareID, score, path = -1, -1, []
+        while True:
+            fareID, srcX, srcY, destX, destY, score, p1, p2 = g.getBestFare()
+            if duckAPI.claimFare(fareID):
+                break
+        
+        # give initial p1 / p2, to raphael
 
-    #     #get current coordinates of car()
-    #     cx, cy = 581, 102
-    #     cu, cv, c = g.addTempNode(px, py)
-    #     if cu > -1 and cv > -1:
-    #         futureRemovals.append((cu, cv))
+        while not duckAPI.checkCurrFare()['completed']:
+            g.updatePosition()
+            if not duckAPI.checkCurrFare()["pickedUp"]:
+                path, d = g.navigate(g.carX, g.carY, srcX, srcY)
+            else:
+                path, d = g.navigate(g.carX, g.carY, destX, destY)
+            # give most recent path to raphael
+            for i in range(5):
+                time.sleep(1)
+            
 
-    #     g.findShortestPath(c, p)
-
-    #     #clean up
-    #     for u, v, n in futureRemovals:
-    #         g.removeTempNode(u, v)
-
+            
 if __name__ == "__main__":
     main()
