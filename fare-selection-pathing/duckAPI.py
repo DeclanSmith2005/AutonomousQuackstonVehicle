@@ -31,6 +31,11 @@ def claimFare(fareidx):
 
 def checkCurrFare():
     r= s.get(f"{BASEURL}/fares/current/{TEAM_NUMBER}", params= {'auth': TEAM_NUMBER})
+    if r.ok:
+        return r.json()
+    else:
+        print("chuck curr fair end point issue")
+        
 
 def getCurrentLocation():
     r= s.get(f"{BASEURL}/whereami/{TEAM_NUMBER}", params={'auth': TEAM_NUMBER})

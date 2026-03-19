@@ -7,20 +7,21 @@ from collections import deque
 import heapq
 import time
 
+
 import duckAPI
 
 #### TO DOS ######
 """
-- INTEGRATE W RAPH
+- COMPLETE INTEGRATION W RAPH
 - STRESS TEST ROUND ABOUT
-- NEED EITHER A U TURN INSTRUCTION OR TRIM GRAPH OPPOSITE THE CARS ORIENTATION
-- USE ORIENTATION FROM THE API INSTEAD OF THE DEFAULTS APPROACH
+- NEED TO ENSURE 2ND NAVIGATE CALL IN THE FIND BEST FARE DOESN'T MAKE CAR U TURN
 """
 
 
 
 @dataclass
 class NavGraph:
+    heading: float =  field(default_factory=float)
     carX: int = field(default_factory=int)
     carY : int =  field(default_factory=int)
     x: list[float] = field(default_factory=list)
@@ -227,16 +228,29 @@ class NavGraph:
 
         return list(path), dists[targetNode]
     
-    def navigate(self, carX, carY, destX, destY):
+    def navigate(self, carHeading, carX, carY, destX, destY):
         futureRemovals = []
-        #passanger nodes that new node falls between and its current node
+        #du, dv are  nodes that destination node falls between 
         du, dv, d = self.addTempNode(destX, destY)
         if du > -1 and dv > -1:
             futureRemovals.append((du, dv))
 
+        # cu, cv are nodes that car node falls between 
         cu, cv, c = self.addTempNode(carX, carY)
         if cu > -1 and cv > -1:
             futureRemovals.append((cu, cv))
+
+        # remove the node from adj that is behind where the car is pointing:
+        for n in self.adj[c]:
+            nx, ny = self.x[n], self.y[n]
+            dx = nx - carX
+            dy = ny - carY
+            hx = math.cos(carHeading)
+            hy = math.sin(carHeading)
+            dot_product = (dx * hx) + (dy * hy)
+    
+            if dot_product < 0:
+                self.adj[c].remove(n) 
 
         path, dist = self.findShortestPath(c, d)
         path = self.convertToDirections(path)
@@ -289,8 +303,8 @@ class NavGraph:
         for fare in fares:
             fareRate = 10 if fare['modifiers'] == 0 else 5
             fareStartEndAbsDist = (math.sqrt((fare['src']['x'] - fare['dest']['x'])**2 + (fare['src']['y'] - fare['dest']['y'])**2))/100
-            dirs1, d1 = self.navigate(self.carX, self.carY, fare['src']['x'], fare['src']['y'])
-            dirs2, d2 = self.navigate(fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
+            dirs1, d1 = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
+            dirs2, d2 = self.navigate(self.heading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
             score = (10 + (fareStartEndAbsDist*fareRate))/((d1 + d2)/100)
             fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2]
             if score > bestScore:
@@ -305,7 +319,8 @@ class NavGraph:
     def updatePosition(self):
         positionJSON = duckAPI.getCurrentLocation()
         position = positionJSON['position']
-        self.carX, self.carY = position['x'], position['y']
+        self.heading, self.carX, self.carY = position['heading'], position['x'], position['y']
+        
             
 
                 
@@ -324,13 +339,12 @@ def main() -> None:
                 break
         
         # give initial p1 / p2, to raphael
-
         while not duckAPI.checkCurrFare()['completed']:
             g.updatePosition()
             if not duckAPI.checkCurrFare()["pickedUp"]:
-                path, d = g.navigate(g.carX, g.carY, srcX, srcY)
+                path, d = g.navigate(g.heading, g.carX, g.carY, srcX, srcY)
             else:
-                path, d = g.navigate(g.carX, g.carY, destX, destY)
+                path, d = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             # give most recent path to raphael
             for i in range(5):
                 time.sleep(1)
