@@ -85,6 +85,15 @@ class ServerManager:
         self.sub_socket.bind(f"tcp://*:{sub_port}")
         self.sub_socket.subscribe("")  # Subscribe to all topics
         
+        # SUB Socket: Receives mission queue from pathing (Port 5557)
+        self.pathing_socket = self.context.socket(zmq.SUB)
+        self.pathing_socket.connect("tcp://127.0.0.1:5557")
+        self.pathing_socket.subscribe("")
+
+        self.last_pathing_timestamp = 0.0
+        self.latest_mission_queue = None
+        self.new_mission_available = False
+        
         # Trajectory state for turns
         self.trajectory_cte = None  # CTE in meters from perception
         self.trajectory_distance = None  # Lookahead distance in meters from perception
@@ -171,23 +180,6 @@ class ServerManager:
                         val = msg.get("distance_to_line", msg.get("distance"))
                         self._handle_intersection_distance(val)
 
-                    elif topic in ("LOCALIZATION", "GPS"):
-                        heading_value = msg.get("heading", msg.get("yaw_deg", msg.get("yaw")))
-                        x_value = msg.get("x")
-                        y_value = msg.get("y")
-                        try:
-                            heading_deg = float(heading_value)
-                            x_m = float(x_value) if x_value is not None else None
-                            y_m = float(y_value) if y_value is not None else None
-                            self.localization_data = {
-                                "x": x_m,
-                                "y": y_m,
-                                "heading_deg": heading_deg,
-                            }
-                            self.localization_timestamp = time.time()
-                        except (TypeError, ValueError):
-                            pass
-
                     duck_visible = _extract_duck_visible(msg)
                     if duck_visible is not None:
                         self.duck_visible = duck_visible
@@ -198,6 +190,23 @@ class ServerManager:
                     break
         except Exception as e:
             print(f"[ZMQ] Error receiving: {e}")
+
+        # Process messages from Pathing
+        try:
+            while True:
+                try:
+                    msg = self.pathing_socket.recv_json(flags=zmq.NOBLOCK)
+                    topic = msg.get("topic")
+                    if topic == "DIRECTIONS":
+                        msg_time = msg.get("time", 0.0)
+                        if msg_time > self.last_pathing_timestamp:
+                            self.last_pathing_timestamp = msg_time
+                            self.latest_mission_queue = msg.get("dirs", [])
+                            self.new_mission_available = True
+                except zmq.Again:
+                    break
+        except Exception as e:
+            print(f"[ZMQ] Error receiving from pathing: {e}")
 
     def _handle_intersection_distance(self, value):
         """Internal helper to update intersection distance from various message formats."""
@@ -260,9 +269,17 @@ class ServerManager:
             return None
         return self.localization_data
     
+    def receive_mission_queue(self):
+        """Return the latest mission queue if a new one is available, else None."""
+        if self.new_mission_available:
+            self.new_mission_available = False
+            return self.latest_mission_queue
+        return None
+
     def close(self):
         """Clean up ZMQ resources."""
         self.pub_socket.close()
         self.sub_socket.close()
+        self.pathing_socket.close()
         self.context.term()
         print("[ZMQ] Sockets closed")
