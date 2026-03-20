@@ -964,6 +964,15 @@ def main():
                 print(f"Advancing mission. New state: {mission.current_state}")
                 pid.reset()
 
+            # Consume dynamic no-line turn configurations from pathing
+            if getattr(mission, 'no_line_turn', False):
+                if not no_line_turn:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
+                    print("Dynamic turn rule active: Setting no_line_turn = True")
+                # Clear the flag so we don't continuously reset no_line_arm_time
+                mission.no_line_turn = False
+
             # --- PUBLISH MISSION STATE ON CHANGE ---
             should_heartbeat_publish = (time.time() - last_mission_publish_time) >= config.MISSION_STATE_HEARTBEAT
             if mission.current_state != last_published_state or no_line_turn != last_published_no_line_turn or should_heartbeat_publish:

@@ -13,11 +13,12 @@ context = zmq.Context()
 pub_socket = context.socket(zmq.PUB)
 pub_socket.bind(f"tcp://*:{PUBPORT}")
 
-def sendDirs(path):
+def sendDirs(path, distToNextNode=0.0):
     try:
         msg = {
             "topic": "DIRECTIONS",
             "dirs" : path,
+            "distToNextNode": distToNextNode,
             "time" : time.time()
         }
         pub_socket.send_json(msg)
@@ -40,32 +41,34 @@ def main():
         stopped(False)
         if not duckAPI.checkCurrFare()['fare']:
             while True:
-                fareID, srcX, srcY, destX, destY, score, p1, p2 = g.getBestFare()
+                bestFare_res = g.getBestFare()
+                fareID = bestFare_res[0]
+                srcX, srcY, destX, destY, score, p1, p2, nextDist1, nextDist2 = bestFare_res[1]
                 if duckAPI.claimFare(fareID):
                     break
-        sendDirs(p1)
+        sendDirs(p1, nextDist1)
         
         while math.sqrt((g.carX - srcX)**2 + (g.carY - srcY)**2) > 15:
             g.updatePosition()
-            dirs, dist, h = g.navigate(g.carX, g.carY, srcX, srcY)
-            sendDirs(dirs)
+            dirs, dist, h, distToNextNode = g.navigate(g.carX, g.carY, srcX, srcY)
+            sendDirs(dirs, distToNextNode)
             time.sleep(0.5)
         stopped(True)
 
 
-        while not duckAPI.checkCurrFare['fare']['pickedUp']:
+        while not duckAPI.checkCurrFare()['fare']['pickedUp']:
             time.sleep(0.5)
         stopped(False)
 
-        sendDirs(p2)
+        sendDirs(p2, nextDist2)
         while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
             g.updatePosition()
-            dirs, dist, h = g.navigate(g.carX, g.carY, destX, destY)
-            sendDirs(dirs)
+            dirs, dist, h, distToNextNode = g.navigate(g.carX, g.carY, destX, destY)
+            sendDirs(dirs, distToNextNode)
             time.sleep(0.5)
         stopped(True)
 
-        while not duckAPI.checkCurrFare['fare']['completed']:
+        while not duckAPI.checkCurrFare()['fare']['completed']:
             time.sleep(0.5)
         
 if __name__ == "__main__":

@@ -31,6 +31,7 @@ class MissionManager:
         self.mission_queue = list(original_mission)
         self.current_state = RobotState.IDLE
         self.crossings_seen = 0
+        self.no_line_turn = False
         self.mission_step_requested = threading.Event()
         
         # Preload first stage if mission not empty
@@ -42,11 +43,18 @@ class MissionManager:
         Resets 'crossings_seen' for the new stage.
         """
         if len(self.mission_queue) > 0:
-            self.current_state = self.mission_queue.pop(0)
-            print(f"MISSION UPDATE: Switched to {self.current_state}")
+            next_state = self.mission_queue.pop(0)
+            if isinstance(next_state, str) and next_state.endswith("_NL"):
+                self.current_state = next_state.replace("_NL", "")
+                self.no_line_turn = True
+            else:
+                self.current_state = next_state
+                self.no_line_turn = False
+            print(f"MISSION UPDATE: Switched to {self.current_state} (no_line_turn={self.no_line_turn})")
         else:
             print("MISSION COMPLETE")
             self.current_state = RobotState.IDLE
+            self.no_line_turn = False
         
         self.crossings_seen = 0
 
@@ -57,6 +65,7 @@ class MissionManager:
         self.mission_queue = list(self.original_mission)
         self.current_state = RobotState.IDLE
         self.crossings_seen = 0
+        self.no_line_turn = False
         self.advance_mission()
         print(f"Mission reset. Remaining queued stages: {self.mission_queue}")
 

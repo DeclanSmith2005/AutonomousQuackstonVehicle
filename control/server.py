@@ -92,6 +92,7 @@ class ServerManager:
 
         self.last_pathing_timestamp = 0.0
         self.latest_mission_queue = None
+        self.latest_dist_to_next_node = 0.0
         self.new_mission_available = False
         
         # Trajectory state for turns
@@ -202,6 +203,7 @@ class ServerManager:
                         if msg_time > self.last_pathing_timestamp:
                             self.last_pathing_timestamp = msg_time
                             self.latest_mission_queue = msg.get("dirs", [])
+                            self.latest_dist_to_next_node = msg.get("distToNextNode", 0.0)
                             self.new_mission_available = True
                 except zmq.Again:
                     break
@@ -275,6 +277,10 @@ class ServerManager:
             self.new_mission_available = False
             return self.latest_mission_queue
         return None
+
+    def receive_dist_to_next_node(self):
+        """Return the latest distance to the next node sent by the pathing system."""
+        return self.latest_dist_to_next_node
 
     def close(self):
         """Clean up ZMQ resources."""

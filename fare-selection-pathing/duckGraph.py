@@ -30,6 +30,7 @@ class NavGraph:
     maxSpeed: list[float] = field(default_factory=list)
     zoneType: list[int] = field(default_factory=list)
     stop: list[int] = field(default_factory=list)
+    turn_rules: dict = field(default_factory=dict)
 
     def getDistance(self, a: int, b: int) -> float:
         dx = self.x[a] - self.x[b]
@@ -84,9 +85,41 @@ class NavGraph:
                 continue
             self.adj[i] = [int(tok.strip()) for tok in ln.split(",") if tok.strip()]
 
+    def readTurnRules(self, filename: str) -> None:
+        try:
+            import os
+            if not os.path.exists(filename):
+                return
+            with open(filename, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = [p.strip() for p in line.split(",")]
+                    if len(parts) >= 4:
+                        u, v, w, turn = parts[0], parts[1], parts[2], parts[3]
+                        self.turn_rules[(u, v, w)] = turn
+        except Exception as e:
+            print(f"Error reading turn rules from {filename}: {e}")
+
+    def get_override(self, u_str: str, v_str: str, w_str: str) -> str | None:
+        for pattern in [
+            (u_str, v_str, w_str),
+            (u_str, v_str, "*"),
+            ("*", v_str, w_str),
+            ("*", v_str, "*")
+        ]:
+            if pattern in self.turn_rules:
+                return self.turn_rules[pattern]
+        return None
+
     def showGraph(self) -> None:
         # scatter nodes
         plt.scatter(self.x, self.y)
+
+        # label nodes with their IDs
+        for k in range(len(self.x)):
+            plt.text(self.x[k], self.y[k], str(k), color="red", fontsize=9, ha="center", va="center")
 
         # draw directed edges based on adjacency
         for i, nbrs in enumerate(self.adj):
@@ -252,15 +285,17 @@ class NavGraph:
             if dot_product < 0:
                 self.adj[c].remove(n) 
 
-        path, dist = self.findShortestPath(c, d)
-        if path and len(path) >= 2:
-            finalHeading = math.atan2(self.y[path[-1]] - self.y[path[-2]], self.x[path[-1]] - self.x[path[-2]])
+        pathNodes, dist = self.findShortestPath(c, d)
+        if pathNodes and len(pathNodes) >= 2:
+            distToNextNode = self.getDistance(pathNodes[0], pathNodes[1])
+            finalHeading = math.atan2(self.y[pathNodes[-1]] - self.y[pathNodes[-2]], self.x[pathNodes[-1]] - self.x[pathNodes[-2]])
         else:
+            distToNextNode = 0.0
             finalHeading = self.heading 
-        path = self.convertToDirections(path)
+        path = self.convertToDirections(pathNodes)
         for u, v in reversed(futureRemovals):
             self.removeTempNode(u, v)
-        return path, dist, finalHeading
+        return path, dist, finalHeading, distToNextNode
 
     def convertToDirections(self, pathNodes: list) -> list:
         res= []
@@ -270,6 +305,9 @@ class NavGraph:
             if len(self.adj[nxt]) < 2:
                 continue
             else:
+                w = pathNodes[i+2]
+                override = self.get_override(str(curr), str(nxt), str(w))
+                
                 # curr angle
                 dx = self.x[nxt] - self.x[curr]
                 dy = self.y[nxt] - self.y[curr]
@@ -284,17 +322,24 @@ class NavGraph:
                 dirs = {}
                 if abs(s_val) > T_JUNCTION_THRESHOLD:
                     for val, node in releativeAngles:
-                        dirs[node] = 'RIGHT' if val < 0 else 'LEFT'
+                        dirs[node] = 'R' if val < 0 else 'L2'
                 else:
-                    dirs[s_node] = 'STRAIGHT'
+                    dirs[s_node] = 'ST'
                     sInd = releativeAngles.index((s_val, s_node))
                     for k in range(len(releativeAngles)):
                         if k < sInd:
-                            dirs[releativeAngles[k][1]] = 'RIGHT'
+                            dirs[releativeAngles[k][1]] = 'R'
                         elif k > sInd:
-                            dirs[releativeAngles[k][1]] = 'LEFT'
+                            dirs[releativeAngles[k][1]] = 'L2'
                                         
-                res.append(dirs[pathNodes[i+2]])
+                base_dir = dirs[w]
+                if override is not None:
+                    if override == "NO_LINE" or override == "NL":
+                        base_dir = f"{base_dir}_NL"
+                    else:
+                        base_dir = override
+                        
+                res.append(base_dir)
         return res
     
     def getBestFare(self):
@@ -307,10 +352,10 @@ class NavGraph:
         for fare in fares:
             fareRate = 10 if fare['modifiers'] == 0 else 5
             fareStartEndAbsDist = (math.sqrt((fare['src']['x'] - fare['dest']['x'])**2 + (fare['src']['y'] - fare['dest']['y'])**2))/100
-            dirs1, d1, finalHeading = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
-            dirs2, d2, h = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
+            dirs1, d1, finalHeading, nextDist1 = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
+            dirs2, d2, h, nextDist2 = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
             score = (10 + (fareStartEndAbsDist*fareRate))/((d1 + d2)/100)
-            fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2]
+            fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2, nextDist1, nextDist2]
             if score > bestScore:
                 bestFare, bestScore = fare['id'], score
         print("car pos" , self.carX, self.carY)
@@ -331,6 +376,7 @@ class NavGraph:
 def main() -> None:
     g = NavGraph()
     g.readGraph("graph.txt", "adj.txt")
+    g.readTurnRules("turn_rules.txt")
     
     g.getBestFare()
     g.showGraph()
