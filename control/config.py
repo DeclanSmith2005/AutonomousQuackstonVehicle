@@ -10,7 +10,7 @@ WHEELBASE_CM = 9.5  # Wheelbase length for bicycle model (cm)
 STRAIGHT_ANGLE = 0  # Servo angle for driving straight
 
 # --- PID STEERING CONTROL ---
-KP = 0.25
+KP = 0.24
 KI = 0.0
 KD = 0.008
 ERROR_BUFFER_LEN = 5
@@ -38,7 +38,7 @@ CALIBRATION_TIMEOUT = 8.0
 OBSTACLE_THRESHOLD = 3.0  # Stop if obstacle closer than 3cm
 
 # --- APPROACH & STOP TUNING ---
-APPROACH_SPEED = 10
+APPROACH_SPEED = 8
 STOP_HOLD_TIME = 2.0
 STOP_CLEAR_TIME = 0.5
 PASS_TIME = 0.35

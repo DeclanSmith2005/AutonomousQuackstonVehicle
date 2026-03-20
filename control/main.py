@@ -263,10 +263,10 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
-        RobotState.RIGHT,
-        RobotState.RIGHT,
-        RobotState.RIGHT,
         RobotState.STRAIGHT,
+        RobotState.LEFT_2,
+        RobotState.STRAIGHT,
+        RobotState.LEFT_2,
         RobotState.STRAIGHT,
         RobotState.RIGHT,
         RobotState.RIGHT
@@ -594,24 +594,40 @@ def main():
         else:
             turn_dir = None
 
+        no_line_time = time.time()
         turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
+
         trigger_hit = _turn_triggered(
-            turn_trigger_mode,
-            grayscale_turn_triggered,
-            line_distance_cm,
-            config.MAX_TURN_PROXIMITY,
-        )
-        timed_out = (time.time() - no_line_arm_time) > config.NO_LINE_TIMEOUT
+                        turn_trigger_mode,
+                        grayscale_turn_triggered,
+                        line_distance_cm,
+                        config.MAX_TURN_PROXIMITY,
+                    )
+
+        while (time.time() - no_line_time) > config.NO_LINE_TIMEOUT:
+            line_distance_cm = server.receive_intersection_distance()
+            print(line_distance_cm)
+            trigger_hit = _turn_triggered(
+                        turn_trigger_mode,
+                        grayscale_turn_triggered,
+                        line_distance_cm,
+                        config.MAX_TURN_PROXIMITY,
+                    )
+            if trigger_hit:
+                break
+            sleep(0.1)
+        
+        # timed_out = (time.time() - no_line_arm_time) > config.NO_LINE_TIMEOUT
         should_turn = (
             turn_dir is not None
-            and (trigger_hit or timed_out)
+            and (trigger_hit)
         )
 
         if not should_turn:
             return False
 
-        _set_cam_tilt(-30)
         no_line_turn = False
+        _set_cam_tilt(-30)        
         execution_mode = _normalized_turn_mode()
         # Preserve backward compatibility for legacy no-line mode setting.
         legacy_no_line_mode = str(config.NO_LINE_TURN_MODE).strip().lower()
@@ -620,7 +636,7 @@ def main():
 
         print(
             "No-stop-line turn armed "
-            f"(trigger_mode={turn_trigger_mode}, trigger_hit={trigger_hit}, timeout={timed_out}, "
+            f"(trigger_mode={turn_trigger_mode}, trigger_hit={trigger_hit}, timeout=, "
             f"distance_to_line={line_distance_cm})."
         )
 
@@ -630,11 +646,11 @@ def main():
                 print(f"  [Camera] distance to line: {float(line_distance_cm):.1f} cm")
             except Exception:
                 print(f"  [Camera] distance to line: {line_distance_cm}")
+                print(f"Executing no-stop-line {execution_mode} turn: {turn_dir}")
         else:
             if turn_trigger_mode == "camera":
                 print("  [Camera] distance to line: <no reading>")
 
-        print(f"Executing no-stop-line {execution_mode} turn: {turn_dir}")
         success, current_motor_speed, stopped = _execute_turn_by_mode(
             px,
             eyes,
@@ -946,8 +962,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            if _handle_duck_override():
-                continue
+            # if _handle_duck_override():
+            #     continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):
