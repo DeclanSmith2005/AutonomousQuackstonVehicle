@@ -180,23 +180,6 @@ class ServerManager:
                         val = msg.get("distance_to_line", msg.get("distance"))
                         self._handle_intersection_distance(val)
 
-                    elif topic in ("LOCALIZATION", "GPS"):
-                        heading_value = msg.get("heading", msg.get("yaw_deg", msg.get("yaw")))
-                        x_value = msg.get("x")
-                        y_value = msg.get("y")
-                        try:
-                            heading_deg = float(heading_value)
-                            x_m = float(x_value) if x_value is not None else None
-                            y_m = float(y_value) if y_value is not None else None
-                            self.localization_data = {
-                                "x": x_m,
-                                "y": y_m,
-                                "heading_deg": heading_deg,
-                            }
-                            self.localization_timestamp = time.time()
-                        except (TypeError, ValueError):
-                            pass
-
                     duck_visible = _extract_duck_visible(msg)
                     if duck_visible is not None:
                         self.duck_visible = duck_visible
