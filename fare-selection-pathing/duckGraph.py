@@ -253,10 +253,14 @@ class NavGraph:
                 self.adj[c].remove(n) 
 
         path, dist = self.findShortestPath(c, d)
+        if path and len(path) >= 2:
+            finalHeading = math.atan2(self.y[path[-1]] - self.y[path[-2]], self.x[path[-1]] - self.x[path[-2]])
+        else:
+            finalHeading = self.heading 
         path = self.convertToDirections(path)
         for u, v in reversed(futureRemovals):
             self.removeTempNode(u, v)
-        return path, dist
+        return path, dist, finalHeading
 
     def convertToDirections(self, pathNodes: list) -> list:
         res= []
@@ -303,8 +307,8 @@ class NavGraph:
         for fare in fares:
             fareRate = 10 if fare['modifiers'] == 0 else 5
             fareStartEndAbsDist = (math.sqrt((fare['src']['x'] - fare['dest']['x'])**2 + (fare['src']['y'] - fare['dest']['y'])**2))/100
-            dirs1, d1 = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
-            dirs2, d2 = self.navigate(self.heading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
+            dirs1, d1, finalHeading = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
+            dirs2, d2, h = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
             score = (10 + (fareStartEndAbsDist*fareRate))/((d1 + d2)/100)
             fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2]
             if score > bestScore:
@@ -331,23 +335,7 @@ def main() -> None:
     g.getBestFare()
     g.showGraph()
     #main loop
-    while True:
-        fareID, score, path = -1, -1, []
-        while True:
-            fareID, srcX, srcY, destX, destY, score, p1, p2 = g.getBestFare()
-            if duckAPI.claimFare(fareID):
-                break
-        
-        # give initial p1 / p2, to raphael
-        while not duckAPI.checkCurrFare()['completed']:
-            g.updatePosition()
-            if not duckAPI.checkCurrFare()["pickedUp"]:
-                path, d = g.navigate(g.heading, g.carX, g.carY, srcX, srcY)
-            else:
-                path, d = g.navigate(g.heading, g.carX, g.carY, destX, destY)
-            # give most recent path to raphael
-            for i in range(5):
-                time.sleep(1)
+    
             
 
             

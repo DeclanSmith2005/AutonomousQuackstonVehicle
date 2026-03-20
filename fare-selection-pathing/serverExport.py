@@ -37,6 +37,7 @@ def stopped(ans):
 
 def main():
     while True:
+        stopped(False)
         if not duckAPI.checkCurrFare()['fare']:
             while True:
                 fareID, srcX, srcY, destX, destY, score, p1, p2 = g.getBestFare()
@@ -46,15 +47,26 @@ def main():
         
         while math.sqrt((g.carX - srcX)**2 + (g.carY - srcY)**2) > 15:
             g.updatePosition()
-            dirs, dist = g.navigate(g.carX, g.carY, srcX, srcY)
+            dirs, dist, h = g.navigate(g.carX, g.carY, srcX, srcY)
             sendDirs(dirs)
             time.sleep(0.5)
-
         stopped(True)
 
+
+        while not duckAPI.checkCurrFare['fare']['pickedUp']:
+            time.sleep(0.5)
+        stopped(False)
+
         sendDirs(p2)
+        while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
+            g.updatePosition()
+            dirs, dist, h = g.navigate(g.carX, g.carY, destX, destY)
+            sendDirs(dirs)
+            time.sleep(0.5)
+        stopped(True)
 
-
-            
+        while not duckAPI.checkCurrFare['fare']['completed']:
+            time.sleep(0.5)
+        
 if __name__ == "__main__":
     main()
