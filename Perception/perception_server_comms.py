@@ -37,8 +37,9 @@ class _VehicleStateManager:
         """Return the current vehicle state data."""
         return self.current_state, self.no_line, self.stopped
 
-class _CTESender:
-    """Manages persistent ZMQ connection for sending CTE (Cross-Track Error) and distance data."""
+
+class _PerceptionPublisher:
+    """Manages a single persistent ZMQ PUB connection for sending all perception data."""
     
     def __init__(self):
         self.pub_socket = _global_context.socket(zmq.PUB)
@@ -73,17 +74,6 @@ class _CTESender:
         except Exception as e:
             print(f"Error sending CTE AND distance: {e}")
 
-class _DistanceToLineSender:
-    """Manages persistent ZMQ connection for sending distance to horizontal line data."""
-
-    def __init__(self):
-        self.pub_socket = _global_context.socket(zmq.PUB)
-        # If running on the same Pi, use 127.0.0.1. 
-        # If running on a laptop, use the Pi's IP.
-        self.pub_socket.connect("tcp://127.0.0.1:5556")
-        # Small delay to ensure connection is established before sending
-        time.sleep(0.1)
-    
     def send_distance_to_line(self, distance_to_line):
         """Send distance to horizontal line to the server (non-blocking).
         
@@ -103,16 +93,6 @@ class _DistanceToLineSender:
         except Exception as e:
             print(f"Error sending distance to line: {e}")
 
-class _DuckSender:
-    """Manages persistent ZMQ connection for sending duck object detections."""
-    def __init__(self):
-        self.pub_socket = _global_context.socket(zmq.PUB)
-        # If running on the same Pi, use 127.0.0.1. 
-        # If running on a laptop, use the Pi's IP.
-        self.pub_socket.connect("tcp://127.0.0.1:5556")
-        # Small delay to ensure connection is established before sending
-        time.sleep(0.1)
-    
     def send_duck_detection(self, distance, horizontal_distance):
         """Send duck detection data to the server (non-blocking).
         
@@ -135,16 +115,6 @@ class _DuckSender:
         except Exception as e:
             print(f"Error sending duck detection: {e}")
 
-class _ObjectSender: 
-    def __init__(self):
-        self.pub_socket = _global_context.socket(zmq.PUB)
-        # If running on the same Pi, use 127.0.0.1. 
-        # If running on a laptop, use the Pi's IP.
-        self.pub_socket.connect("tcp://127.0.0.1:5556")
-        # Small delay to ensure connection is established before sending
-        time.sleep(0.1)
-    
-    # send detection to corresponding server topic based on label
     def send_object_detection(self, label, distance):
         """Send generic object detection data to the server based on label (non-blocking).
         
@@ -167,11 +137,9 @@ class _ObjectSender:
         except Exception as e:
             print(f"Error sending object detection: {e}")
 
+
 _state_manager = _VehicleStateManager()
-_cte_sender = _CTESender()
-_distance_to_line_sender = _DistanceToLineSender()
-_duck_sender = _DuckSender()
-_object_sender = _ObjectSender()
+_publisher = _PerceptionPublisher()
 
 def get_vehicle_state():
     """Return the current vehicle state from the MISSION_STATE topic.
@@ -196,7 +164,7 @@ def send_cte_yref_to_server(cte_meters, y_ref):
     y_ref : float
         Reference y-coordinate
     """
-    _cte_sender.send_cte(cte_meters, y_ref)
+    _publisher.send_cte(cte_meters, y_ref)
 
 def send_distance_to_line_to_server(distance_to_line):
     """Send the distance to the horizontal line to the server.
@@ -209,7 +177,7 @@ def send_distance_to_line_to_server(distance_to_line):
     distance_to_line : float
         Distance in meters from the car to the detected horizontal line.
     """
-    _distance_to_line_sender.send_distance_to_line(distance_to_line)
+    _publisher.send_distance_to_line(distance_to_line)
 
 def send_duck_detection_to_server(distance, horizontal_distance):
     """Send duck detection data to the server.
@@ -224,7 +192,7 @@ def send_duck_detection_to_server(distance, horizontal_distance):
     horizontal_distance : float
         Horizontal distance in meters from the center of the vehicle to the detected duck.
     """
-    _duck_sender.send_duck_detection(distance, horizontal_distance)
+    _publisher.send_duck_detection(distance, horizontal_distance)
 
 def send_object_detection_to_server(label, distance):
     """Send generic object detection data to the server based on label.
@@ -239,4 +207,4 @@ def send_object_detection_to_server(label, distance):
     distance : float
         Distance in meters from the car to the detected object.
     """
-    _object_sender.send_object_detection(label, distance)
+    _publisher.send_object_detection(label, distance)

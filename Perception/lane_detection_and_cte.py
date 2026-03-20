@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from perception_server_comms import get_vehicle_state, send_cte_yref_to_server, send_distance_to_line_to_server
+from perception_server_comms import get_vehicle_state, send_cte, send_distance_to_line
 
 #---------------------------------------------------------------CONSTANTS---------------------------------------------------------------------
 # Green color range for lane detection in HSV color space

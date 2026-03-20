@@ -604,7 +604,7 @@ def main():
                         config.MAX_TURN_PROXIMITY,
                     )
 
-        while (time.time() - no_line_time) > config.NO_LINE_TIMEOUT:
+        while (time.time() - no_line_time) < config.NO_LINE_TIMEOUT:
             line_distance_cm = server.receive_intersection_distance()
             print(line_distance_cm)
             trigger_hit = _turn_triggered(
@@ -615,7 +615,7 @@ def main():
                     )
             if trigger_hit:
                 break
-            sleep(0.1)
+            # time.sleep(0.1)
         
         # timed_out = (time.time() - no_line_arm_time) > config.NO_LINE_TIMEOUT
         should_turn = (

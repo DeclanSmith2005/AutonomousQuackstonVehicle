@@ -5,7 +5,7 @@ import models
 import cv2
 import os
 import time
-from perception_server_comms import send_cte_yref_to_server, send_distance_to_line_to_server, send_duck_detection_to_server, send_object_detection_to_server
+from perception_server_comms import send_cte, send_distance_to_line, send_duck_detection, send_object_detection
 from lane_detection_and_cte import detect_lane_cte
 import pandas as pd
 from datetime import datetime
@@ -110,13 +110,13 @@ for frame in vision.get_frames(display=False):
 
     if distance_to_line is not None:
         print(f"Distance to horizontal line: {distance_to_line:.3f} m")
-        send_distance_to_line_to_server(distance_to_line)
+        send_distance_to_line(distance_to_line)
     if cte_m_list is not None and distance_m_list is not None:
         # Send CTE and distance (both in meters) to control server
         # distance_m_list: lookahead distances from car in meters (near to far)
         # cte_m_list: CTE values in meters at each distance
         print(f"CTE(m): {[round(c, 4) for c in cte_m_list[:3]]}... dist(m): {[round(d, 4) for d in distance_m_list[:3]]}...")
-        send_cte_yref_to_server(cte_m_list, distance_m_list)
+        send_cte(cte_m_list, distance_m_list)
 
     # if distance_to_line is not None:
     #     print(f"Distance to horizontal line: {distance_to_line:.3f} m")
