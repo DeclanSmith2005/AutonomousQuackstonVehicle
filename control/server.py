@@ -85,6 +85,15 @@ class ServerManager:
         self.sub_socket.bind(f"tcp://*:{sub_port}")
         self.sub_socket.subscribe("")  # Subscribe to all topics
         
+        # SUB Socket: Receives mission queue from pathing (Port 5557)
+        self.pathing_socket = self.context.socket(zmq.SUB)
+        self.pathing_socket.connect("tcp://127.0.0.1:5557")
+        self.pathing_socket.subscribe("")
+
+        self.last_pathing_timestamp = 0.0
+        self.latest_mission_queue = None
+        self.new_mission_available = False
+        
         # Trajectory state for turns
         self.trajectory_cte = None  # CTE in meters from perception
         self.trajectory_distance = None  # Lookahead distance in meters from perception
@@ -199,6 +208,23 @@ class ServerManager:
         except Exception as e:
             print(f"[ZMQ] Error receiving: {e}")
 
+        # Process messages from Pathing
+        try:
+            while True:
+                try:
+                    msg = self.pathing_socket.recv_json(flags=zmq.NOBLOCK)
+                    topic = msg.get("topic")
+                    if topic == "DIRECTIONS":
+                        msg_time = msg.get("time", 0.0)
+                        if msg_time > self.last_pathing_timestamp:
+                            self.last_pathing_timestamp = msg_time
+                            self.latest_mission_queue = msg.get("dirs", [])
+                            self.new_mission_available = True
+                except zmq.Again:
+                    break
+        except Exception as e:
+            print(f"[ZMQ] Error receiving from pathing: {e}")
+
     def _handle_intersection_distance(self, value):
         """Internal helper to update intersection distance from various message formats."""
         if isinstance(value, str) and value.strip().upper() == "NONE":
@@ -260,9 +286,17 @@ class ServerManager:
             return None
         return self.localization_data
     
+    def receive_mission_queue(self):
+        """Return the latest mission queue if a new one is available, else None."""
+        if self.new_mission_available:
+            self.new_mission_available = False
+            return self.latest_mission_queue
+        return None
+
     def close(self):
         """Clean up ZMQ resources."""
         self.pub_socket.close()
         self.sub_socket.close()
+        self.pathing_socket.close()
         self.context.term()
         print("[ZMQ] Sockets closed")

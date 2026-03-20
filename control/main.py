@@ -12,6 +12,7 @@ from mission_manager import MissionManager, RobotState
 from server import ServerManager
 from calibration import load_calibration, run_wiggle_calibration
 from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera
+from io_components import IOComponents
 
 # --- GLOBALS ---
 stop_flag = False
@@ -21,6 +22,8 @@ run_calibration_flag = False
 no_line_turn = False
 stopped = False
 no_line_arm_time = 0.0
+io_components = None
+emergency_stop_active = False
 
 
 def _signed_heading_delta_deg(new_heading_deg, old_heading_deg):
@@ -114,16 +117,18 @@ def _roundabout_entry_pivot_nudge(px, direction, pwm, duration_s):
 def key_listener(mission):
     """
     Interactive keyboard control for mission management and failure testing.
-    s: stop
+    e: emergency stop (halts processes until 's' is pressed)
+    s: start / resume from emergency stop
+    q: quit
     st/a/l1/l2/r/idle/cal: manually jump to state
     n: next mission stage
     reset: reset mission
     fl: toggle forced line lost (simulates sensor failure)
     wiggle: run wiggle calibration
     """
-    global stop_flag, force_line_lost, run_calibration_flag, no_line_turn, no_line_arm_time
+    global stop_flag, force_line_lost, run_calibration_flag, no_line_turn, no_line_arm_time, emergency_stop_active
     print("Keyboard listener active.")
-    print("Commands: s=stop, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
+    print("Commands: e=e-stop, s=start/resume, q=quit, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
     print("          rbe/rbc/rbp/rbx=roundabout entry/circulate/exit_prep/exit_commit")
     print("          n=next, reset=reset, fl=force line lost")
     print("          wiggle=run wiggle calibration")
@@ -138,8 +143,14 @@ def key_listener(mission):
             if cmd not in ("rnl", "lnl_1", "lnl_2"):
                 no_line_turn = False
 
-            if cmd == "s":
+            if cmd == "q":
                 stop_flag = True
+            elif cmd == "e":
+                emergency_stop_active = True
+                print("EMERGENCY STOP ACTIVE. Press 's' to resume.")
+            elif cmd == "s":
+                emergency_stop_active = False
+                print("Resuming from emergency stop.")
             elif cmd == "st":
                 mission.current_state = RobotState.STRAIGHT
                 mission.crossings_seen = 0
@@ -225,22 +236,29 @@ def ignore_intersection(px, speed):
 
 def stop_at_line(px, base_speed):
     """Stop at a stop line, hold, then drive forward to clear it."""
-    global current_motor_speed
+    global current_motor_speed, io_components
     time.sleep(config.STOP_DELAY)
     px.stop()
     current_motor_speed = 0
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     time.sleep(config.STOP_HOLD_TIME)
     # Clear the line
     px.forward(base_speed)
+    current_motor_speed = base_speed
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     time.sleep(config.STOP_CLEAR_TIME)
 
 def main():
-    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time
+    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active
 
+    global io_components
     # --- SENSORS & ACTUATORS ---
     px = Picarx()
     eyes = LineSensor(config.OFFSETS)
     pid = PIDController(config.KP, config.KI, config.KD, min_out=-config.MAX_STEER, max_out=config.MAX_STEER)
+    io_components = IOComponents()
 
     # --- MISSION ---
     # Current active mission
@@ -314,6 +332,7 @@ def main():
     camera_tilt_cmd_deg = 0.0
     straight_cross_streak = 0
     last_straight_intersection_time = 0.0
+    idle_limit_pressed_time = 0.0
 
     def _set_cam_tilt(angle_deg):
         """Set camera tilt and keep local command state for behavior gating."""
@@ -340,6 +359,8 @@ def main():
                 px.stop()
                 current_motor_speed = 0
                 stopped = True
+                if io_components:
+                    io_components.update_brakes(0)
                 # One-shot horn on transition False -> True.
                 if horn_player is not None:
                     try:
@@ -782,12 +803,25 @@ def main():
             roundabout_heading_accum_deg = 0.0
 
     def _handle_state_prechecks(raw, pattern):
-        global current_motor_speed, stopped
+        global current_motor_speed, stopped, io_components
+        nonlocal idle_limit_pressed_time
 
         if mission.current_state == RobotState.IDLE:
             px.stop()
             current_motor_speed = 0
             stopped = True
+            
+            if io_components.is_limit_switch_pressed():
+                if idle_limit_pressed_time == 0.0:
+                    print("Limit switch pressed! Waiting 5s before advancing from IDLE...")
+                    idle_limit_pressed_time = time.time()
+                elif (time.time() - idle_limit_pressed_time) >= 5.0:
+                    io_components.clear_limit_switch_flag()
+                    idle_limit_pressed_time = 0.0
+                    mission.request_step()
+            else:
+                idle_limit_pressed_time = 0.0
+
             time.sleep(0.5)
             return True
 
@@ -820,11 +854,35 @@ def main():
             # Process all incoming ZMQ messages once per loop
             server.process_incoming_messages()
 
+            if emergency_stop_active:
+                px.stop()
+                current_motor_speed = 0
+                stopped = True
+                if io_components:
+                    io_components.update_brakes(0)
+                    io_components.signal_hazard()
+                time.sleep(0.05)
+                continue
+
             # Check for calibration request
             if run_calibration_flag:
                 run_calibration_flag = False
                 run_wiggle_calibration(px, eyes)
                 continue
+
+            # Evaluate Turn Signals
+            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2) or \
+               (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] in (RobotState.LEFT_1, RobotState.LEFT_2)):
+                io_components.signal_left()
+            elif mission.current_state == RobotState.RIGHT or \
+                 (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] == RobotState.RIGHT):
+                io_components.signal_right()
+            else:
+                io_components.signal_off()
+                
+            # Evaluate Brake Lights dynamically
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
 
             # 1) Get Hardware Data
             raw = px.get_grayscale_data()
@@ -867,6 +925,13 @@ def main():
             _update_roundabout_heading_accum(roundabout_exit_mode, localization)
 
             # 3) Handle Mission Stages
+            latest_queue = server.receive_mission_queue()
+            if latest_queue is not None:
+                print(f"Received new mission queue from pathing: {latest_queue}")
+                # Override the mission queue with pathing's fresh instructions
+                # If no queue is received, the default 'initial_mission' remains unaffected
+                mission.mission_queue = list(latest_queue)
+
             if mission.check_step_requested():
                 print(f"Advancing mission. New state: {mission.current_state}")
                 pid.reset()
@@ -981,6 +1046,9 @@ def main():
 
     finally:
         px.stop()
+        if io_components:
+            io_components.signal_off()
+            io_components.brake_off()
         server.close()
 
         # Save Logs

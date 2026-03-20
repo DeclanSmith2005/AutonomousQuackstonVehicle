@@ -8,10 +8,10 @@ PUBPORT = 5557
 
 g = duckGraph.NavGraph()
 g.readGraph("graph.txt", "adj.txt")
-fareID, srcX, srcY, destX, destY, score, p1, p2 = -1, -1, -1, -1, -1, -1, -1, [], []
-context = zmq.context()
+fareID, srcX, srcY, destX, destY, score, p1, p2 = -1, -1, -1, -1, -1, -1, [], []
+context = zmq.Context()
 pub_socket = context.socket(zmq.PUB)
-pub_socket.bind(f"tcp://{PUBPORT}")
+pub_socket.bind(f"tcp://*:{PUBPORT}")
 
 def sendDirs(path):
     try:
