@@ -315,6 +315,7 @@ def main():
 
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     error_buffer_seeded = False
+    ultrasonic_buffer = []
     history = []
     start_time = time.time()
     def _turn_allowed():
@@ -904,9 +905,20 @@ def main():
             raw = px.get_grayscale_data()
             
             # Distance check (Obstacle avoidance failsafe)
-            current_distance = px.ultrasonic.read()
-            if 0 < current_distance < config.OBSTACLE_THRESHOLD:
-                print(f"!!! EMERGENCY STOP: Obstacle detected at {current_distance:.1f}cm !!!")
+            raw_distance = px.ultrasonic.read()
+            # Treat invalid readings (<=0) as a large distance
+            effective_distance = raw_distance if raw_distance > 0 else 999.0
+            
+            ultrasonic_buffer.append(effective_distance)
+            if len(ultrasonic_buffer) > getattr(config, 'ULTRASONIC_BUFFER_LEN', 3):
+                ultrasonic_buffer.pop(0)
+
+            # Use median filter to reject spikes
+            sorted_buffer = sorted(ultrasonic_buffer)
+            filtered_distance = sorted_buffer[len(sorted_buffer) // 2]
+
+            if filtered_distance < config.OBSTACLE_THRESHOLD:
+                print(f"!!! EMERGENCY STOP: Obstacle detected at {filtered_distance:.1f}cm (raw: {raw_distance:.1f}cm) !!!")
                 stop_flag = True
                 break
 

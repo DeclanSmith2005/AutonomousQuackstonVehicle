@@ -36,6 +36,7 @@ OFFSETS = [111, 95, 100]  # Per-sensor grayscale offsets [left, center, right].
 LOST_LINE_TIMEOUT = 5.0
 CALIBRATION_TIMEOUT = 8.0
 OBSTACLE_THRESHOLD = 3.0  # Stop if obstacle closer than 3cm
+ULTRASONIC_BUFFER_LEN = 3  # Number of recent distance values to keep for median filtering
 
 # --- APPROACH & STOP TUNING ---
 APPROACH_SPEED = 8
