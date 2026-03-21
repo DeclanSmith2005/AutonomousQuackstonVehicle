@@ -32,7 +32,7 @@ def apply_turn_pwm(px, direction):
         px.set_motor_speed(2, -outer_pwm)
 
 
-def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components=None):
+def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components=None):
     """
     Fallback routine: scan for the line using grayscale sensors after a 
     timed or camera-guided turn segment.
@@ -49,6 +49,10 @@ def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_compo
         To reset steering memory after re-acquisition.
     current_motor_speed : int
         Current speed to be updated.
+    estop_sleep : function
+        Helper for interruptible sleep.
+    estop_pause_if_needed : function
+        Helper for pausing motors during e-stop.
 
     Returns
     -------
@@ -58,8 +62,11 @@ def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_compo
     print("Camera fallback: scanning with grayscale...")
     line_found = False
     start_scan = time.time()
+    paused_total = 0.0
 
-    while (time.time() - start_scan) < config.TURN_SCAN_TIMEOUT:
+    while (time.time() - start_scan - paused_total) < config.TURN_SCAN_TIMEOUT:
+        paused_total += estop_pause_if_needed(px)
+        
         raw = px.get_grayscale_data()
         # Check if any sensor detects the line
         on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
@@ -88,7 +95,7 @@ def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_compo
     return True, current_motor_speed
 
 
-def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_motor_speed, stopped, io_components=None):
+def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_motor_speed, stopped, estop_sleep, estop_pause_if_needed, io_components=None):
     """
     Camera-guided turn using a single trajectory snapshot.
 
@@ -103,6 +110,10 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         "left" or "right".
     server : ServerManager
         To receive trajectory data from perception.
+    estop_sleep : function
+        Helper for interruptible sleep.
+    estop_pause_if_needed : function
+        Helper for pausing motors during e-stop.
     """
     print(f"Executing snapshot-based {direction} turn...")
     camera_tilt_down = int(config.TURN_TRAJECTORY_CAMERA_TILT_DOWN)
@@ -112,14 +123,17 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         trajectory_max_age = float(config.TURN_TRAJECTORY_MAX_AGE)
 
         # 1) Stop at intersection to stabilize
-        time.sleep(0.1)
+        if estop_sleep(0.1):
+            estop_pause_if_needed(px)
         px.stop()
         current_motor_speed = 0
         if io_components:
             io_components.update_brakes(current_motor_speed)
-        time.sleep(0.5)
+        if estop_sleep(0.5):
+            estop_pause_if_needed(px)
         stopped = True
-        time.sleep(config.TURN_STOP_HOLD_TIME)
+        if estop_sleep(config.TURN_STOP_HOLD_TIME):
+            estop_pause_if_needed(px)
 
         # 2) Default steering direction for backup
         initial_steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
@@ -128,8 +142,10 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         print("  Waiting for trajectory snapshot...")
         snapshot_trajectory = None
         snapshot_start = time.time()
+        paused_total = 0.0
 
-        while (time.time() - snapshot_start) < config.SNAPSHOT_WAIT_TIMEOUT:
+        while (time.time() - snapshot_start - paused_total) < config.SNAPSHOT_WAIT_TIMEOUT:
+            paused_total += estop_pause_if_needed(px)
             server.process_incoming_messages()
             trajectory_data = server.receive_trajectory(max_age_s=trajectory_max_age)
             if trajectory_data is not None:
@@ -152,8 +168,12 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
             current_motor_speed = get_turn_pwm(direction)
             if io_components:
                 io_components.update_brakes(current_motor_speed)
-            time.sleep(config.TURN_BLIND_TIME)
-            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
+            if estop_sleep(config.TURN_BLIND_TIME):
+                estop_pause_if_needed(px)
+                # resume blind turn
+                px.set_dir_servo_angle(initial_steer)
+                apply_turn_pwm(px, direction)
+            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
             return success, current_motor_speed, stopped
 
         # Use near-to-far ordering: (elapsed_distance_cm, cte_cm)
@@ -171,10 +191,12 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         smoothed_steering = 0.0
         # Guarantee we complete the planned profile before attempting grayscale recovery.
         min_turn_runtime = max(float(config.TURN_CAMERA_TIMEOUT), float(profile_duration))
+        paused_total_turn = 0.0
 
-        while (time.time() - turn_start) < min_turn_runtime:
+        while (time.time() - turn_start - paused_total_turn) < min_turn_runtime:
+            paused_total_turn += estop_pause_if_needed(px)
             current_time = time.time()
-            elapsed = current_time - turn_start
+            elapsed = current_time - turn_start - paused_total_turn
             profile_position = min(elapsed / profile_duration, 1.0) * profile_span if profile_span > 0 else 0.0
 
             # Linear interpolation for target CTE
@@ -248,13 +270,13 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
 
         # 5) Timeout — fall back to grayscale scan
         print(f"  Turn segment complete at {time.time() - turn_start:.2f}s; starting grayscale recovery scan")
-        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
+        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
         return success, current_motor_speed, stopped
     finally:
         px.set_cam_tilt_angle(0)
 
 
-def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, io_components=None):
+def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components=None):
     """
     Classic timed turn: steer at max angle for a fixed duration, 
     then scan for line.
@@ -266,7 +288,8 @@ def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, io_comp
     px.stop()
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.TURN_STOP_HOLD_TIME)
+    if estop_sleep(config.TURN_STOP_HOLD_TIME):
+        estop_pause_if_needed(px)
 
     # 2) Manual turn
     steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
@@ -275,27 +298,30 @@ def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, io_comp
     current_motor_speed = get_turn_pwm(direction)
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.TURN_BLIND_TIME)
+    if estop_sleep(config.TURN_BLIND_TIME):
+        estop_pause_if_needed(px)
 
     # 3) Scan for line re-acquisition
-    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
+    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
     return success, current_motor_speed
 
 
-def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, stopped, io_components=None):
+def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, stopped, estop_sleep, estop_pause_if_needed, io_components=None):
     """
     In-place pivot turn using differential motor control.
     """
     print(f"Executing in-place {direction} turn...")
 
     # Stop and center steering before pivoting.
-    time.sleep(0.1)
+    if estop_sleep(0.1):
+        estop_pause_if_needed(px)
     px.stop()
     stopped = True
     current_motor_speed = 0
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.TURN_STOP_HOLD_TIME)
+    if estop_sleep(config.TURN_STOP_HOLD_TIME):
+        estop_pause_if_needed(px)
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
 
     pivot_sign = 1 if direction == "right" else -1
@@ -313,13 +339,15 @@ def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, s
     )
 
     pivot_start = time.time()
+    paused_total = 0.0
     if io_components:
         io_components.update_brakes(abs(pivot_speed))
     while True:
+        paused_total += estop_pause_if_needed(px)
         px.set_motor_speed(1, pivot_speed)
         px.set_motor_speed(2, pivot_speed)
 
-        elapsed = time.time() - pivot_start
+        elapsed = time.time() - pivot_start - paused_total
         raw = px.get_grayscale_data()
         
         # Check for sensor alignment sequence
@@ -350,9 +378,11 @@ def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, s
     if io_components:
         io_components.update_brakes(current_motor_speed)
     stopped = False
-    time.sleep(config.PIVOT_FORWARD_SETTLE_TIME)
+    if estop_sleep(config.PIVOT_FORWARD_SETTLE_TIME):
+        estop_pause_if_needed(px)
+        px.forward(config.TURN_POST_SPEED)   # re-apply if it was paused
 
-    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
+    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
     if success:
         stopped = False
     return success, current_motor_speed, stopped

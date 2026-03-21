@@ -22,8 +22,40 @@ run_calibration_flag = False
 no_line_turn = False
 stopped = False
 no_line_arm_time = 0.0
+_no_line_lock = threading.Lock()  # guards no_line_turn and no_line_arm_time
 io_components = None
 emergency_stop_active = False
+estop_resume_state = None  # state to restore when resuming from e-stop
+
+
+def estop_sleep(duration):
+    """Sleep for `duration` seconds, but return early if e-stop fires.
+    Returns True if interrupted by e-stop, False if sleep completed normally.
+    Polls every 50ms so e-stop response is near-instant.
+    """
+    end_time = time.time() + duration
+    while time.time() < end_time:
+        if emergency_stop_active:
+            return True
+        time.sleep(min(0.05, max(0, end_time - time.time())))
+    return False
+
+
+def estop_pause_if_needed(px):
+    """If e-stop is active, stop motors and block until cleared.
+    Returns the pause duration in seconds so callers can adjust their timers.
+    Returns 0.0 if no pause was needed.
+    """
+    if not emergency_stop_active:
+        return 0.0
+    px.stop()
+    pause_start = time.time()
+    print("E-STOP: Motors stopped, pausing operation...")
+    while emergency_stop_active:
+        time.sleep(0.05)
+    pause_duration = time.time() - pause_start
+    print(f"Resumed after {pause_duration:.1f}s pause.")
+    return pause_duration
 
 
 def _signed_heading_delta_deg(new_heading_deg, old_heading_deg):
@@ -77,6 +109,8 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
             server,
             current_speed,
             is_stopped,
+            estop_sleep,
+            estop_pause_if_needed,
             io_components
         )
     if mode == "pivot":
@@ -88,6 +122,8 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
             mission,
             current_speed,
             is_stopped,
+            estop_sleep,
+            estop_pause_if_needed,
             io_components
         )
 
@@ -99,6 +135,8 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
         pid,
         mission,
         current_speed,
+        estop_sleep,
+        estop_pause_if_needed,
         io_components
     )
     return success, current_speed, is_stopped
@@ -108,7 +146,9 @@ def _roundabout_entry_blind_turn(px, direction, pwm, duration_s, outer_mult, inn
     outer_pwm = int(pwm * outer_mult)
     inner_pwm = int(pwm * inner_mult)
     start = time.time()
-    while (time.time() - start) < duration_s:
+    paused_total = 0.0
+    while (time.time() - start - paused_total) < duration_s:
+        paused_total += estop_pause_if_needed(px)
         if direction == "right":
             px.set_motor_speed(1, outer_pwm)
             px.set_motor_speed(2, inner_pwm)
@@ -153,8 +193,9 @@ def key_listener(mission):
                 emergency_stop_active = True
                 print("EMERGENCY STOP ACTIVE. Press 's' to resume.")
             elif cmd == "s":
-                emergency_stop_active = False
-                print("Resuming from emergency stop.")
+                if emergency_stop_active:
+                    emergency_stop_active = False
+                    print("Resuming from emergency stop.")
             elif cmd == "st":
                 mission.current_state = RobotState.STRAIGHT
                 mission.crossings_seen = 0
@@ -207,20 +248,23 @@ def key_listener(mission):
             elif cmd == "rnl":
                 mission.current_state = RobotState.RIGHT
                 mission.crossings_seen = 0
-                no_line_turn = True
-                no_line_arm_time = time.time()
+                with _no_line_lock:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
                 print("Manual State: RIGHT_NO_LINE")
             elif cmd == "lnl_1":
                 mission.current_state = RobotState.LEFT_1
                 mission.crossings_seen = 0
-                no_line_turn = True
-                no_line_arm_time = time.time()
+                with _no_line_lock:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
                 print("Manual State: LEFT_1_NO_LINE")
             elif cmd == "lnl_2":
                 mission.current_state = RobotState.LEFT_2
                 mission.crossings_seen = 0
-                no_line_turn = True
-                no_line_arm_time = time.time()
+                with _no_line_lock:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
                 print("Manual State: LEFT_2_NO_LINE")
 
         except EOFError:
@@ -232,23 +276,31 @@ def ignore_intersection(px, speed):
     px.forward(speed)
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
     current_motor_speed = speed
-    time.sleep(config.PASS_TIME)
+    if estop_sleep(config.PASS_TIME):
+        estop_pause_if_needed(px)
+        px.forward(speed)
+        current_motor_speed = speed
 
 def stop_at_line(px, base_speed):
     """Stop at a stop line, hold, then drive forward to clear it."""
     global current_motor_speed, io_components
-    time.sleep(config.STOP_DELAY)
+    if estop_sleep(config.STOP_DELAY):
+        estop_pause_if_needed(px)
     px.stop()
     current_motor_speed = 0
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.STOP_HOLD_TIME)
+    if estop_sleep(config.STOP_HOLD_TIME):
+        estop_pause_if_needed(px)
     # Clear the line
     px.forward(base_speed)
     current_motor_speed = base_speed
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.STOP_CLEAR_TIME)
+    if estop_sleep(config.STOP_CLEAR_TIME):
+        estop_pause_if_needed(px)
+        px.forward(base_speed)
+        current_motor_speed = base_speed
 
 def main():
     global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active
@@ -561,10 +613,13 @@ def main():
         current_motor_speed = 0
         px.stop()
         stopped = True
-        time.sleep(config.TURN_STOP_HOLD_TIME)
+        if estop_sleep(config.TURN_STOP_HOLD_TIME):
+            estop_pause_if_needed(px)
         
         start_t = time.time()
-        while time.time() - start_t < exit_time:
+        paused_total = 0.0
+        while (time.time() - start_t - paused_total) < exit_time:
+            paused_total += estop_pause_if_needed(px)
             px.set_motor_speed(1, exit_pwm)
             px.set_motor_speed(2, 0)
             px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
@@ -572,7 +627,7 @@ def main():
             
         px.stop()
         
-        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
+        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
         if success:
             stopped = False
             mission.advance_mission()
@@ -641,10 +696,15 @@ def main():
         )
 
         if not should_turn:
-            timed_out = (time.time() - no_line_arm_time) > config.NO_LINE_TIMEOUT
+            # Grace period: give perception time to receive the no_line flag
+            # and start scanning before the timeout clock is meaningful.
+            NO_LINE_GRACE_S = 1.0
+            elapsed = time.time() - no_line_arm_time
+            timed_out = elapsed > (config.NO_LINE_TIMEOUT + NO_LINE_GRACE_S)
             if timed_out:
-                print(f"No-stop-line turn timed out after {config.NO_LINE_TIMEOUT}s. Canceling.")
-                no_line_turn = False
+                print(f"No-stop-line turn timed out after {config.NO_LINE_TIMEOUT}+{NO_LINE_GRACE_S}s. Canceling.")
+                with _no_line_lock:
+                    no_line_turn = False
             return False
 
         no_line_turn = False
@@ -748,12 +808,12 @@ def main():
             else:
                 idle_limit_pressed_time = 0.0
 
-            time.sleep(0.5)
+            estop_sleep(0.5)
             return True
 
         if mission.current_state == RobotState.CALIBRATE:
             print(f"RAW: {raw} | PATTERN: {pattern}")
-            time.sleep(0.5)
+            estop_sleep(0.5)
             return True
 
         # In states leading up to a turn or stop line, reduce speed.
@@ -766,6 +826,10 @@ def main():
         ):
             turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
             if turn_trigger_mode == "camera":
+                # Tilt camera level (0°) for both normal and no_line approaches.
+                # In no_line mode this is needed so perception can see the
+                # distant horizontal stop line; _handle_no_line_turn tilts to
+                # -30° only after the turn trigger fires.
                 _set_cam_tilt(0)
             print("Approaching STOP LINE...")
             px.forward(config.TURN_ENTRY_SPEED)
@@ -781,14 +845,26 @@ def main():
             server.process_incoming_messages()
 
             if emergency_stop_active:
+                # Save current state for resumption (unless already saved)
+                if estop_resume_state is None and mission.current_state != RobotState.IDLE:
+                    estop_resume_state = mission.current_state
                 px.stop()
                 current_motor_speed = 0
                 stopped = True
                 if io_components:
                     io_components.update_brakes(0)
                     io_components.signal_hazard()
-                time.sleep(0.05)
+                estop_sleep(0.05)
                 continue
+            else:
+                # Restore state after e-stop release
+                if estop_resume_state is not None:
+                    mission.current_state = estop_resume_state
+                    estop_resume_state = None
+                    pid.reset()
+                    last_pid_time = time.time()
+                    last_valid_line_time = time.time()
+                    print(f"E-stop released, restoring state: {mission.current_state}")
 
             # Check for calibration request
             if run_calibration_flag:
@@ -885,10 +961,11 @@ def main():
 
             # Consume dynamic no-line turn configurations from pathing
             if getattr(mission, 'no_line_turn', False):
-                if not no_line_turn:
-                    no_line_turn = True
-                    no_line_arm_time = time.time()
-                    print("Dynamic turn rule active: Setting no_line_turn = True")
+                with _no_line_lock:
+                    if not no_line_turn:
+                        no_line_turn = True
+                        no_line_arm_time = time.time()
+                        print("Dynamic turn rule active: Setting no_line_turn = True")
                 # Clear the flag so we don't continuously reset no_line_arm_time
                 mission.no_line_turn = False
 
