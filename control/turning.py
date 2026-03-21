@@ -5,10 +5,25 @@ import config
 from mission_manager import RobotState
 
 
+def get_turn_pwm(direction):
+    """Retrieve the correct base PWM for the turn direction from config."""
+    idx = 1 if direction == "right" else 0
+    return config.TURN_PWM[idx] if isinstance(config.TURN_PWM, (list, tuple)) else config.TURN_PWM
+
+
 def apply_turn_pwm(px, direction):
     """Apply differential PWM for turning based on direction."""
-    outer_pwm = int(config.TURN_PWM * getattr(config, 'TURN_OUTER_PWM_MULT', 1.0))
-    inner_pwm = int(config.TURN_PWM * getattr(config, 'TURN_INNER_PWM_MULT', 1.0))
+    idx = 1 if direction == "right" else 0
+    base_pwm = get_turn_pwm(direction)
+    
+    outer_mult = getattr(config, 'TURN_OUTER_PWM_MULT', 1.0)
+    outer_mult = outer_mult[idx] if isinstance(outer_mult, (list, tuple)) else outer_mult
+    
+    inner_mult = getattr(config, 'TURN_INNER_PWM_MULT', 1.0)
+    inner_mult = inner_mult[idx] if isinstance(inner_mult, (list, tuple)) else inner_mult
+
+    outer_pwm = int(base_pwm * outer_mult)
+    inner_pwm = int(base_pwm * inner_mult)
     if direction == "right":
         px.set_motor_speed(1, outer_pwm)
         px.set_motor_speed(2, -inner_pwm)
@@ -17,7 +32,7 @@ def apply_turn_pwm(px, direction):
         px.set_motor_speed(2, -outer_pwm)
 
 
-def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed):
+def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components=None):
     """
     Fallback routine: scan for the line using grayscale sensors after a 
     timed or camera-guided turn segment.
@@ -54,6 +69,8 @@ def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed):
             mission.current_state = RobotState.STRAIGHT
             px.forward(config.BASE_SPEED)
             current_motor_speed = config.BASE_SPEED
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
             break
         time.sleep(config.TURN_SCAN_INTERVAL)
 
@@ -61,6 +78,8 @@ def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed):
         print("Turn failed to re-acquire line.")
         px.stop()
         current_motor_speed = 0
+        if io_components:
+            io_components.update_brakes(current_motor_speed)
         pid.reset()
         mission.current_state = RobotState.IDLE
         return False, current_motor_speed
@@ -69,7 +88,7 @@ def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed):
     return True, current_motor_speed
 
 
-def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_motor_speed, stopped):
+def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_motor_speed, stopped, io_components=None):
     """
     Camera-guided turn using a single trajectory snapshot.
 
@@ -95,9 +114,11 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         # 1) Stop at intersection to stabilize
         time.sleep(0.1)
         px.stop()
+        current_motor_speed = 0
+        if io_components:
+            io_components.update_brakes(current_motor_speed)
         time.sleep(0.5)
         stopped = True
-        current_motor_speed = 0
         time.sleep(config.TURN_STOP_HOLD_TIME)
 
         # 2) Default steering direction for backup
@@ -128,9 +149,11 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
             print("  No trajectory received — using blind turn")
             px.set_dir_servo_angle(initial_steer)
             apply_turn_pwm(px, direction)
-            current_motor_speed = config.TURN_PWM
+            current_motor_speed = get_turn_pwm(direction)
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
             time.sleep(config.TURN_BLIND_TIME)
-            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed)
+            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
             return success, current_motor_speed, stopped
 
         # Use near-to-far ordering: (elapsed_distance_cm, cte_cm)
@@ -213,7 +236,9 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
 
             px.set_dir_servo_angle(servo_cmd)
             apply_turn_pwm(px, direction)
-            current_motor_speed = config.TURN_PWM
+            current_motor_speed = get_turn_pwm(direction)
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
 
             # Throttled debug logs
             if int(time.time() * 5) % 2 == 0:
@@ -223,13 +248,13 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
 
         # 5) Timeout — fall back to grayscale scan
         print(f"  Turn segment complete at {time.time() - turn_start:.2f}s; starting grayscale recovery scan")
-        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed)
+        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
         return success, current_motor_speed, stopped
     finally:
         px.set_cam_tilt_angle(0)
 
 
-def execute_turn(px, eyes, direction, pid, mission, current_motor_speed):
+def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, io_components=None):
     """
     Classic timed turn: steer at max angle for a fixed duration, 
     then scan for line.
@@ -238,22 +263,26 @@ def execute_turn(px, eyes, direction, pid, mission, current_motor_speed):
 
     # 1) Stop before turning
     current_motor_speed = 0
-    px.forward(current_motor_speed)
+    px.stop()
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     time.sleep(config.TURN_STOP_HOLD_TIME)
 
     # 2) Manual turn
     steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
     apply_turn_pwm(px, direction)
     px.set_dir_servo_angle(steer)
-    current_motor_speed = config.TURN_PWM
+    current_motor_speed = get_turn_pwm(direction)
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     time.sleep(config.TURN_BLIND_TIME)
 
     # 3) Scan for line re-acquisition
-    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed)
+    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
     return success, current_motor_speed
 
 
-def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, stopped):
+def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, stopped, io_components=None):
     """
     In-place pivot turn using differential motor control.
     """
@@ -264,6 +293,8 @@ def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, s
     px.stop()
     stopped = True
     current_motor_speed = 0
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     time.sleep(config.TURN_STOP_HOLD_TIME)
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
 
@@ -282,6 +313,8 @@ def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, s
     )
 
     pivot_start = time.time()
+    if io_components:
+        io_components.update_brakes(abs(pivot_speed))
     while True:
         px.set_motor_speed(1, pivot_speed)
         px.set_motor_speed(2, pivot_speed)
@@ -307,15 +340,19 @@ def execute_pivot_turn(px, eyes, direction, pid, mission, current_motor_speed, s
 
     px.stop()
     current_motor_speed = 0
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
 
     print("Pivot complete. Driving forward before line scan...")
     px.forward(config.TURN_POST_SPEED)
     current_motor_speed = config.TURN_POST_SPEED
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
     stopped = False
     time.sleep(config.PIVOT_FORWARD_SETTLE_TIME)
 
-    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed)
+    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, io_components)
     if success:
         stopped = False
     return success, current_motor_speed, stopped
