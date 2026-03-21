@@ -5,6 +5,18 @@ import config
 from mission_manager import RobotState
 
 
+def apply_turn_pwm(px, direction):
+    """Apply differential PWM for turning based on direction."""
+    outer_pwm = int(config.TURN_PWM * getattr(config, 'TURN_OUTER_PWM_MULT', 1.0))
+    inner_pwm = int(config.TURN_PWM * getattr(config, 'TURN_INNER_PWM_MULT', 1.0))
+    if direction == "right":
+        px.set_motor_speed(1, outer_pwm)
+        px.set_motor_speed(2, -inner_pwm)
+    else:
+        px.set_motor_speed(1, inner_pwm)
+        px.set_motor_speed(2, -outer_pwm)
+
+
 def scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed):
     """
     Fallback routine: scan for the line using grayscale sensors after a 
@@ -115,7 +127,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         if snapshot_trajectory is None:
             print("  No trajectory received — using blind turn")
             px.set_dir_servo_angle(initial_steer)
-            px.forward(config.TURN_PWM)
+            apply_turn_pwm(px, direction)
             current_motor_speed = config.TURN_PWM
             time.sleep(config.TURN_BLIND_TIME)
             success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed)
@@ -200,7 +212,7 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
                 servo_cmd -= 27
 
             px.set_dir_servo_angle(servo_cmd)
-            px.forward(config.TURN_PWM)
+            apply_turn_pwm(px, direction)
             current_motor_speed = config.TURN_PWM
 
             # Throttled debug logs
@@ -231,7 +243,7 @@ def execute_turn(px, eyes, direction, pid, mission, current_motor_speed):
 
     # 2) Manual turn
     steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
-    px.forward(config.TURN_PWM)
+    apply_turn_pwm(px, direction)
     px.set_dir_servo_angle(steer)
     current_motor_speed = config.TURN_PWM
     time.sleep(config.TURN_BLIND_TIME)
