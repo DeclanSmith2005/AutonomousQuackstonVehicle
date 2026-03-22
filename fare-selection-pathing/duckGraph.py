@@ -14,7 +14,8 @@ import duckAPI
 """
 - COMPLETE INTEGRATION W RAPH
 - STRESS TEST ROUND ABOUT
-- NEED TO ENSURE 2ND NAVIGATE CALL IN THE FIND BEST FARE DOESN'T MAKE CAR U TURN
+- FIX EDGES DISAPPEARING
+- ENSURE ITS GIVING ACCURATE DIRECTIONS
 """
 
 
@@ -27,10 +28,12 @@ class NavGraph:
     x: list[float] = field(default_factory=list)
     y: list[float] = field(default_factory=list)
     adj: list[list[int]] = field(default_factory=list)
-    maxSpeed: list[float] = field(default_factory=list)
-    zoneType: list[int] = field(default_factory=list)
-    stop: list[int] = field(default_factory=list)
-    turn_rules: dict = field(default_factory=dict)
+    pathA: list[int] = field(default_factory=list)
+    pathB: list[int] = field(default_factory=list)
+
+
+    ignore = {29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41} # magic number nodes dont ask questions they have no out degree
+
 
     def getDistance(self, a: int, b: int) -> float:
         dx = self.x[a] - self.x[b]
@@ -85,43 +88,16 @@ class NavGraph:
                 continue
             self.adj[i] = [int(tok.strip()) for tok in ln.split(",") if tok.strip()]
 
-    def readTurnRules(self, filename: str) -> None:
-        try:
-            import os
-            if not os.path.exists(filename):
-                return
-            with open(filename, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    parts = [p.strip() for p in line.split(",")]
-                    if len(parts) >= 4:
-                        u, v, w, turn = parts[0], parts[1], parts[2], parts[3]
-                        self.turn_rules[(u, v, w)] = turn
-        except Exception as e:
-            print(f"Error reading turn rules from {filename}: {e}")
+    def showGraph(self, cx, cy, px, py, dx, dy) -> None:
+        # Scatter base nodes
+        plt.scatter(self.x, self.y, label="Graph Nodes")
 
-    def get_override(self, u_str: str, v_str: str, w_str: str) -> str | None:
-        for pattern in [
-            (u_str, v_str, w_str),
-            (u_str, v_str, "*"),
-            ("*", v_str, w_str),
-            ("*", v_str, "*")
-        ]:
-            if pattern in self.turn_rules:
-                return self.turn_rules[pattern]
-        return None
+        # Plot the three specific points with distinct colors
+        plt.scatter(cx, cy, color='red', s=100, zorder=5, label="C Point")
+        plt.scatter(px, py, color='green', s=100, zorder=5, label="P Point")
+        plt.scatter(dx, dy, color='yellow', edgecolors='black', s=100, zorder=5, label="D Point")
 
-    def showGraph(self) -> None:
-        # scatter nodes
-        plt.scatter(self.x, self.y)
-
-        # label nodes with their IDs
-        for k in range(len(self.x)):
-            plt.text(self.x[k], self.y[k], str(k), color="red", fontsize=9, ha="center", va="center")
-
-        # draw directed edges based on adjacency
+        # Draw directed edges based on adjacency
         for i, nbrs in enumerate(self.adj):
             for j in nbrs:
                 if 0 <= j < len(self.x):
@@ -129,8 +105,21 @@ class NavGraph:
                         "",
                         xy=(self.x[j], self.y[j]),
                         xytext=(self.x[i], self.y[i]),
-                        arrowprops=dict(arrowstyle="->", linewidth=0.7),
+                        arrowprops=dict(arrowstyle="->", linewidth=0.7, zorder = 10),
                     )
+        path_xA = [self.x[i]+1 for i in self.pathA if i < len(self.x)]
+        path_yA = [self.y[i]+1 for i in self.pathA if i < len(self.x)]
+
+        path_xB = [self.x[i] for i in self.pathB if i < len(self.x)]
+        path_yB = [self.y[i] for i in self.pathB if i < len(self.x)]
+        
+        
+        # Scatter the points in purple
+        plt.scatter(path_xA, path_yA, color='purple', s=80, zorder=6, label="Path Nodes")
+        plt.scatter(path_xB, path_yB, color='pink', s=60, zorder=7, label="Path Nodes")
+
+                    
+        # Add a legend to explain the colors        
         plt.gca().set_aspect("equal", adjustable="box")
         plt.show()
 
@@ -138,30 +127,18 @@ class NavGraph:
     # if the pickup point is within 10 linear units of any node k returns (k,k)
     # note that if u and v are in each others adjacency list, later logic assumes that the car is placed pointing
     # as North as possible, if the line is perfectly flat it should point right
-    def findClosestEdge(self, Xcoord, Ycoord) -> tuple[int, int]:
+    def findClosestEdge(self, Xcoord, Ycoord) -> tuple[int, int, float, float]:
         px, py = float(Xcoord), float(Ycoord)
 
-        # 1) Snap to nearest node if within 10 units
-        SNAP_DIST = 10.0
-        snap_d2 = SNAP_DIST * SNAP_DIST
         best_u = -1
         best_v = -1
         best_d2 = float("inf")
+        best_qx = px  # Best closest point X
+        best_qy = py  # Best closest point Y
 
         for u, nbrs in enumerate(self.adj):
-            # check if near enough to a specific node to just return that node
-            dx = px - self.x[u]
-            dy = py - self.y[u]
-            d2 = dx * dx + dy * dy
-            if d2 < best_d2:
-                best_d2 = d2
-                best_u = u
-            if best_u != -1 and best_d2 <= snap_d2:
-                if best_u == 22:  
-                    return 23, 23              #one node is kinda buggy because of its proximity to a second node
-                return best_u, best_u
-
             ax, ay = self.x[u], self.y[u]
+            
             for v in nbrs:
                 if v < 0 or v >= len(self.x):
                     continue  # ignore bad adjacency entries
@@ -175,31 +152,35 @@ class NavGraph:
                 denom = abx * abx + aby * aby
                 if denom == 0.0:
                     # degenerate edge: treat like a point at A
+                    curr_qx, curr_qy = ax, ay
                     dx = px - ax
                     dy = py - ay
                     d2 = dx * dx + dy * dy
                 else:
                     t = (apx * abx + apy * aby) / denom
+                    # Clamp t to the segment bounds [0, 1]
                     if t < 0.0:
                         t = 0.0
                     elif t > 1.0:
                         t = 1.0
 
-                    qx = ax + t * abx
-                    qy = ay + t * aby
+                    curr_qx = ax + t * abx
+                    curr_qy = ay + t * aby
 
-                    dx = px - qx
-                    dy = py - qy
+                    dx = px - curr_qx
+                    dy = py - curr_qy
                     d2 = dx * dx + dy * dy
 
+                # If this segment gives a shorter distance, update our bests
                 if d2 < best_d2:
                     best_d2 = d2
                     best_u, best_v = u, v
+                    best_qx, best_qy = curr_qx, curr_qy
 
         if best_u == -1:
             raise ValueError("Graph has no edges; cannot find a closest edge.")
         
-        
+        # Consistent ordering for bidirectional edges
         if best_u in self.adj[best_v] and best_v in self.adj[best_u]:
             dx = self.x[best_v] - self.x[best_u]
             dy = self.y[best_v] - self.y[best_u]
@@ -208,30 +189,36 @@ class NavGraph:
             if dy < 0 or (dy == 0 and dx < 0):
                 best_u, best_v = best_v, best_u
 
-        return best_u, best_v
+        # Now returns the edge nodes AND the exact coordinate projection
+        return best_u, best_v, best_qx, best_qy
     
     # returns [u, v, p] where u and v are the nodes that it sits between and p is the requested node. 
     # returns [-1, -1, p] in case that the new location is on top of an existing node
     def addTempNode (self, nodeX: float, nodeY: float) -> tuple[int, int, int]:
-        u, v = self.findClosestEdge(nodeX, nodeY)
-        if u != v:
-            self.x.append(nodeX)
-            self.y.append(nodeY)
-            p = len(self.x)-1
-            self.adj[u].append(p)
-            if u in self.adj[v]:
-                self.adj.append([u, v])
-                self.adj[v].append(p)
-            else:
-                self.adj.append([v])
-            return [u, v, p]
-        else:
-            return [-1, -1, u]
-
-    def removeTempNode(self, u: int, v: int) -> None:
-        self.adj[u].pop()
+        u, v, newX, newY = self.findClosestEdge(nodeX, nodeY)
+        self.x.append(newX)
+        self.y.append(newY)
+        p = len(self.x)-1
+        self.adj[u].append(p)
         if u in self.adj[v]:
-            self.adj[v].pop()
+            self.adj[v].append(p)
+            self.adj[v].remove(u)
+            self.adj.append([u, v])
+        else:
+            self.adj.append([v])
+            self.adj[u].remove(v)
+        return [u, v, p]
+    
+
+    def removeTempNode(self, u: int, v: int, p: int) -> None:
+        if p in self.adj[u]:
+            self.adj[u].remove(p)
+        if p in self.adj[v]:
+            self.adj[v].remove(p)
+        if u in self.adj[p]: 
+            self.adj[v].append(u) # Restores v -> u
+        if v in self.adj[p]:
+            self.adj[u].append(v) # Restores u -> v
         self.adj.pop()
         self.x.pop()
         self.y.pop()
@@ -266,14 +253,16 @@ class NavGraph:
         #du, dv are  nodes that destination node falls between 
         du, dv, d = self.addTempNode(destX, destY)
         if du > -1 and dv > -1:
-            futureRemovals.append((du, dv))
+            futureRemovals.append((du, dv, d))
 
         # cu, cv are nodes that car node falls between 
         cu, cv, c = self.addTempNode(carX, carY)
         if cu > -1 and cv > -1:
-            futureRemovals.append((cu, cv))
+            futureRemovals.append((cu, cv, c))
 
         # remove the node from adj that is behind where the car is pointing:
+        original_adj_c = self.adj[c].copy()
+        cpy = []
         for n in self.adj[c]:
             nx, ny = self.x[n], self.y[n]
             dx = nx - carX
@@ -281,28 +270,27 @@ class NavGraph:
             hx = math.cos(carHeading)
             hy = math.sin(carHeading)
             dot_product = (dx * hx) + (dy * hy)
-    
-            if dot_product < 0:
-                self.adj[c].remove(n) 
+            if dot_product >= 0:
+                cpy.append(n)
+        self.adj[c] = cpy
+        path, dist = self.findShortestPath(c, d)
 
-        pathNodes, dist = self.findShortestPath(c, d)
-        if pathNodes and len(pathNodes) >= 2:
-            distToNextNode = self.getDistance(pathNodes[0], pathNodes[1])
-            finalHeading = math.atan2(self.y[pathNodes[-1]] - self.y[pathNodes[-2]], self.x[pathNodes[-1]] - self.x[pathNodes[-2]])
+        if path and len(path) >= 2:
+            finalHeading = math.atan2(self.y[path[-1]] - self.y[path[-2]], self.x[path[-1]] - self.x[path[-2]])
         else:
-            distToNextNode = 0.0
-            finalHeading = self.heading 
-        path = self.convertToDirections(pathNodes)
-        for u, v in reversed(futureRemovals):
-            self.removeTempNode(u, v)
-        return path, dist, finalHeading, distToNextNode
+            finalHeading = self.heading
+        p = self.convertToDirections(path)
+
+        self.adj[c] = original_adj_c
+        for u, v, n in reversed(futureRemovals):
+            self.removeTempNode(u, v, n)
+        return p, dist, finalHeading, path
 
     def convertToDirections(self, pathNodes: list) -> list:
         res= []
-        #print(pathNodes)
         for i in range(len(pathNodes)-2):
             curr, nxt = pathNodes[i], pathNodes[i+1]
-            if len(self.adj[nxt]) < 2:
+            if nxt in self.ignore:
                 continue
             else:
                 w = pathNodes[i+2]
@@ -324,13 +312,15 @@ class NavGraph:
                     for val, node in releativeAngles:
                         dirs[node] = 'R' if val < 0 else 'L2'
                 else:
-                    dirs[s_node] = 'ST'
+                    dirs[s_node] = 'STRAIGHT' + str(math.degrees(s_val))
                     sInd = releativeAngles.index((s_val, s_node))
                     for k in range(len(releativeAngles)):
-                        if k < sInd:
-                            dirs[releativeAngles[k][1]] = 'R'
+                        if releativeAngles[k][0] == s_val:
+                            dirs[releativeAngles[k][1]] = dirs[s_node]
+                        elif k < sInd:
+                            dirs[releativeAngles[k][1]] = 'RIGHT' + str(math.degrees(releativeAngles[k][0]))
                         elif k > sInd:
-                            dirs[releativeAngles[k][1]] = 'L2'
+                            dirs[releativeAngles[k][1]] = 'LEFT' + str(math.degrees(releativeAngles[k][0]))
                                         
                 base_dir = dirs[w]
                 if override is not None:
@@ -343,26 +333,34 @@ class NavGraph:
         return res
     
     def getBestFare(self):
-        self.updatePosition()
+        #self.updatePosition()
+        """uncomment"""
+
         fareInfo = {} # {fareId : [score, pathTostart, pathtoFinishFromStart]}
         fares = duckAPI.getFares()
         bestFare, bestScore = -1, -1
-        #print(duckAPI.getMatchInfo())
-        #print(duckAPI.getCurrentLocation())
+
+        """****"""
+        self.carX, self.carY = 300,85 
+        """^^^ remove after testing """
+
         for fare in fares:
             fareRate = 10 if fare['modifiers'] == 0 else 5
             fareStartEndAbsDist = (math.sqrt((fare['src']['x'] - fare['dest']['x'])**2 + (fare['src']['y'] - fare['dest']['y'])**2))/100
-            dirs1, d1, finalHeading, nextDist1 = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
-            dirs2, d2, h, nextDist2 = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
+            dirs1, d1, finalHeading, points1 = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
+            dirs2, d2, h, points2 = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
             score = (10 + (fareStartEndAbsDist*fareRate))/((d1 + d2)/100)
-            fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2, nextDist1, nextDist2]
+            fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2, points1, points2]
             if score > bestScore:
                 bestFare, bestScore = fare['id'], score
         print("car pos" , self.carX, self.carY)
-        print("pasanger pos ", fare['src']['x'], fare['src']['y'])
-        print("destination pos", fare['dest']['x'], fare['dest']['y'])
-        print("dirs 1", dirs1)
-        print("dirs 2", dirs2)
+        print("pasanger pos ", fareInfo[bestFare][0], fareInfo[bestFare][1])
+        print("destination pos", fareInfo[bestFare][2], fareInfo[bestFare][3])
+        print("dirs 1", fareInfo[bestFare][5])
+        print("dirs 2", fareInfo[bestFare][6])
+        self.pathA.extend(fareInfo[bestFare][-2])
+        self.pathB.extend(fareInfo[bestFare][-1])
+        
         return bestFare, fareInfo[bestFare]
     
     def updatePosition(self):
@@ -376,10 +374,10 @@ class NavGraph:
 def main() -> None:
     g = NavGraph()
     g.readGraph("graph.txt", "adj.txt")
-    g.readTurnRules("turn_rules.txt")
-    
-    g.getBestFare()
-    g.showGraph()
+    g.heading = math.pi/2
+    fid, info = g.getBestFare()
+
+    g.showGraph(g.carX, g.carY, info[0], info[1], info[2], info[3])
     #main loop
     
             
