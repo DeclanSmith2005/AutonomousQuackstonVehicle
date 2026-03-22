@@ -1095,6 +1095,10 @@ def main():
                 # Override the mission queue with pathing's fresh instructions
                 # If no queue is received, the default 'initial_mission' remains unaffected
                 mission.mission_queue = list(latest_queue)
+                # Kickstart the new mission if the car was sitting in IDLE
+                if mission.current_state == RobotState.IDLE and len(mission.mission_queue) > 0:
+                    print("New mission received while IDLE. Starting mission.")
+                    mission.advance_mission()
 
             if mission.check_step_requested():
                 print(f"Advancing mission. New state: {mission.current_state}")
