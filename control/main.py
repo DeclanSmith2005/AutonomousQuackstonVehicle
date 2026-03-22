@@ -11,7 +11,7 @@ from line_sensor import LineSensor
 from mission_manager import MissionManager, RobotState
 from server import ServerManager
 from calibration import load_calibration, run_wiggle_calibration
-from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, scan_for_line_fallback
+from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, scan_for_line_fallback, execute_outside_wheel_turn
 from io_components import IOComponents
 
 # --- GLOBALS ---
@@ -99,6 +99,19 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
     Unified entry point for turn execution. Dispatches to the 
     appropriate turn handler based on the selected mode.
     """
+    if mode == "outside_wheel":
+        return execute_outside_wheel_turn(
+            px,
+            eyes,
+            direction,
+            pid,
+            mission,
+            current_speed,
+            is_stopped,
+            estop_sleep,
+            estop_pause_if_needed,
+            io_components
+        )
     if mode == "trajectory":
         return execute_turn_with_camera(
             px,
@@ -145,14 +158,17 @@ def _roundabout_entry_blind_turn(px, direction, pwm, duration_s, outer_mult, inn
     #Apply a short blind turn after roundabout entry stop line.
     outer_pwm = int(pwm * outer_mult)
     inner_pwm = int(pwm * inner_mult)
+    px.set_dir_servo_angle(0)
     start = time.time()
     paused_total = 0.0
     while (time.time() - start - paused_total) < duration_s:
         paused_total += estop_pause_if_needed(px)
         if direction == "right":
+            px.set_dir_servo_angle(-config.TURN_ANGLE)
             px.set_motor_speed(1, outer_pwm)
             px.set_motor_speed(2, inner_pwm)
         else:
+            px.set_dir_servo_angle(config.TURN_ANGLE)
             px.set_motor_speed(1, inner_pwm)
             px.set_motor_speed(2, outer_pwm)
         time.sleep(config.TURN_SCAN_INTERVAL)
@@ -303,7 +319,7 @@ def stop_at_line(px, base_speed):
         current_motor_speed = base_speed
 
 def main():
-    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active
+    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active, estop_resume_state
 
     global io_components
     # --- SENSORS & ACTUATORS ---
@@ -315,12 +331,13 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
-        RobotState.STRAIGHT,
-        RobotState.LEFT_2,
-        RobotState.STRAIGHT,
-        RobotState.LEFT_2,
-        RobotState.STRAIGHT,
         RobotState.RIGHT,
+        RobotState.STRAIGHT,
+        RobotState.STRAIGHT,
+        RobotState.IDLE,
+        RobotState.STRAIGHT,
+        RobotState.STRAIGHT,
+        RobotState.STRAIGHT,
         RobotState.RIGHT
     ]
     mission = MissionManager(initial_mission)
@@ -384,6 +401,7 @@ def main():
     straight_cross_streak = 0
     last_straight_intersection_time = 0.0
     idle_limit_pressed_time = 0.0
+    last_steering = 0.0
 
     def _set_cam_tilt(angle_deg):
         """Set camera tilt and keep local command state for behavior gating."""
@@ -506,23 +524,46 @@ def main():
         return True
 
     def _intersection_roundabout_entry(base_speed, _start_time):
-        print("ROUNDABOUT ENTRY stop line reached.")
-        stop_at_line(px, base_speed)
+        global current_motor_speed, stopped
 
-        if bool(config.ROUNDABOUT_ENTRY_PIVOT_ENABLE):
-            entry_dir = str(config.ROUNDABOUT_ENTRY_PIVOT_DIRECTION).strip().lower()
-            if entry_dir not in ("left", "right"):
-                entry_dir = "right"
-            entry_pwm = int(config.ROUNDABOUT_ENTRY_PIVOT_PWM)
-            entry_duration = float(config.ROUNDABOUT_ENTRY_PIVOT_DURATION)
-            outer_mult = float(getattr(config, "ROUNDABOUT_ENTRY_OUTER_PWM_MULT", 1.0))
-            inner_mult = float(getattr(config, "ROUNDABOUT_ENTRY_INNER_PWM_MULT", -1.0))
-            print(
-                f"Applying roundabout entry blind turn ({entry_dir}, pwm={entry_pwm}, t={entry_duration:.2f}s, outer={outer_mult}, inner={inner_mult})."
-            )
-            _roundabout_entry_blind_turn(px, entry_dir, entry_pwm, entry_duration, outer_mult, inner_mult)
+        if not _turn_allowed():
+            print("Intersection suppressed during startup grace period.")
+            return False
 
-        mission.advance_mission()
+        mission.crossings_seen += 1
+        if mission.crossings_seen >= 2:
+            print("ROUNDABOUT ENTRY cross reached. Executing left-motor-only right turn.")
+
+            entry_pwm = int(getattr(config, "ROUNDABOUT_ENTRY_LEFT_MOTOR_PWM", 20))
+            entry_time = float(getattr(config, "ROUNDABOUT_ENTRY_LEFT_MOTOR_TIME", 0.5))
+
+            current_motor_speed = 0
+            px.stop()
+            stopped = True
+            if estop_sleep(config.TURN_STOP_HOLD_TIME):
+                estop_pause_if_needed(px)
+            
+            start_t = time.time()
+            paused_total = 0.0
+            while (time.time() - start_t - paused_total) < entry_time:
+                paused_total += estop_pause_if_needed(px)
+                px.set_motor_speed(1, entry_pwm)
+                px.set_motor_speed(2, 0)
+                px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+                time.sleep(config.TURN_SCAN_INTERVAL)
+                
+            px.stop()
+            
+            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+            if success:
+                stopped = False
+                mission.advance_mission()
+            else:
+                stopped = True
+                mission.advance_mission()
+        else:
+            print(f"Skipping intersection {mission.crossings_seen}/2")
+            ignore_intersection(px, base_speed)
         return True
 
     def _intersection_left_1(_base_speed, _start_time):
@@ -536,7 +577,7 @@ def main():
         success, current_motor_speed, stopped = _execute_turn_by_mode(
             px,
             eyes,
-            "left",
+            "left_1",
             pid,
             mission,
             server,
@@ -562,7 +603,7 @@ def main():
             success, current_motor_speed, stopped = _execute_turn_by_mode(
                 px,
                 eyes,
-                "left",
+                "left_2",
                 pid,
                 mission,
                 server,
@@ -674,8 +715,10 @@ def main():
             print("Turn suppressed during startup grace period.")
             return False
 
-        if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
-            turn_dir = "left"
+        if mission.current_state == RobotState.LEFT_1:
+            turn_dir = "left_1"
+        elif mission.current_state == RobotState.LEFT_2:
+            turn_dir = "left_2"
         elif mission.current_state == RobotState.RIGHT:
             turn_dir = "right"
         else:
@@ -709,11 +752,9 @@ def main():
 
         no_line_turn = False
         _set_cam_tilt(-30)        
-        execution_mode = _normalized_turn_mode()
-        # Preserve backward compatibility for legacy no-line mode setting.
-        legacy_no_line_mode = str(config.NO_LINE_TURN_MODE).strip().lower()
-        if legacy_no_line_mode in ("camera", "pivot") and not config.TURN_EXECUTION_MODE:
-            execution_mode = "trajectory" if legacy_no_line_mode == "camera" else "pivot"
+        
+        # All L_NL and R_NL turns use outside wheel only
+        execution_mode = "outside_wheel"
 
         print(
             "No-stop-line turn armed "
@@ -840,7 +881,8 @@ def main():
     try:
         while not stop_flag:
             loop_start = time.time()
-            
+            estop_resume_state = mission.current_state
+
             # Process all incoming ZMQ messages once per loop
             server.process_incoming_messages()
 
@@ -877,7 +919,8 @@ def main():
                (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] in (RobotState.LEFT_1, RobotState.LEFT_2)):
                 io_components.signal_left()
             elif mission.current_state == RobotState.RIGHT or \
-                 (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] == RobotState.RIGHT):
+                (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] == RobotState.RIGHT) or \
+                mission.current_state == RobotState.ROUNDABOUT_ENTRY:
                 io_components.signal_right()
             else:
                 io_components.signal_off()
@@ -926,7 +969,10 @@ def main():
             line_distance_cm = server.receive_intersection_distance()
             localization = server.receive_localization()
             error, _ = eyes.compute_error(raw)
-            base_speed = config.BASE_SPEED
+            if mission.current_state == RobotState.ROUNDABOUT_CIRCULATE:
+                base_speed = getattr(config, "ROUNDABOUT_CIRCULATE_SPEED", config.BASE_SPEED)
+            else:
+                base_speed = config.BASE_SPEED
 
             if not error_buffer_seeded and eyes.last_line_seen:
                 error_buffer = [error] * max(1, config.ERROR_BUFFER_LEN)
@@ -979,8 +1025,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            # if _handle_duck_override():
-            #     continue
+            if _handle_duck_override():
+                continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):
@@ -1033,9 +1079,10 @@ def main():
 
             tracking_error = target_error - smooth_error
 
-            # Apply deadband to tracking error, not raw line error.
-            if abs(tracking_error) < config.DEADBAND:
-                tracking_error = 0.0
+            # Soft deadband: smoothly attenuate small errors instead of hard cutoff.
+            abs_te = abs(tracking_error)
+            if abs_te < config.DEADBAND:
+                tracking_error *= (abs_te / config.DEADBAND) if config.DEADBAND > 0 else 1.0
 
             # Calculate steering adjustment from the PID controller
             steering = pid.update(tracking_error, dt=dt)
@@ -1050,6 +1097,11 @@ def main():
                 boost = min(boost, boost_max)
                 steering *= boost
             steering = max(-config.MAX_STEER, min(config.MAX_STEER, steering))
+
+            # Smooth the steering command to prevent servo jitter
+            alpha = float(getattr(config, 'STEER_SMOOTH_ALPHA', 0.4))
+            steering = alpha * steering + (1 - alpha) * last_steering
+            last_steering = steering
 
             # Dynamically reduce speed based on severity of the turn to maintain stability
             speed_drop = abs(steering) * config.SPEED_DROP_GAIN
