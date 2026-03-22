@@ -60,13 +60,12 @@ def main():
     resp = duckAPI.getMatchInfo()
     while resp['inMatch'] and resp['timeRemain'] > 0:
         stopped(False)
-        if not duckAPI.checkCurrFare()['fare']:
-            while True:
-                bestFare_res = g.getBestFare()
-                fareID = bestFare_res[0]
-                srcX, srcY, destX, destY, score, p1, p2, nextDist1, nextDist2 = bestFare_res[1]
-                if duckAPI.claimFare(fareID):
-                    break
+        while True:
+            bestFare_res = g.getBestFare()
+            fareID = bestFare_res[0]
+            srcX, srcY, destX, destY, score, p1, p2, nextDist1, nextDist2 = bestFare_res[1]
+            if duckAPI.claimFare(fareID):
+                break
         sendDirs(p1, nextDist1)
         
         while math.sqrt((g.carX - srcX)**2 + (g.carY - srcY)**2) > 15:
