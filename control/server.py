@@ -43,6 +43,35 @@ def _extract_duck_visible(msg):
 
     return None
 
+# Mapping from pathing team direction strings → RobotState string values
+# Pathing vocab:  STRAIGHT, STOP, R0, L0, L1, R1, L2, RAEN, RAEX
+# RobotState vals: ST,       STOP, R_NL, L1_NL, L1, R,  L2,  RB_ENTRY, RB_EXIT
+_PATHING_DIR_MAP = {
+    "STRAIGHT": "ST",
+    "STOP":     "STOP",
+    "R0":       "R_NL",   # right turn, no stop-line (no-line)
+    "L0":       "L1_NL",  # left turn, no stop-line (no-line), treated as L1 geometry
+    "L1":       "L1",     # left turn with stop-line (1 crossing to skip)
+    "R1":       "R",      # right turn with stop-line
+    "L2":       "L2",     # left turn with stop-line (2 crossings)
+    "RAEN":     "RB_ENTRY",
+    "RAEX":     "RB_EXIT",
+}
+
+def _translate_pathing_dir(direction: str) -> str:
+    """Translate a pathing team direction string to a RobotState string.
+
+    Falls back to the original string with a warning if the direction is unknown,
+    so unknown future directions don't hard-crash the control loop.
+    """
+    translated = _PATHING_DIR_MAP.get(str(direction).strip().upper())
+    if translated is None:
+        print(f"[ZMQ] WARNING: Unknown pathing direction '{direction}', passing through unchanged.")
+        return str(direction)
+    return translated
+
+
+
 def _parse_csv_floats(value):
     """Parse a comma-separated string into a list of floats.
     
@@ -95,7 +124,7 @@ class ServerManager:
         self.duck_ready_socket.connect("tcp://127.0.0.1:5558")
 
         self.last_pathing_timestamp = 0.0
-        self.latest_mission_queue = None
+        self.latest_mission_queue = []
         self.latest_dist_to_next_node = 0.0
         self.new_mission_available = False
         self.pathing_stop = False
@@ -207,9 +236,12 @@ class ServerManager:
                         msg_time = msg.get("time", 0.0)
                         if msg_time > self.last_pathing_timestamp:
                             self.last_pathing_timestamp = msg_time
-                            self.latest_mission_queue = msg.get("dirs", [])
+                            raw_dirs = msg.get("dirs", [])
+                            self.latest_mission_queue = [_translate_pathing_dir(d) for d in raw_dirs]
                             self.latest_dist_to_next_node = msg.get("distToNextNode", 0.0)
                             self.new_mission_available = True
+                            print(f"[ZMQ] Pathing dirs (raw): {raw_dirs}")
+                            print(f"[ZMQ] Pathing dirs (translated): {self.latest_mission_queue}")
                     elif topic == "STOP":
                         self.pathing_stop = msg.get("stopTheCar", False)
                 except zmq.Again:
