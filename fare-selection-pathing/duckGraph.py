@@ -419,7 +419,7 @@ class NavGraph:
                 for n in self.adj[nxt] if n != curr])
             
             s_val, s_node = min(releativeAngles, key=lambda x: abs(x[0]))
-            T_JUNCTION_THRESHOLD = math.radians(75)
+            T_JUNCTION_THRESHOLD = math.radians(80)
             dirs = {}
             if abs(s_val) > T_JUNCTION_THRESHOLD:
                 for val, node in releativeAngles:
@@ -446,7 +446,7 @@ class NavGraph:
         return res
     
     def getBestFare(self):
-        self.updatePosition()
+        #self.updatePosition()
         """uncomment"""
 
         fareInfo = {} # {fareId : [score, pathTostart, pathtoFinishFromStart]}
@@ -454,7 +454,7 @@ class NavGraph:
         bestFare, bestScore = -1, -1
 
         """****"""
-        #self.carX, self.carY = 504,469 
+        #self.carX, self.carY = 357,413 
         """^^^ remove after testing """
 
         for fare in fares:
