@@ -90,10 +90,15 @@ class ServerManager:
         self.pathing_socket.connect("tcp://127.0.0.1:5557")
         self.pathing_socket.subscribe("")
 
+        # PUB Socket: Sends DUCK_READY state to pathing (Port 5558)
+        self.duck_ready_socket = self.context.socket(zmq.PUB)
+        self.duck_ready_socket.connect("tcp://127.0.0.1:5558")
+
         self.last_pathing_timestamp = 0.0
         self.latest_mission_queue = None
         self.latest_dist_to_next_node = 0.0
         self.new_mission_available = False
+        self.pathing_stop = False
         
         # Trajectory state for turns
         self.trajectory_cte = None  # CTE in meters from perception
@@ -205,6 +210,8 @@ class ServerManager:
                             self.latest_mission_queue = msg.get("dirs", [])
                             self.latest_dist_to_next_node = msg.get("distToNextNode", 0.0)
                             self.new_mission_available = True
+                    elif topic == "STOP":
+                        self.pathing_stop = msg.get("stopTheCar", False)
                 except zmq.Again:
                     break
         except Exception as e:
@@ -282,10 +289,27 @@ class ServerManager:
         """Return the latest distance to the next node sent by the pathing system."""
         return self.latest_dist_to_next_node
 
+    def receive_stop_the_car(self):
+        """Return the latest stopTheCar command from pathing."""
+        return getattr(self, "pathing_stop", False)
+
+    def publish_duck_ready(self, ready):
+        """Publish DUCK_READY state to pathing."""
+        try:
+            msg = {
+                "topic": "DUCK_READY",
+                "ready": bool(ready),
+                "time": time.time()
+            }
+            self.duck_ready_socket.send_json(msg)
+        except Exception as e:
+            print(f"[ZMQ] Error publishing DUCK_READY: {e}")
+
     def close(self):
         """Clean up ZMQ resources."""
         self.pub_socket.close()
         self.sub_socket.close()
         self.pathing_socket.close()
+        self.duck_ready_socket.close()
         self.context.term()
         print("[ZMQ] Sockets closed")

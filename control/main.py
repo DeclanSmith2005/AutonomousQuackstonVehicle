@@ -908,6 +908,39 @@ def main():
                     last_valid_line_time = time.time()
                     print(f"E-stop released, restoring state: {mission.current_state}")
 
+            # --- DUCK PICK-UP/DROP-OFF LOGIC ---
+            pathing_stop = server.receive_stop_the_car()
+            if pathing_stop:
+                # 1. Stop the car
+                px.stop()
+                current_motor_speed = 0
+                stopped = True
+                if io_components:
+                    io_components.update_brakes(0)
+                
+                # 2. Check limit switch
+                if io_components and io_components.is_limit_switch_pressed():
+                    if not getattr(mission, "limit_switch_wait_done", False):
+                        print("Limit switch pressed! Waiting 5 seconds before confirming...")
+                        # non-blocking wait regarding estop
+                        estop_sleep(5.0)
+                        mission.limit_switch_wait_done = True
+                    
+                    server.publish_duck_ready(True)
+                else:
+                    mission.limit_switch_wait_done = False
+                    server.publish_duck_ready(False)
+                
+                time.sleep(config.LOOP_INTERVAL)
+                continue
+            else:
+                # pathing_stop is False
+                if getattr(mission, "limit_switch_wait_done", False) or (io_components and io_components.is_limit_switch_pressed()):
+                    if io_components:
+                        io_components.clear_limit_switch_flag()
+                    mission.limit_switch_wait_done = False
+                    server.publish_duck_ready(False)
+
             # Check for calibration request
             if run_calibration_flag:
                 run_calibration_flag = False
