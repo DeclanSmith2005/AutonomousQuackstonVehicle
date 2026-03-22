@@ -68,10 +68,10 @@ TURN_STABILIZE_TIME = 0.1
 TURN_ENTRY_TIMEOUT = 5.0
 
 # --- NO-LINE OUTSIDE WHEEL TURN TUNING ---
-NO_LINE_TURN_LINE_CHECK_DELAY = 1.0  # seconds before checking grayscale
-NO_LINE_OUTSIDE_PWM = [30, 20]
-NO_LINE_OUTSIDE_TIME = [2.5, 1.75]
-NO_LINE_PRE_STOP_DELAY = 0.1
+NO_LINE_TURN_LINE_CHECK_DELAY = 1.75  # seconds before checking grayscale
+NO_LINE_OUTSIDE_PWM = [30, 30]
+NO_LINE_OUTSIDE_TIME = [3.0, 3.0]
+NO_LINE_PRE_STOP_DELAY = 0.0
 
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
