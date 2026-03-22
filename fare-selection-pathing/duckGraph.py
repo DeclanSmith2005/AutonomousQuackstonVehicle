@@ -446,7 +446,7 @@ class NavGraph:
         return res
     
     def getBestFare(self):
-        #self.updatePosition()
+        self.updatePosition()
         """uncomment"""
 
         fareInfo = {} # {fareId : [score, pathTostart, pathtoFinishFromStart]}
