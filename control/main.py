@@ -545,16 +545,41 @@ def main():
             
             start_t = time.time()
             paused_total = 0.0
-            while (time.time() - start_t - paused_total) < entry_time:
+            line_found = False
+            while (time.time() - start_t - paused_total) < 5.0:
                 paused_total += estop_pause_if_needed(px)
                 px.set_motor_speed(1, entry_pwm)
                 px.set_motor_speed(2, 0)
                 px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+                
+                raw = px.get_grayscale_data()
+                on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+                if on_line:
+                    line_found = True
+                    break
+                    
                 time.sleep(config.TURN_SCAN_INTERVAL)
                 
             px.stop()
             
-            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+            if line_found:
+                print("Line re-acquired by grayscale during roundabout entry.")
+                mission.current_state = RobotState.STRAIGHT
+                px.forward(config.BASE_SPEED)
+                current_motor_speed = config.BASE_SPEED
+                if io_components:
+                    io_components.update_brakes(current_motor_speed)
+                pid.reset()
+                success = True
+            else:
+                print("Roundabout entry turn failed to find the line.")
+                current_motor_speed = 0
+                if io_components:   
+                    io_components.update_brakes(current_motor_speed)
+                pid.reset()
+                mission.current_state = RobotState.IDLE
+                success = False
+
             if success:
                 stopped = False
                 mission.advance_mission()
@@ -659,16 +684,41 @@ def main():
         
         start_t = time.time()
         paused_total = 0.0
-        while (time.time() - start_t - paused_total) < exit_time:
+        line_found = False
+        while (time.time() - start_t - paused_total) < 5.0:
             paused_total += estop_pause_if_needed(px)
             px.set_motor_speed(1, exit_pwm)
             px.set_motor_speed(2, 0)
             px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+            
+            raw = px.get_grayscale_data()
+            on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+            if on_line:
+                line_found = True
+                break
+                
             time.sleep(config.TURN_SCAN_INTERVAL)
             
         px.stop()
         
-        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+        if line_found:
+            print("Line re-acquired by grayscale during roundabout exit.")
+            mission.current_state = RobotState.STRAIGHT
+            px.forward(config.BASE_SPEED)
+            current_motor_speed = config.BASE_SPEED
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
+            pid.reset()
+            success = True
+        else:
+            print("Roundabout exit turn failed to find the line.")
+            current_motor_speed = 0
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
+            pid.reset()
+            mission.current_state = RobotState.IDLE
+            success = False
+
         if success:
             stopped = False
             mission.advance_mission()
