@@ -55,8 +55,8 @@ TURN_TRIGGER_MODE = "grayscale"
 MAX_TURN_PROXIMITY = 15
 
 TURN_PWM = [27, 20, 27]  # [left_1, right, left_2]
-TURN_OUTER_PWM_MULT = [1.5, 1.9, 1.5]
-TURN_INNER_PWM_MULT = [0.5, 0.1, 0.5]
+TURN_OUTER_PWM_MULT = [1.3, 1.9, 1.3]
+TURN_INNER_PWM_MULT = [0.6, 0.1, 0.7]
 TURN_ENTRY_SPEED = 7
 TURN_POST_SPEED = 5
 TURN_STOP_HOLD_TIME = 3.0
@@ -75,9 +75,9 @@ NO_LINE_PRE_STOP_DELAY = 0.1
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
 TURN_LOOKAHEAD_MIN_CM = 18  # Minimum y_ref used by bicycle model to avoid steering saturation
-TURN_CAMERA_TIMEOUT = [1.5, 1.65, 1.5]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
+TURN_CAMERA_TIMEOUT = [1.85, 1.65, 1.5]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
 TURN_INITIAL_ROTATION_TIME = 0.3  # Brief initial rotation to point toward exit lane
-TURN_PROFILE_DURATION = [1.5, 1.65, 1.5]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
+TURN_PROFILE_DURATION = [1.85, 1.65, 1.5]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
 TURN_MIN_LINE_CHECK_TIME = 1.1  # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3  # Freshness window for trajectory points (s)
 TURN_TRAJECTORY_MAX_AGE = 0.5  # Max acceptable age of trajectory samples during trajectory turns (s)
@@ -100,7 +100,7 @@ PIVOT_ALIGN_MIN_HITS = 2  # Consecutive alignment detections required to finish 
 PIVOT_ALIGN_SENSOR_THRESHOLD = 0.72
 
 # --- ROUNDABOUT TUNING ---
-ROUNDABOUT_TURN_LINE_CHECK_DELAY = 1.0  # seconds before checking grayscale
+ROUNDABOUT_TURN_LINE_CHECK_DELAY = 1.5  # seconds before checking grayscale
 # Entry Blind Turn
 ROUNDABOUT_ENTRY_PIVOT_ENABLE = True
 ROUNDABOUT_ENTRY_PIVOT_DIRECTION = "right"  # "left" or "right"

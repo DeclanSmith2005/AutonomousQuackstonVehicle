@@ -333,8 +333,10 @@ def main():
     initial_mission = [
         # RobotState.LEFT1_NO_LINE,
         # RobotState.STRAIGHT,
-        # RobotState.RIGHT,
+        RobotState.LEFT_1,
         RobotState.ROUNDABOUT_ENTRY,
+        RobotState.STRAIGHT,
+        RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.ROUNDABOUT_EXIT,
         RobotState.RIGHT,
