@@ -13,9 +13,6 @@ import duckAPI
 #### TO DOS ######
 """
 - COMPLETE INTEGRATION W RAPH
-- STRESS TEST ROUND ABOUT
-- FIX EDGES DISAPPEARING
-- ENSURE ITS GIVING ACCURATE DIRECTIONS
 """
 
 
@@ -33,81 +30,104 @@ class NavGraph:
 
 
     ignore = {29, 30, 31, 32, 33, 34, 35, 36, 38, 39, 40, 41} # nodes that we shouldn't put directions at
+    crossWalks = {37, 43, 42}
     paths_with_one_straight_command_for_central_node = [
-    (41,5,35),
-    (35,5,41),
-    (0,4,8),
-    (8,4,0),
-    (1,3,7),
-    (7,3,1),
-    (40,2,6),
-    (6,2,40),
-    (2,6,11),
-    (11,6,2),
-    (3,7,12),
-    (12,7,3),
-    (4,8,13),
-    (13,8,4),
-    (19,20,21),
-    (21,20,19),
-    (23,21,20),
-    (20,21,23),
-    (26,27,28),
-    (24,27,26),
-    (14,16,33),
-    (34,9,14),
+    (41,5),
+    (35,5),
+    (43,4),
+    (8,4),
+    (1,3),
+    (7,3),
+    (40,2),
+    (6,2),
+    (2,6),
+    (11,6),
+    (3,7),
+    (12,7),
+    (4,8),
+    (13,8),
+    (19,20),
+    (21,20),
+    (23,21),
+    (20,21),
+    (26,27),
+    (24,27),
+    (14,16),
+    (34,9),
 ]
     specifiedTurns = {
-    (41,0,4):'L1',
-    (1,0,4): 'R0'
-    0, 1, 3: L1,
-    40, 1, 3: R0,
-
-    1,3,2:R0,
-    7,3,2:L0,
-
-    0,4,39:R0,
-    8,4,39:L0,
-
-    41,5,37:R0,
-    35,5,37:L0,
-
-    11,6,7:R0,
-    2,6,7:L0,
-
-    3,7,8:L0,
-    12,7,8:R0,
-
-    4,8,38:L0,
-    13,8,38:R0,
-
-    15,10,35:R0,
-
-    6,11,12:L1,
-    17,11,12:R0,
-
-    9,14,13:R0,
-
-    33,15,36: 
-
-    29,17,18:R0,
-    11,17,18:L1,
-
-    21,20,16:R0,
-    19,20,16:L0,
-
-    20,21,31:R0,
-    23,21,30:L0,
-
-    29,25,18:L1,
-    26,25,18:R0,
-
-    27,26,19:R0,
-    25,26,19:L1,
-
-    26,27,20:L0,
-    24,27,20:R0,}
-
+    (41,0,43):'L1',
+    (1,0,43): 'R0',
+    (0,1,3): 'L1',
+    (40,1,3): 'R0',
+    (1,3,2): 'R0',
+    (7,3,2): 'L0',
+    (43,4,39): 'R0',
+    (8,4,39): 'L0',
+    (41,5,37): 'R0',
+    (35,5,37): 'L0',
+    (11,6,7): 'R0',
+    (2,6,7): 'L0',
+    (3,7,8): 'L0',
+    (12,7,8): 'R0',
+    (4,8,38): 'L0',
+    (13,8,38): 'R0',
+    (15,10,35): 'R0',
+    (6,11,12): 'L1',
+    (17,11,12): 'R0',
+    (9,14,13): 'R0',
+    (33,15,36): 'L0',
+    (29,17,18): 'R0',
+    (11,17,18): 'L1',
+    (21,20,16): 'R0',
+    (19,20,16): 'L0',
+    (20,21,30): 'R0',
+    (23,21,30): 'L0',
+    (29,25,18): 'L1',
+    (26,25,18): 'R0',
+    (27,26,19): 'R0',
+    (25,26,19): 'L1',
+    (26,27,20): 'L0',
+    (24,27,20): 'R0',
+    (38,9,14): 'RAEN',
+    (13,14,16): 'RAEN',
+    (20,16,33): 'RAEN',
+    (36,15,10): 'RAEN',
+    (35,10,34): 'RAEN',
+    (15,10,35): 'RAEX',
+    (33,15,36): 'RAEX',
+    }
+    stop_edges = [
+    (43,0),
+    (37,4),
+    (3,1),
+    (39,3),
+    (3,2),
+    (7,8),
+    (8,13),
+    (13,12),
+    (6,7),
+    (7,12),
+    (12,11),
+    (11,12),
+    (18,12),
+    (12,18),
+    (18,17),
+    (17,18),
+    (18,25),
+    (25,18),
+    (19,18),
+    (18,19),
+    (19,26),
+    (26,19),
+    (42,19),
+    (20,19),
+    (42,13),
+    (27,20),
+    (36,23),
+    (21,23),
+    (32,23)
+]
 
     def getDistance(self, a: int, b: int) -> float:
         dx = self.x[a] - self.x[b]
@@ -277,6 +297,7 @@ class NavGraph:
         if u in self.adj[v]:
             self.adj[v].append(p)
             self.adj[v].remove(u)
+            self.adj[u].remove(v)
             self.adj.append([u, v])
         else:
             self.adj.append([v])
@@ -323,23 +344,26 @@ class NavGraph:
     
     def navigate(self, carHeading, carX, carY, destX, destY):
         futureRemovals = []
+        tempMap = {}
         #du, dv are  nodes that destination node falls between 
         du, dv, d = self.addTempNode(destX, destY)
         if du > -1 and dv > -1:
             futureRemovals.append((du, dv, d))
+            tempMap[d] = (du, dv)
 
         # cu, cv are nodes that car node falls between 
         cu, cv, c = self.addTempNode(carX, carY)
         if cu > -1 and cv > -1:
             futureRemovals.append((cu, cv, c))
+            tempMap[c] = (cu, cv)
 
         # remove the node from adj that is behind where the car is pointing:
         original_adj_c = self.adj[c].copy()
         cpy = []
         for n in self.adj[c]:
             nx, ny = self.x[n], self.y[n]
-            dx = nx - carX
-            dy = ny - carY
+            dx = nx - self.x[c]
+            dy = ny - self.y[c]
             hx = math.cos(carHeading)
             hy = math.sin(carHeading)
             dot_product = (dx * hx) + (dy * hy)
@@ -352,57 +376,73 @@ class NavGraph:
             finalHeading = math.atan2(self.y[path[-1]] - self.y[path[-2]], self.x[path[-1]] - self.x[path[-2]])
         else:
             finalHeading = self.heading
-        p = self.convertToDirections(path)
+        p = self.convertToDirections(path, tempMap)
 
         self.adj[c] = original_adj_c
         for u, v, n in reversed(futureRemovals):
             self.removeTempNode(u, v, n)
         return p, dist, finalHeading, path
 
-    def convertToDirections(self, pathNodes: list) -> list:
+    def convertToDirections(self, pathNodes: list, tempMap: dict) -> list:
         res= []
+        print("path nodes", pathNodes)
         for i in range(len(pathNodes)-2):
-            curr, nxt = pathNodes[i], pathNodes[i+1]
+            curr, nxt, w = pathNodes[i], pathNodes[i+1], pathNodes[i+2]
             if nxt in self.ignore:
                 continue
-            else:
-                w = pathNodes[i+2]
-                override = self.get_override(str(curr), str(nxt), str(w))
-                
-                # curr angle
-                dx = self.x[nxt] - self.x[curr]
-                dy = self.y[nxt] - self.y[curr]
-                curr_angle = math.atan2(dy, dx) % (2*math.pi)
+            
+            lookup_curr = curr
+            if curr in tempMap:
+                u, v = tempMap[curr]
+                if v == nxt: lookup_curr = u
+                elif u == nxt: lookup_curr = v
 
-                # upcoming roads
-                releativeAngles = sorted([((math.atan2(self.y[n]-self.y[nxt], self.x[n]-self.x[nxt]) - curr_angle + math.pi) % (2*math.pi) - math.pi, n) 
-                    for n in self.adj[nxt] if n != curr])
+            lookup_w = w
+            if w in tempMap:
+                u, v = tempMap[w]
+                if v == nxt: lookup_w = u
+                elif u == nxt: lookup_w = v
                 
-                s_val, s_node = min(releativeAngles, key=lambda x: abs(x[0]))
-                T_JUNCTION_THRESHOLD = math.radians(60)
-                dirs = {}
-                if abs(s_val) > T_JUNCTION_THRESHOLD:
-                    for val, node in releativeAngles:
-                        dirs[node] = 'R' if val < 0 else 'L2'
-                else:
-                    dirs[s_node] = 'STRAIGHT' + str(math.degrees(s_val))
-                    sInd = releativeAngles.index((s_val, s_node))
-                    for k in range(len(releativeAngles)):
-                        if releativeAngles[k][0] == s_val:
-                            dirs[releativeAngles[k][1]] = dirs[s_node]
-                        elif k < sInd:
-                            dirs[releativeAngles[k][1]] = 'RIGHT' + str(math.degrees(releativeAngles[k][0]))
-                        elif k > sInd:
-                            dirs[releativeAngles[k][1]] = 'LEFT' + str(math.degrees(releativeAngles[k][0]))
-                                        
-                base_dir = dirs[w]
-                if override is not None:
-                    if override == "NO_LINE" or override == "NL":
-                        base_dir = f"{base_dir}_NL"
-                    else:
-                        base_dir = override
-                        
-                res.append(base_dir)
+
+            # intentionnaly do this part before the stop signs because stops are accounted for in these directions
+            if (lookup_curr, nxt, lookup_w) in self.specifiedTurns:
+                res.append(self.specifiedTurns[(lookup_curr, nxt, lookup_w)])
+                continue
+
+            # curr angle
+            dx = self.x[nxt] - self.x[curr]
+            dy = self.y[nxt] - self.y[curr]
+            curr_angle = math.atan2(dy, dx) % (2*math.pi)
+
+            # upcoming roads
+            releativeAngles = sorted([((math.atan2(self.y[n]-self.y[nxt], self.x[n]-self.x[nxt]) - curr_angle + math.pi) % (2*math.pi) - math.pi, n) 
+                for n in self.adj[nxt] if n != curr])
+            
+            s_val, s_node = min(releativeAngles, key=lambda x: abs(x[0]))
+            T_JUNCTION_THRESHOLD = math.radians(75)
+            dirs = {}
+            if abs(s_val) > T_JUNCTION_THRESHOLD:
+                for val, node in releativeAngles:
+                    dirs[node] = 'R1' if val < 0 else 'L2'
+            else:
+                dirs[s_node] = 'STRAIGHT'
+                sInd = releativeAngles.index((s_val, s_node))
+                for k in range(len(releativeAngles)):
+                    if releativeAngles[k][0] == s_val:
+                        dirs[releativeAngles[k][1]] = dirs[s_node]
+                    elif k < sInd:
+                        dirs[releativeAngles[k][1]] = 'R1'
+                    elif k > sInd:
+                        dirs[releativeAngles[k][1]] = 'L2'
+            # double default striaght command      
+            if dirs[w] == 'STRAIGHT':
+                if (lookup_curr, nxt) in self.stop_edges:
+                    res.append("STOP")
+                if(lookup_curr, nxt) in self.paths_with_one_straight_command_for_central_node or nxt in self.crossWalks:
+                    res.append("STRAIGHT")
+                    continue
+                res.append('STRAIGHT')
+            res.append(dirs[w])
         return res
     
     def getBestFare(self):
@@ -414,14 +454,14 @@ class NavGraph:
         bestFare, bestScore = -1, -1
 
         """****"""
-        self.carX, self.carY = 300,85 
+        self.carX, self.carY = 504,469 
         """^^^ remove after testing """
 
         for fare in fares:
             fareRate = 10 if fare['modifiers'] == 0 else 5
             fareStartEndAbsDist = (math.sqrt((fare['src']['x'] - fare['dest']['x'])**2 + (fare['src']['y'] - fare['dest']['y'])**2))/100
-            dirs1, d1, finalHeading, points1 = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
-            dirs2, d2, h, points2 = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
+            dirs1, d1, finalHeading, points1  = self.navigate(self.heading, self.carX, self.carY, fare['src']['x'], fare['src']['y'])
+            dirs2, d2, h, points2  = self.navigate(finalHeading, fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'])
             score = (10 + (fareStartEndAbsDist*fareRate))/((d1 + d2)/100)
             fareInfo[fare['id']] = [ fare['src']['x'], fare['src']['y'], fare['dest']['x'], fare['dest']['y'], score, dirs1, dirs2, points1, points2]
             if score > bestScore:
@@ -433,6 +473,7 @@ class NavGraph:
         print("dirs 2", fareInfo[bestFare][6])
         self.pathA.extend(fareInfo[bestFare][-2])
         self.pathB.extend(fareInfo[bestFare][-1])
+
         
         return bestFare, fareInfo[bestFare]
     
@@ -447,7 +488,7 @@ class NavGraph:
 def main() -> None:
     g = NavGraph()
     g.readGraph("graph.txt", "adj.txt")
-    g.heading = math.pi/2
+    g.heading = math.pi
     fid, info = g.getBestFare()
 
     g.showGraph(g.carX, g.carY, info[0], info[1], info[2], info[3])
