@@ -538,9 +538,10 @@ def main():
 
         mission.crossings_seen += 1
         if mission.crossings_seen >= 2:
-            print("ROUNDABOUT ENTRY cross reached. Executing left-motor-only right turn.")
+            print("ROUNDABOUT ENTRY cross reached. Executing roundabout entry turn.")
 
             entry_pwm = int(getattr(config, "ROUNDABOUT_ENTRY_LEFT_MOTOR_PWM", 20))
+            inner_pwm = int(getattr(config, "ROUNDABOUT_ENTRY_INNER_MOTOR_PWM", 15))
             entry_time = float(getattr(config, "ROUNDABOUT_ENTRY_LEFT_MOTOR_TIME", 0.5))
 
             current_motor_speed = 0
@@ -555,8 +556,8 @@ def main():
             while (time.time() - start_t - paused_total) < 5.0:
                 paused_total += estop_pause_if_needed(px)
                 px.set_motor_speed(1, entry_pwm)
-                px.set_motor_speed(2, 0)
-                px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+                px.set_motor_speed(2, inner_pwm)
+                px.set_dir_servo_angle(config.MAX_STEER)
                 
                 elapsed_turn = time.time() - start_t - paused_total
                 if elapsed_turn >= getattr(config, "ROUNDABOUT_TURN_LINE_CHECK_DELAY", 1.0):
@@ -679,9 +680,10 @@ def main():
 
     def _intersection_roundabout_exit(base_speed, _start_time):
         global current_motor_speed, stopped
-        print("ROUNDABOUT EXIT cross reached. Executing left-motor-only right turn.")
+        print("ROUNDABOUT EXIT cross reached. Executing roundabout exit turn.")
         
         exit_pwm = int(getattr(config, "ROUNDABOUT_EXIT_LEFT_MOTOR_PWM", 20))
+        inner_pwm = int(getattr(config, "ROUNDABOUT_EXIT_INNER_MOTOR_PWM", 15))
         exit_time = float(getattr(config, "ROUNDABOUT_EXIT_LEFT_MOTOR_TIME", 0.5))
 
         current_motor_speed = 0
@@ -696,8 +698,8 @@ def main():
         while (time.time() - start_t - paused_total) < 5.0:
             paused_total += estop_pause_if_needed(px)
             px.set_motor_speed(1, exit_pwm)
-            px.set_motor_speed(2, 0)
-            px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+            px.set_motor_speed(2, inner_pwm)
+            px.set_dir_servo_angle(config.MAX_STEER)
             
             elapsed_turn = time.time() - start_t - paused_total
             if elapsed_turn >= getattr(config, "ROUNDABOUT_TURN_LINE_CHECK_DELAY", 1.0):
