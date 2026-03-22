@@ -39,12 +39,23 @@ def main():
         for idx, filename in enumerate(sound_files):
             print(f"{idx + 1}. {filename}")
         print("0. Exit")
+        print("v<number>. Set volume (e.g., v50 for 50%)")
         
-        choice = input("\nEnter the number of the sound to play (or 0 to exit): ")
+        choice = input("\nEnter your choice: ").strip()
         
-        if choice.strip() == '0':
+        if choice == '0':
             print("Exiting...")
             break
+        elif choice.lower().startswith('v'):
+            try:
+                # Set volume expects a float from 0.0 to 1.0
+                vol = float(choice[1:]) / 100.0
+                vol = max(0.0, min(1.0, vol)) # Clamp between 0.0 and 1.0
+                pygame.mixer.music.set_volume(vol)
+                print(f"Volume set to {int(vol * 100)}%")
+            except ValueError:
+                print("Invalid volume format. Use v followed by 0-100 (e.g., v50)")
+            continue
             
         try:
             choice_idx = int(choice) - 1
