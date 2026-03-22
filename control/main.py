@@ -331,10 +331,14 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
+        # RobotState.LEFT1_NO_LINE,
+        # RobotState.STRAIGHT,
+        # RobotState.RIGHT,
+        RobotState.ROUNDABOUT_ENTRY,
+        RobotState.STRAIGHT,
+        RobotState.ROUNDABOUT_EXIT,
         RobotState.RIGHT,
         RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.IDLE,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
