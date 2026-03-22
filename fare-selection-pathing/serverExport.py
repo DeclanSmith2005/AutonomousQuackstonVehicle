@@ -75,8 +75,7 @@ def main():
             sendDirs(dirs)
         stopped(True)
 
-
-        while not duckReady():
+        while not duckReady() and duckAPI.checkCurrFare()['pickedUp']:
             time.sleep(0.5)
         stopped(False)
 
@@ -87,7 +86,7 @@ def main():
             sendDirs(dirs)
         stopped(True)
 
-        while not duckReady():
+        while not duckReady() and duckAPI.checkCurrFare()['completed']:
             time.sleep(0.5)
 
         resp = duckAPI.getMatchInfo()

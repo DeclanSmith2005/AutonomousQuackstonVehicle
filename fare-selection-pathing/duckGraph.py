@@ -32,7 +32,81 @@ class NavGraph:
     pathB: list[int] = field(default_factory=list)
 
 
-    ignore = {29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41} # magic number nodes dont ask questions they have no out degree
+    ignore = {29, 30, 31, 32, 33, 34, 35, 36, 38, 39, 40, 41} # nodes that we shouldn't put directions at
+    paths_with_one_straight_command_for_central_node = [
+    (41,5,35),
+    (35,5,41),
+    (0,4,8),
+    (8,4,0),
+    (1,3,7),
+    (7,3,1),
+    (40,2,6),
+    (6,2,40),
+    (2,6,11),
+    (11,6,2),
+    (3,7,12),
+    (12,7,3),
+    (4,8,13),
+    (13,8,4),
+    (19,20,21),
+    (21,20,19),
+    (23,21,20),
+    (20,21,23),
+    (26,27,28),
+    (24,27,26),
+    (14,16,33),
+    (34,9,14),
+]
+    specifiedTurns = {
+    (41,0,4):'L1',
+    (1,0,4): 'R0'
+    0, 1, 3: L1,
+    40, 1, 3: R0,
+
+    1,3,2:R0,
+    7,3,2:L0,
+
+    0,4,39:R0,
+    8,4,39:L0,
+
+    41,5,37:R0,
+    35,5,37:L0,
+
+    11,6,7:R0,
+    2,6,7:L0,
+
+    3,7,8:L0,
+    12,7,8:R0,
+
+    4,8,38:L0,
+    13,8,38:R0,
+
+    15,10,35:R0,
+
+    6,11,12:L1,
+    17,11,12:R0,
+
+    9,14,13:R0,
+
+    33,15,36: 
+
+    29,17,18:R0,
+    11,17,18:L1,
+
+    21,20,16:R0,
+    19,20,16:L0,
+
+    20,21,31:R0,
+    23,21,30:L0,
+
+    29,25,18:L1,
+    26,25,18:R0,
+
+    27,26,19:R0,
+    25,26,19:L1,
+
+    26,27,20:L0,
+    24,27,20:R0,}
 
 
     def getDistance(self, a: int, b: int) -> float:
@@ -209,7 +283,6 @@ class NavGraph:
             self.adj[u].remove(v)
         return [u, v, p]
     
-
     def removeTempNode(self, u: int, v: int, p: int) -> None:
         if p in self.adj[u]:
             self.adj[u].remove(p)
