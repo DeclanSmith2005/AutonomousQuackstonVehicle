@@ -292,7 +292,9 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
     """
     print(f"Executing outside-wheel-only {direction} turn...")
 
-    if estop_sleep(getattr(config, "NO_LINE_PRE_STOP_DELAY", 0.2)):
+    pre_stop_delay_raw = getattr(config, "NO_LINE_PRE_STOP_DELAY", 0.0)
+    pre_stop_delay = _get_config_val(pre_stop_delay_raw, direction)
+    if estop_sleep(pre_stop_delay):
         estop_pause_if_needed(px)
 
     # 1) Stop before turning
