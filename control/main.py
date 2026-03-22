@@ -335,10 +335,10 @@ def main():
         # RobotState.STRAIGHT,
         # RobotState.RIGHT_NO_LINE,
         RobotState.ROUNDABOUT_ENTRY,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
         RobotState.ROUNDABOUT_EXIT,
+        RobotState.RIGHT_NO_LINE,
+        RobotState.RIGHT_NO_LINE,
         RobotState.RIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
@@ -1120,8 +1120,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            if _handle_duck_override():
-                continue
+            # if _handle_duck_override():
+            #     continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):
