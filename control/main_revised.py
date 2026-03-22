@@ -300,15 +300,13 @@ def recover_by_retracing(px, eyes, motion_history, pid):
         prev = samples[i - 1]
 
         dt = max(0.01, curr["t"] - prev["t"])
-        # reverse_speed = min(
-        #     abs(curr["speed"]) * config.RECOVERY_REVERSE_SPEED_SCALE,
-        #     config.RECOVERY_MAX_REVERSE_SPEED
-        # )
+        reverse_speed = min(
+            abs(curr["speed"]) * config.RECOVERY_REVERSE_SPEED_SCALE,
+            config.RECOVERY_MAX_REVERSE_SPEED
+        )
 
-        reverse_speed = curr["speed"]
-        # reverse_steering = -curr["steering"] * config.RECOVERY_STEER_MULTIPLIER
-        reverse_steering = -curr["steering"]
-        # reverse_steering = max(-config.MAX_STEER, min(config.MAX_STEER, reverse_steering))
+        reverse_steering = -curr["steering"] * config.RECOVERY_STEER_MULTIPLIER
+        reverse_steering = max(-config.MAX_STEER, min(config.MAX_STEER, reverse_steering))
 
         px.set_dir_servo_angle(reverse_steering)
         px.backward(reverse_speed)
