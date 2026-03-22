@@ -305,10 +305,15 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
         estop_pause_if_needed(px)
 
     # 2) Manual outer-wheel turn
-    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+    steer_angle = config.MAX_STEER if direction == "right" else -config.MAX_STEER
+    px.set_dir_servo_angle(steer_angle)
+    
     pwm_raw = getattr(config, "NO_LINE_OUTSIDE_PWM", 20)
+    inner_pwm_raw = getattr(config, "NO_LINE_INNER_PWM", 0)
     duration_raw = getattr(config, "NO_LINE_OUTSIDE_TIME", 0.5)
+    
     pwm = _get_config_val(pwm_raw, direction)
+    inner_pwm = _get_config_val(inner_pwm_raw, direction)
     duration = _get_config_val(duration_raw, direction)
 
     start_t = time.time()
@@ -320,9 +325,9 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
         paused_total += estop_pause_if_needed(px)
         if direction == "right":
             px.set_motor_speed(1, pwm)
-            px.set_motor_speed(2, 0)
+            px.set_motor_speed(2, inner_pwm)
         else:
-            px.set_motor_speed(1, 0)
+            px.set_motor_speed(1, -inner_pwm)
             px.set_motor_speed(2, -pwm)
             
         elapsed_turn = time.time() - start_t - paused_total
