@@ -293,6 +293,9 @@ class NavGraph:
             if nxt in self.ignore:
                 continue
             else:
+                w = pathNodes[i+2]
+                override = self.get_override(str(curr), str(nxt), str(w))
+                
                 # curr angle
                 dx = self.x[nxt] - self.x[curr]
                 dy = self.y[nxt] - self.y[curr]
@@ -307,7 +310,7 @@ class NavGraph:
                 dirs = {}
                 if abs(s_val) > T_JUNCTION_THRESHOLD:
                     for val, node in releativeAngles:
-                        dirs[node] = 'RIGHT' if val < 0 else 'LEFT'
+                        dirs[node] = 'R' if val < 0 else 'L2'
                 else:
                     dirs[s_node] = 'STRAIGHT' + str(math.degrees(s_val))
                     sInd = releativeAngles.index((s_val, s_node))
@@ -319,7 +322,14 @@ class NavGraph:
                         elif k > sInd:
                             dirs[releativeAngles[k][1]] = 'LEFT' + str(math.degrees(releativeAngles[k][0]))
                                         
-                res.append(dirs[pathNodes[i+2]])
+                base_dir = dirs[w]
+                if override is not None:
+                    if override == "NO_LINE" or override == "NL":
+                        base_dir = f"{base_dir}_NL"
+                    else:
+                        base_dir = override
+                        
+                res.append(base_dir)
         return res
     
     def getBestFare(self):

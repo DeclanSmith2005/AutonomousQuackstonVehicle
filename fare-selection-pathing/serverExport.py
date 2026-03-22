@@ -17,11 +17,12 @@ sub_socket = context.socket(zmq.SUB)
 sub_socket.bind(f"tcp://*:{SUBPORT}")
 sub_socket.subscribe("")  # Subscribe to all topics
 
-def sendDirs(path):
+def sendDirs(path, distToNextNode=0.0):
     try:
         msg = {
             "topic": "DIRECTIONS",
             "dirs" : path,
+            "distToNextNode": distToNextNode,
             "time" : time.time()
         }
         pub_socket.send_json(msg)
@@ -61,10 +62,12 @@ def main():
         stopped(False)
         if not duckAPI.checkCurrFare()['fare']:
             while True:
-                fareID, srcX, srcY, destX, destY, score, p1, p2 = g.getBestFare()
+                bestFare_res = g.getBestFare()
+                fareID = bestFare_res[0]
+                srcX, srcY, destX, destY, score, p1, p2, nextDist1, nextDist2 = bestFare_res[1]
                 if duckAPI.claimFare(fareID):
                     break
-        sendDirs(p1)
+        sendDirs(p1, nextDist1)
         
         while math.sqrt((g.carX - srcX)**2 + (g.carY - srcY)**2) > 15:
             g.updatePosition()
@@ -77,7 +80,7 @@ def main():
             time.sleep(0.5)
         stopped(False)
 
-        sendDirs(p2)
+        sendDirs(p2, nextDist2)
         while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.carX, g.carY, destX, destY)
@@ -86,7 +89,7 @@ def main():
 
         while not duckReady():
             time.sleep(0.5)
-            
+
         resp = duckAPI.getMatchInfo()
     close()
         

@@ -79,16 +79,18 @@ class _PerceptionPublisher:
         
         Parameters
         ----------
-        distance_to_line : float
-            Distance in meters from the car to the detected horizontal line.
+        distance_to_line : float or None
+            Distance in meters from the car to the detected horizontal line,
+            or None when actively scanning but no line detected.
         """
         try:
             msg = {
                 "topic": "TRAJECTORY",
-                "distance_to_line": distance_to_line,
+                "distance_to_line": distance_to_line if distance_to_line is not None else "NONE",
                 "timestamp_distance_to_line": time.time()
             }
-            print(f"Sending distance to line: {distance_to_line:.3f} m")
+            if distance_to_line is not None:
+                print(f"Sending distance to line: {distance_to_line:.3f} m")
             self.pub_socket.send_json(msg)
         except Exception as e:
             print(f"Error sending distance to line: {e}")

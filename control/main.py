@@ -11,7 +11,7 @@ from line_sensor import LineSensor
 from mission_manager import MissionManager, RobotState
 from server import ServerManager
 from calibration import load_calibration, run_wiggle_calibration
-from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera
+from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, scan_for_line_fallback
 from io_components import IOComponents
 
 # --- GLOBALS ---
@@ -22,8 +22,40 @@ run_calibration_flag = False
 no_line_turn = False
 stopped = False
 no_line_arm_time = 0.0
+_no_line_lock = threading.Lock()  # guards no_line_turn and no_line_arm_time
 io_components = None
 emergency_stop_active = False
+estop_resume_state = None  # state to restore when resuming from e-stop
+
+
+def estop_sleep(duration):
+    """Sleep for `duration` seconds, but return early if e-stop fires.
+    Returns True if interrupted by e-stop, False if sleep completed normally.
+    Polls every 50ms so e-stop response is near-instant.
+    """
+    end_time = time.time() + duration
+    while time.time() < end_time:
+        if emergency_stop_active:
+            return True
+        time.sleep(min(0.05, max(0, end_time - time.time())))
+    return False
+
+
+def estop_pause_if_needed(px):
+    """If e-stop is active, stop motors and block until cleared.
+    Returns the pause duration in seconds so callers can adjust their timers.
+    Returns 0.0 if no pause was needed.
+    """
+    if not emergency_stop_active:
+        return 0.0
+    px.stop()
+    pause_start = time.time()
+    print("E-STOP: Motors stopped, pausing operation...")
+    while emergency_stop_active:
+        time.sleep(0.05)
+    pause_duration = time.time() - pause_start
+    print(f"Resumed after {pause_duration:.1f}s pause.")
+    return pause_duration
 
 
 def _signed_heading_delta_deg(new_heading_deg, old_heading_deg):
@@ -77,6 +109,9 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
             server,
             current_speed,
             is_stopped,
+            estop_sleep,
+            estop_pause_if_needed,
+            io_components
         )
     if mode == "pivot":
         return execute_pivot_turn(
@@ -87,6 +122,9 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
             mission,
             current_speed,
             is_stopped,
+            estop_sleep,
+            estop_pause_if_needed,
+            io_components
         )
 
     # Default to classic timed turn
@@ -97,23 +135,29 @@ def _execute_turn_by_mode(px, eyes, direction, pid, mission, server, current_spe
         pid,
         mission,
         current_speed,
+        estop_sleep,
+        estop_pause_if_needed,
+        io_components
     )
     return success, current_speed, is_stopped
 
-
-def _roundabout_entry_pivot_nudge(px, direction, pwm, duration_s):
-    """Apply a short in-place pivot after roundabout entry stop line."""
-    pivot_sign = 1 if direction == "right" else -1
-    pivot_speed = int(pwm) * pivot_sign
+def _roundabout_entry_blind_turn(px, direction, pwm, duration_s, outer_mult, inner_mult):
+    #Apply a short blind turn after roundabout entry stop line.
+    outer_pwm = int(pwm * outer_mult)
+    inner_pwm = int(pwm * inner_mult)
     start = time.time()
-    while (time.time() - start) < duration_s:
-        px.set_motor_speed(1, pivot_speed)
-        px.set_motor_speed(2, pivot_speed)
+    paused_total = 0.0
+    while (time.time() - start - paused_total) < duration_s:
+        paused_total += estop_pause_if_needed(px)
+        if direction == "right":
+            px.set_motor_speed(1, outer_pwm)
+            px.set_motor_speed(2, inner_pwm)
+        else:
+            px.set_motor_speed(1, inner_pwm)
+            px.set_motor_speed(2, outer_pwm)
         time.sleep(config.TURN_SCAN_INTERVAL)
     px.stop()
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
-
-
 def key_listener(mission):
     """
     Interactive keyboard control for mission management and failure testing.
@@ -149,8 +193,9 @@ def key_listener(mission):
                 emergency_stop_active = True
                 print("EMERGENCY STOP ACTIVE. Press 's' to resume.")
             elif cmd == "s":
-                emergency_stop_active = False
-                print("Resuming from emergency stop.")
+                if emergency_stop_active:
+                    emergency_stop_active = False
+                    print("Resuming from emergency stop.")
             elif cmd == "st":
                 mission.current_state = RobotState.STRAIGHT
                 mission.crossings_seen = 0
@@ -179,14 +224,10 @@ def key_listener(mission):
                 mission.current_state = RobotState.ROUNDABOUT_CIRCULATE
                 mission.crossings_seen = 0
                 print("Manual State: ROUNDABOUT_CIRCULATE")
-            elif cmd == "rbp":
-                mission.current_state = RobotState.ROUNDABOUT_EXIT_PREP
-                mission.crossings_seen = 0
-                print("Manual State: ROUNDABOUT_EXIT_PREP")
             elif cmd == "rbx":
-                mission.current_state = RobotState.ROUNDABOUT_EXIT_COMMIT
+                mission.current_state = RobotState.ROUNDABOUT_EXIT
                 mission.crossings_seen = 0
-                print("Manual State: ROUNDABOUT_EXIT_COMMIT")
+                print("Manual State: ROUNDABOUT_EXIT")
             elif cmd == "cal":
                 mission.current_state = RobotState.CALIBRATE
                 print("Manual State: CALIBRATE")
@@ -207,20 +248,23 @@ def key_listener(mission):
             elif cmd == "rnl":
                 mission.current_state = RobotState.RIGHT
                 mission.crossings_seen = 0
-                no_line_turn = True
-                no_line_arm_time = time.time()
+                with _no_line_lock:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
                 print("Manual State: RIGHT_NO_LINE")
             elif cmd == "lnl_1":
                 mission.current_state = RobotState.LEFT_1
                 mission.crossings_seen = 0
-                no_line_turn = True
-                no_line_arm_time = time.time()
+                with _no_line_lock:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
                 print("Manual State: LEFT_1_NO_LINE")
             elif cmd == "lnl_2":
                 mission.current_state = RobotState.LEFT_2
                 mission.crossings_seen = 0
-                no_line_turn = True
-                no_line_arm_time = time.time()
+                with _no_line_lock:
+                    no_line_turn = True
+                    no_line_arm_time = time.time()
                 print("Manual State: LEFT_2_NO_LINE")
 
         except EOFError:
@@ -232,23 +276,31 @@ def ignore_intersection(px, speed):
     px.forward(speed)
     px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
     current_motor_speed = speed
-    time.sleep(config.PASS_TIME)
+    if estop_sleep(config.PASS_TIME):
+        estop_pause_if_needed(px)
+        px.forward(speed)
+        current_motor_speed = speed
 
 def stop_at_line(px, base_speed):
     """Stop at a stop line, hold, then drive forward to clear it."""
     global current_motor_speed, io_components
-    time.sleep(config.STOP_DELAY)
+    if estop_sleep(config.STOP_DELAY):
+        estop_pause_if_needed(px)
     px.stop()
     current_motor_speed = 0
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.STOP_HOLD_TIME)
+    if estop_sleep(config.STOP_HOLD_TIME):
+        estop_pause_if_needed(px)
     # Clear the line
     px.forward(base_speed)
     current_motor_speed = base_speed
     if io_components:
         io_components.update_brakes(current_motor_speed)
-    time.sleep(config.STOP_CLEAR_TIME)
+    if estop_sleep(config.STOP_CLEAR_TIME):
+        estop_pause_if_needed(px)
+        px.forward(base_speed)
+        current_motor_speed = base_speed
 
 def main():
     global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active
@@ -315,6 +367,7 @@ def main():
 
     error_buffer = [0.0] * config.ERROR_BUFFER_LEN
     error_buffer_seeded = False
+    ultrasonic_buffer = []
     history = []
     start_time = time.time()
     def _turn_allowed():
@@ -327,8 +380,6 @@ def main():
     roundabout_heading_accum_deg = 0.0
     previous_state = mission.current_state
     roundabout_circulate_start_time = None
-    roundabout_exit_search_start_time = None
-    roundabout_exit_branch_hits = 0
     camera_tilt_cmd_deg = 0.0
     straight_cross_streak = 0
     last_straight_intersection_time = 0.0
@@ -464,10 +515,12 @@ def main():
                 entry_dir = "right"
             entry_pwm = int(config.ROUNDABOUT_ENTRY_PIVOT_PWM)
             entry_duration = float(config.ROUNDABOUT_ENTRY_PIVOT_DURATION)
+            outer_mult = float(getattr(config, "ROUNDABOUT_ENTRY_OUTER_PWM_MULT", 1.0))
+            inner_mult = float(getattr(config, "ROUNDABOUT_ENTRY_INNER_PWM_MULT", -1.0))
             print(
-                f"Applying roundabout entry pivot nudge ({entry_dir}, pwm={entry_pwm}, t={entry_duration:.2f}s)."
+                f"Applying roundabout entry blind turn ({entry_dir}, pwm={entry_pwm}, t={entry_duration:.2f}s, outer={outer_mult}, inner={inner_mult})."
             )
-            _roundabout_entry_pivot_nudge(px, entry_dir, entry_pwm, entry_duration)
+            _roundabout_entry_blind_turn(px, entry_dir, entry_pwm, entry_duration, outer_mult, inner_mult)
 
         mission.advance_mission()
         return True
@@ -499,12 +552,12 @@ def main():
     def _intersection_left_2(base_speed, _start_time):
         global no_line_turn, current_motor_speed, stopped
 
+        if not _turn_allowed():
+            print("Intersection suppressed during startup grace period.")
+            return False
+
         mission.crossings_seen += 1
         if mission.crossings_seen >= 2:  # +1 more to account for the stop line
-            if not _turn_allowed():
-                print("Turn suppressed during startup grace period.")
-                return False
-
             execution_mode = _normalized_turn_mode()
             success, current_motor_speed, stopped = _execute_turn_by_mode(
                 px,
@@ -550,6 +603,39 @@ def main():
 
         return True
 
+    def _intersection_roundabout_exit(base_speed, _start_time):
+        global current_motor_speed, stopped
+        print("ROUNDABOUT EXIT cross reached. Executing left-motor-only right turn.")
+        
+        exit_pwm = int(getattr(config, "ROUNDABOUT_EXIT_LEFT_MOTOR_PWM", 20))
+        exit_time = float(getattr(config, "ROUNDABOUT_EXIT_LEFT_MOTOR_TIME", 0.5))
+
+        current_motor_speed = 0
+        px.stop()
+        stopped = True
+        if estop_sleep(config.TURN_STOP_HOLD_TIME):
+            estop_pause_if_needed(px)
+        
+        start_t = time.time()
+        paused_total = 0.0
+        while (time.time() - start_t - paused_total) < exit_time:
+            paused_total += estop_pause_if_needed(px)
+            px.set_motor_speed(1, exit_pwm)
+            px.set_motor_speed(2, 0)
+            px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+            time.sleep(config.TURN_SCAN_INTERVAL)
+            
+        px.stop()
+        
+        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+        if success:
+            stopped = False
+            mission.advance_mission()
+        else:
+            stopped = True
+            mission.advance_mission()
+        return True
+
     def _handle_intersection_event(base_speed, start_time, full_cross_triggered):
         if no_line_turn:
             return False
@@ -571,6 +657,7 @@ def main():
             RobotState.LEFT_1: _intersection_left_1,
             RobotState.LEFT_2: _intersection_left_2,
             RobotState.RIGHT: _intersection_right,
+            RobotState.ROUNDABOUT_EXIT: _intersection_roundabout_exit,
         }
         handler = state_handlers.get(mission.current_state)
         if handler is None:
@@ -594,36 +681,30 @@ def main():
         else:
             turn_dir = None
 
-        no_line_time = time.time()
         turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
 
         trigger_hit = _turn_triggered(
-                        turn_trigger_mode,
-                        grayscale_turn_triggered,
-                        line_distance_cm,
-                        config.MAX_TURN_PROXIMITY,
-                    )
+            turn_trigger_mode,
+            grayscale_turn_triggered,
+            line_distance_cm,
+            config.MAX_TURN_PROXIMITY,
+        )
 
-        while (time.time() - no_line_time) < config.NO_LINE_TIMEOUT:
-            line_distance_cm = server.receive_intersection_distance()
-            print(line_distance_cm)
-            trigger_hit = _turn_triggered(
-                        turn_trigger_mode,
-                        grayscale_turn_triggered,
-                        line_distance_cm,
-                        config.MAX_TURN_PROXIMITY,
-                    )
-            if trigger_hit:
-                break
-            # time.sleep(0.1)
-        
-        # timed_out = (time.time() - no_line_arm_time) > config.NO_LINE_TIMEOUT
         should_turn = (
             turn_dir is not None
-            and (trigger_hit)
+            and trigger_hit
         )
 
         if not should_turn:
+            # Grace period: give perception time to receive the no_line flag
+            # and start scanning before the timeout clock is meaningful.
+            NO_LINE_GRACE_S = 1.0
+            elapsed = time.time() - no_line_arm_time
+            timed_out = elapsed > (config.NO_LINE_TIMEOUT + NO_LINE_GRACE_S)
+            if timed_out:
+                print(f"No-stop-line turn timed out after {config.NO_LINE_TIMEOUT}+{NO_LINE_GRACE_S}s. Canceling.")
+                with _no_line_lock:
+                    no_line_turn = False
             return False
 
         no_line_turn = False
@@ -636,7 +717,7 @@ def main():
 
         print(
             "No-stop-line turn armed "
-            f"(trigger_mode={turn_trigger_mode}, trigger_hit={trigger_hit}, timeout=, "
+            f"(trigger_mode={turn_trigger_mode}, trigger_hit={trigger_hit}, timeout={config.NO_LINE_TIMEOUT}, "
             f"distance_to_line={line_distance_cm})."
         )
 
@@ -668,120 +749,13 @@ def main():
             mission.advance_mission()
         return True
 
-    def _handle_roundabout_exit_prep(raw):
-        nonlocal roundabout_exit_search_start_time, roundabout_exit_branch_hits
-        global current_motor_speed, stopped
-
-        if mission.current_state != RobotState.ROUNDABOUT_EXIT_PREP:
-            return False
-
-        turn_dir = str(config.ROUNDABOUT_EXIT_DIRECTION).strip().lower()
-        if turn_dir not in ("left", "right"):
-            turn_dir = "right"
-
-        if bool(config.ROUNDABOUT_EXIT_USE_BRANCH_TRIGGER):
-            if roundabout_exit_search_start_time is None:
-                roundabout_exit_search_start_time = time.time()
-
-            _set_cam_tilt(-30)
-            px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
-            search_speed = max(0, int(config.ROUNDABOUT_EXIT_SEARCH_SPEED))
-            px.forward(search_speed)
-            current_motor_speed = search_speed
-            stopped = False
-
-            center_threshold = float(config.ROUNDABOUT_EXIT_CENTER_THRESHOLD)
-            center_signal = eyes.color_signal(raw[1], 1)
-            center_active = center_signal > center_threshold
-            left_active, _, right_active = eyes.active_sensor_mask(raw)
-            if turn_dir == "right":
-                branch_detected = center_active and right_active
-            else:
-                branch_detected = left_active and center_active
-
-            if branch_detected:
-                roundabout_exit_branch_hits += 1
-            else:
-                roundabout_exit_branch_hits = 0
-
-            if roundabout_exit_branch_hits >= int(config.ROUNDABOUT_EXIT_BRANCH_HITS):
-                print(
-                    f"Roundabout branch cue detected ({turn_dir}, hits={roundabout_exit_branch_hits}); executing pivot turn."
-                )
-                if not _turn_allowed():
-                    print("Roundabout pivot suppressed during startup grace period.")
-                    return True
-
-                success, current_motor_speed, stopped = execute_pivot_turn(
-                    px,
-                    eyes,
-                    turn_dir,
-                    pid,
-                    mission,
-                    current_motor_speed,
-                    stopped,
-                )
-                roundabout_exit_search_start_time = None
-                roundabout_exit_branch_hits = 0
-            else:
-                elapsed_search = time.time() - roundabout_exit_search_start_time
-                timeout_s = float(config.ROUNDABOUT_EXIT_SEARCH_TIMEOUT)
-                if elapsed_search >= timeout_s:
-                    print(
-                        f"Roundabout branch cue timeout ({elapsed_search:.2f}s); forcing pivot {turn_dir} exit."
-                    )
-                    if not _turn_allowed():
-                        print("Roundabout pivot suppressed during startup grace period.")
-                        return True
-                    success, current_motor_speed, stopped = execute_pivot_turn(
-                        px,
-                        eyes,
-                        turn_dir,
-                        pid,
-                        mission,
-                        current_motor_speed,
-                        stopped,
-                    )
-                    roundabout_exit_search_start_time = None
-                    roundabout_exit_branch_hits = 0
-                else:
-                    return True
-        else:
-            if not _turn_allowed():
-                print("Roundabout pivot suppressed during startup grace period.")
-                return True
-            execution_mode = _normalized_turn_mode()
-            success, current_motor_speed, stopped = _execute_turn_by_mode(
-                px,
-                eyes,
-                turn_dir,
-                pid,
-                mission,
-                server,
-                current_motor_speed,
-                stopped,
-                execution_mode,
-            )
-
-        if success:
-            mission.advance_mission()
-        return True
-
-    def _handle_roundabout_exit_commit():
-        if mission.current_state != RobotState.ROUNDABOUT_EXIT_COMMIT:
-            return False
-
-        ignore_intersection(px, config.TURN_POST_SPEED)
-        mission.advance_mission()
-        return True
+    # Roundabout exit prep and commit states removed.
 
     def _update_state_transition_trackers(roundabout_exit_mode):
         nonlocal previous_state
         nonlocal roundabout_circulate_start_time
         nonlocal last_heading_deg
         nonlocal roundabout_heading_accum_deg
-        nonlocal roundabout_exit_search_start_time
-        nonlocal roundabout_exit_branch_hits
 
         if mission.current_state == previous_state:
             return
@@ -791,10 +765,6 @@ def main():
             last_heading_deg = None
             roundabout_heading_accum_deg = 0.0
             print(f"Roundabout circulate entered (exit_mode={roundabout_exit_mode}).")
-        elif mission.current_state == RobotState.ROUNDABOUT_EXIT_PREP:
-            roundabout_exit_search_start_time = time.time()
-            roundabout_exit_branch_hits = 0
-            print("Roundabout exit prep entered: searching for branch cue.")
 
         previous_state = mission.current_state
 
@@ -838,12 +808,12 @@ def main():
             else:
                 idle_limit_pressed_time = 0.0
 
-            time.sleep(0.5)
+            estop_sleep(0.5)
             return True
 
         if mission.current_state == RobotState.CALIBRATE:
             print(f"RAW: {raw} | PATTERN: {pattern}")
-            time.sleep(0.5)
+            estop_sleep(0.5)
             return True
 
         # In states leading up to a turn or stop line, reduce speed.
@@ -856,6 +826,10 @@ def main():
         ):
             turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
             if turn_trigger_mode == "camera":
+                # Tilt camera level (0°) for both normal and no_line approaches.
+                # In no_line mode this is needed so perception can see the
+                # distant horizontal stop line; _handle_no_line_turn tilts to
+                # -30° only after the turn trigger fires.
                 _set_cam_tilt(0)
             print("Approaching STOP LINE...")
             px.forward(config.TURN_ENTRY_SPEED)
@@ -871,14 +845,26 @@ def main():
             server.process_incoming_messages()
 
             if emergency_stop_active:
+                # Save current state for resumption (unless already saved)
+                if estop_resume_state is None and mission.current_state != RobotState.IDLE:
+                    estop_resume_state = mission.current_state
                 px.stop()
                 current_motor_speed = 0
                 stopped = True
                 if io_components:
                     io_components.update_brakes(0)
                     io_components.signal_hazard()
-                time.sleep(0.05)
+                estop_sleep(0.05)
                 continue
+            else:
+                # Restore state after e-stop release
+                if estop_resume_state is not None:
+                    mission.current_state = estop_resume_state
+                    estop_resume_state = None
+                    pid.reset()
+                    last_pid_time = time.time()
+                    last_valid_line_time = time.time()
+                    print(f"E-stop released, restoring state: {mission.current_state}")
 
             # Check for calibration request
             if run_calibration_flag:
@@ -898,15 +884,36 @@ def main():
                 
             # Evaluate Brake Lights dynamically
             if io_components:
-                io_components.update_brakes(current_motor_speed)
+                is_approaching = mission.current_state in (
+                    RobotState.APPROACH_STOP,
+                    RobotState.LEFT_1,
+                    RobotState.LEFT_2,
+                    RobotState.RIGHT,
+                    RobotState.ROUNDABOUT_ENTRY,
+                )
+                if is_approaching or abs(current_motor_speed) < 1.0:
+                    io_components.brake_on()
+                else:
+                    io_components.brake_off()
 
             # 1) Get Hardware Data
             raw = px.get_grayscale_data()
             
             # Distance check (Obstacle avoidance failsafe)
-            current_distance = px.ultrasonic.read()
-            if 0 < current_distance < config.OBSTACLE_THRESHOLD:
-                print(f"!!! EMERGENCY STOP: Obstacle detected at {current_distance:.1f}cm !!!")
+            raw_distance = px.ultrasonic.read()
+            # Treat invalid readings (<=0) as a large distance
+            effective_distance = raw_distance if raw_distance > 0 else 999.0
+            
+            ultrasonic_buffer.append(effective_distance)
+            if len(ultrasonic_buffer) > getattr(config, 'ULTRASONIC_BUFFER_LEN', 3):
+                ultrasonic_buffer.pop(0)
+
+            # Use median filter to reject spikes
+            sorted_buffer = sorted(ultrasonic_buffer)
+            filtered_distance = sorted_buffer[len(sorted_buffer) // 2]
+
+            if filtered_distance < config.OBSTACLE_THRESHOLD:
+                print(f"!!! EMERGENCY STOP: Obstacle detected at {filtered_distance:.1f}cm (raw: {raw_distance:.1f}cm) !!!")
                 stop_flag = True
                 break
 
@@ -952,6 +959,16 @@ def main():
                 print(f"Advancing mission. New state: {mission.current_state}")
                 pid.reset()
 
+            # Consume dynamic no-line turn configurations from pathing
+            if getattr(mission, 'no_line_turn', False):
+                with _no_line_lock:
+                    if not no_line_turn:
+                        no_line_turn = True
+                        no_line_arm_time = time.time()
+                        print("Dynamic turn rule active: Setting no_line_turn = True")
+                # Clear the flag so we don't continuously reset no_line_arm_time
+                mission.no_line_turn = False
+
             # --- PUBLISH MISSION STATE ON CHANGE ---
             should_heartbeat_publish = (time.time() - last_mission_publish_time) >= config.MISSION_STATE_HEARTBEAT
             if mission.current_state != last_published_state or no_line_turn != last_published_no_line_turn or should_heartbeat_publish:
@@ -991,11 +1008,7 @@ def main():
             ):
                 continue
 
-            if _handle_roundabout_exit_prep(raw):
-                continue
-
-            if _handle_roundabout_exit_commit():
-                continue
+            # Roundabout PREP/COMMIT states have been removed
 
             # 5) Handle intersections (event dispatch by current mission state)
             if _handle_intersection_event(base_speed, start_time, full_cross_triggered):

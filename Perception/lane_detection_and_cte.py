@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from perception_server_comms import get_vehicle_state, send_cte, send_distance_to_line
+from perception_server_comms import get_vehicle_state, send_cte, send_distance_to_line_to_server
 
 #---------------------------------------------------------------CONSTANTS---------------------------------------------------------------------
 # Green color range for lane detection in HSV color space
@@ -181,7 +181,11 @@ def detect_lane_cte(image):
                                 if mean_residual <= STOPLINE_MAX_MEAN_RESIDUAL_PX:
                                     print("residual is ok")
                                     distance_to_line = (height - line_y) * meters_per_pixel_straight
-                                    # send_distance_to_line_to_server(distance_to_line)
+                                    send_distance_to_line_to_server(distance_to_line)
+        # If no horizontal line was found, send explicit None so control knows
+        # perception is actively scanning but hasn't detected a line yet.
+        if distance_to_line is None:
+            send_distance_to_line_to_server(None)
         return None, None, None, bev, distance_to_line
 
         # If no horizontal line was found
