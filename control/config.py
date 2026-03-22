@@ -55,8 +55,8 @@ TURN_TRIGGER_MODE = "grayscale"
 MAX_TURN_PROXIMITY = 15
 
 TURN_PWM = [27, 20, 27]  # [left_1, right, left_2]
-TURN_OUTER_PWM_MULT = [1.5, 1.6, 1.5]
-TURN_INNER_PWM_MULT = [0.5, 0.4, 0.5]
+TURN_OUTER_PWM_MULT = [1.3, 1.9, 1.3]
+TURN_INNER_PWM_MULT = [0.6, 0.1, 0.7]
 TURN_ENTRY_SPEED = 7
 TURN_POST_SPEED = 5
 TURN_STOP_HOLD_TIME = 3.0
@@ -68,16 +68,18 @@ TURN_STABILIZE_TIME = 0.1
 TURN_ENTRY_TIMEOUT = 5.0
 
 # --- NO-LINE OUTSIDE WHEEL TURN TUNING ---
-NO_LINE_OUTSIDE_PWM = [30, 20]
-NO_LINE_OUTSIDE_TIME = [2.5, 1.75]
-NO_LINE_PRE_STOP_DELAY = 0.1
+NO_LINE_TURN_LINE_CHECK_DELAY = 1.75  # seconds before checking grayscale
+NO_LINE_OUTSIDE_PWM = [30, 30]
+NO_LINE_INNER_PWM = [30, 15]  # Speed of the inner wheel (reverse) to help pivot in place!
+NO_LINE_OUTSIDE_TIME = [3.0, 3.0]
+NO_LINE_PRE_STOP_DELAY = [0.2, 0.0, 0.3]  # Delay (s) before stopping [left_1, right, left_2]. Allows crossing the line slightly.
 
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
 TURN_LOOKAHEAD_MIN_CM = 18  # Minimum y_ref used by bicycle model to avoid steering saturation
-TURN_CAMERA_TIMEOUT = [1.5, 1.0, 1.5]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
+TURN_CAMERA_TIMEOUT = [1.85, 1.65, 1.5]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
 TURN_INITIAL_ROTATION_TIME = 0.3  # Brief initial rotation to point toward exit lane
-TURN_PROFILE_DURATION = [1.5, 1.0, 1.5]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
+TURN_PROFILE_DURATION = [1.85, 1.65, 1.5]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
 TURN_MIN_LINE_CHECK_TIME = 1.1  # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3  # Freshness window for trajectory points (s)
 TURN_TRAJECTORY_MAX_AGE = 0.5  # Max acceptable age of trajectory samples during trajectory turns (s)
@@ -100,6 +102,7 @@ PIVOT_ALIGN_MIN_HITS = 2  # Consecutive alignment detections required to finish 
 PIVOT_ALIGN_SENSOR_THRESHOLD = 0.72
 
 # --- ROUNDABOUT TUNING ---
+ROUNDABOUT_TURN_LINE_CHECK_DELAY = 1.5  # seconds before checking grayscale
 # Entry Blind Turn
 ROUNDABOUT_ENTRY_PIVOT_ENABLE = True
 ROUNDABOUT_ENTRY_PIVOT_DIRECTION = "right"  # "left" or "right"
@@ -108,10 +111,11 @@ ROUNDABOUT_ENTRY_PIVOT_DURATION = 0.4
 ROUNDABOUT_ENTRY_OUTER_PWM_MULT = 1.8
 ROUNDABOUT_ENTRY_INNER_PWM_MULT = 0.2
 ROUNDABOUT_ENTRY_LEFT_MOTOR_PWM = 20
-ROUNDABOUT_ENTRY_LEFT_MOTOR_TIME = 1.0
+ROUNDABOUT_ENTRY_INNER_MOTOR_PWM = 15
+ROUNDABOUT_ENTRY_LEFT_MOTOR_TIME = 1.75
 
 # Exit Logic
-ROUNDABOUT_CIRCULATE_SPEED = 12
+ROUNDABOUT_CIRCULATE_SPEED = 1
 ROUNDABOUT_EXIT_DIRECTION = "right"
 ROUNDABOUT_EXIT_TRIGGER_MODE = "line"  # "line" (perception stop line) or "heading" (localization)
 ROUNDABOUT_EXIT_ACCUM_HEADING_DEG = 300.0
@@ -123,7 +127,8 @@ ROUNDABOUT_EXIT_SEARCH_TIMEOUT = 3.0
 ROUNDABOUT_EXIT_SEARCH_SPEED = 1
 ROUNDABOUT_EXIT_CENTER_THRESHOLD = 0.82
 ROUNDABOUT_EXIT_LEFT_MOTOR_PWM = 20
-ROUNDABOUT_EXIT_LEFT_MOTOR_TIME = 0.5
+ROUNDABOUT_EXIT_INNER_MOTOR_PWM = 15
+ROUNDABOUT_EXIT_LEFT_MOTOR_TIME = 1.0
 
 # --- LOCALIZATION & NETWORK ---
 LOCALIZATION_TIMEOUT = 2.0

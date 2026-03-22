@@ -331,10 +331,16 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
+        # RobotState.LEFT1_NO_LINE,
+        # RobotState.STRAIGHT,
+        # RobotState.RIGHT_NO_LINE,
+        RobotState.ROUNDABOUT_ENTRY,
+        # RobotState.STRAIGHT,
+        RobotState.ROUNDABOUT_EXIT,
+        RobotState.RIGHT_NO_LINE,
+        RobotState.RIGHT_NO_LINE,
         RobotState.RIGHT,
         RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.IDLE,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
@@ -532,9 +538,10 @@ def main():
 
         mission.crossings_seen += 1
         if mission.crossings_seen >= 2:
-            print("ROUNDABOUT ENTRY cross reached. Executing left-motor-only right turn.")
+            print("ROUNDABOUT ENTRY cross reached. Executing roundabout entry turn.")
 
             entry_pwm = int(getattr(config, "ROUNDABOUT_ENTRY_LEFT_MOTOR_PWM", 20))
+            inner_pwm = int(getattr(config, "ROUNDABOUT_ENTRY_INNER_MOTOR_PWM", 15))
             entry_time = float(getattr(config, "ROUNDABOUT_ENTRY_LEFT_MOTOR_TIME", 0.5))
 
             current_motor_speed = 0
@@ -545,16 +552,43 @@ def main():
             
             start_t = time.time()
             paused_total = 0.0
-            while (time.time() - start_t - paused_total) < entry_time:
+            line_found = False
+            while (time.time() - start_t - paused_total) < 5.0:
                 paused_total += estop_pause_if_needed(px)
                 px.set_motor_speed(1, entry_pwm)
-                px.set_motor_speed(2, 0)
-                px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+                px.set_motor_speed(2, inner_pwm)
+                px.set_dir_servo_angle(config.MAX_STEER)
+                
+                elapsed_turn = time.time() - start_t - paused_total
+                if elapsed_turn >= getattr(config, "ROUNDABOUT_TURN_LINE_CHECK_DELAY", 1.0):
+                    raw = px.get_grayscale_data()
+                    on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+                    if on_line:
+                        line_found = True
+                        break
+                    
                 time.sleep(config.TURN_SCAN_INTERVAL)
                 
             px.stop()
             
-            success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+            if line_found:
+                print("Line re-acquired by grayscale during roundabout entry.")
+                mission.current_state = RobotState.STRAIGHT
+                px.forward(config.BASE_SPEED)
+                current_motor_speed = config.BASE_SPEED
+                if io_components:
+                    io_components.update_brakes(current_motor_speed)
+                pid.reset()
+                success = True
+            else:
+                print("Roundabout entry turn failed to find the line.")
+                current_motor_speed = 0
+                if io_components:   
+                    io_components.update_brakes(current_motor_speed)
+                pid.reset()
+                mission.current_state = RobotState.IDLE
+                success = False
+
             if success:
                 stopped = False
                 mission.advance_mission()
@@ -646,9 +680,10 @@ def main():
 
     def _intersection_roundabout_exit(base_speed, _start_time):
         global current_motor_speed, stopped
-        print("ROUNDABOUT EXIT cross reached. Executing left-motor-only right turn.")
+        print("ROUNDABOUT EXIT cross reached. Executing roundabout exit turn.")
         
         exit_pwm = int(getattr(config, "ROUNDABOUT_EXIT_LEFT_MOTOR_PWM", 20))
+        inner_pwm = int(getattr(config, "ROUNDABOUT_EXIT_INNER_MOTOR_PWM", 15))
         exit_time = float(getattr(config, "ROUNDABOUT_EXIT_LEFT_MOTOR_TIME", 0.5))
 
         current_motor_speed = 0
@@ -659,16 +694,43 @@ def main():
         
         start_t = time.time()
         paused_total = 0.0
-        while (time.time() - start_t - paused_total) < exit_time:
+        line_found = False
+        while (time.time() - start_t - paused_total) < 5.0:
             paused_total += estop_pause_if_needed(px)
             px.set_motor_speed(1, exit_pwm)
-            px.set_motor_speed(2, 0)
-            px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+            px.set_motor_speed(2, inner_pwm)
+            px.set_dir_servo_angle(config.MAX_STEER)
+            
+            elapsed_turn = time.time() - start_t - paused_total
+            if elapsed_turn >= getattr(config, "ROUNDABOUT_TURN_LINE_CHECK_DELAY", 1.0):
+                raw = px.get_grayscale_data()
+                on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+                if on_line:
+                    line_found = True
+                    break
+                
             time.sleep(config.TURN_SCAN_INTERVAL)
             
         px.stop()
         
-        success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+        if line_found:
+            print("Line re-acquired by grayscale during roundabout exit.")
+            mission.current_state = RobotState.STRAIGHT
+            px.forward(config.BASE_SPEED)
+            current_motor_speed = config.BASE_SPEED
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
+            pid.reset()
+            success = True
+        else:
+            print("Roundabout exit turn failed to find the line.")
+            current_motor_speed = 0
+            if io_components:
+                io_components.update_brakes(current_motor_speed)
+            pid.reset()
+            mission.current_state = RobotState.IDLE
+            success = False
+
         if success:
             stopped = False
             mission.advance_mission()
@@ -908,6 +970,39 @@ def main():
                     last_valid_line_time = time.time()
                     print(f"E-stop released, restoring state: {mission.current_state}")
 
+            # --- DUCK PICK-UP/DROP-OFF LOGIC ---
+            pathing_stop = server.receive_stop_the_car()
+            if pathing_stop:
+                # 1. Stop the car
+                px.stop()
+                current_motor_speed = 0
+                stopped = True
+                if io_components:
+                    io_components.update_brakes(0)
+                
+                # 2. Check limit switch
+                if io_components and io_components.is_limit_switch_pressed():
+                    if not getattr(mission, "limit_switch_wait_done", False):
+                        print("Limit switch pressed! Waiting 5 seconds before confirming...")
+                        # non-blocking wait regarding estop
+                        estop_sleep(5.0)
+                        mission.limit_switch_wait_done = True
+                    
+                    server.publish_duck_ready(True)
+                else:
+                    mission.limit_switch_wait_done = False
+                    server.publish_duck_ready(False)
+                
+                time.sleep(config.LOOP_INTERVAL)
+                continue
+            else:
+                # pathing_stop is False
+                if getattr(mission, "limit_switch_wait_done", False) or (io_components and io_components.is_limit_switch_pressed()):
+                    if io_components:
+                        io_components.clear_limit_switch_flag()
+                    mission.limit_switch_wait_done = False
+                    server.publish_duck_ready(False)
+
             # Check for calibration request
             if run_calibration_flag:
                 run_calibration_flag = False
@@ -1025,8 +1120,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            if _handle_duck_override():
-                continue
+            # if _handle_duck_override():
+            #     continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):

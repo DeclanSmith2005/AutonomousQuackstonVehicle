@@ -292,7 +292,9 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
     """
     print(f"Executing outside-wheel-only {direction} turn...")
 
-    if estop_sleep(getattr(config, "NO_LINE_PRE_STOP_DELAY", 0.2)):
+    pre_stop_delay_raw = getattr(config, "NO_LINE_PRE_STOP_DELAY", 0.0)
+    pre_stop_delay = _get_config_val(pre_stop_delay_raw, direction)
+    if estop_sleep(pre_stop_delay):
         estop_pause_if_needed(px)
 
     # 1) Stop before turning
@@ -305,22 +307,39 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
         estop_pause_if_needed(px)
 
     # 2) Manual outer-wheel turn
-    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+    steer_angle = config.MAX_STEER if direction == "right" else -config.MAX_STEER
+    px.set_dir_servo_angle(steer_angle)
+    
     pwm_raw = getattr(config, "NO_LINE_OUTSIDE_PWM", 20)
+    inner_pwm_raw = getattr(config, "NO_LINE_INNER_PWM", 0)
     duration_raw = getattr(config, "NO_LINE_OUTSIDE_TIME", 0.5)
+    
     pwm = _get_config_val(pwm_raw, direction)
+    inner_pwm = _get_config_val(inner_pwm_raw, direction)
     duration = _get_config_val(duration_raw, direction)
 
     start_t = time.time()
     paused_total = 0.0
-    while (time.time() - start_t - paused_total) < duration:
+    line_found = False
+    
+    # We use a 5.0 second max timeout, similar to the roundabout fallback logic
+    while (time.time() - start_t - paused_total) < 5.0:
         paused_total += estop_pause_if_needed(px)
         if direction == "right":
             px.set_motor_speed(1, pwm)
-            px.set_motor_speed(2, 0)
+            px.set_motor_speed(2, inner_pwm)
         else:
-            px.set_motor_speed(1, 0)
+            px.set_motor_speed(1, -inner_pwm)
             px.set_motor_speed(2, -pwm)
+            
+        elapsed_turn = time.time() - start_t - paused_total
+        if elapsed_turn >= getattr(config, "NO_LINE_TURN_LINE_CHECK_DELAY", 1.0):
+            raw = px.get_grayscale_data()
+            on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+            if on_line:
+                line_found = True
+                break
+                
         time.sleep(config.TURN_SCAN_INTERVAL)
 
     px.stop()
@@ -328,10 +347,24 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
     if io_components:
         io_components.update_brakes(current_motor_speed)
 
-    # 3) Scan for line re-acquisition
-    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
-    if success:
+    # 3) Handle line re-acquisition results
+    if line_found:
+        print(f"Line re-acquired by grayscale during outside-wheel {direction} turn.")
+        mission.current_state = RobotState.STRAIGHT
+        px.forward(config.BASE_SPEED)
+        current_motor_speed = config.BASE_SPEED
+        if io_components:
+            io_components.update_brakes(current_motor_speed)
+        pid.reset()
+        success = True
         stopped = False
+    else:
+        print(f"Outside-wheel {direction} turn failed to find the line.")
+        pid.reset()
+        mission.current_state = RobotState.IDLE
+        success = False
+        stopped = True
+
     return success, current_motor_speed, stopped
 
 
