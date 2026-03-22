@@ -72,7 +72,7 @@ NO_LINE_TURN_LINE_CHECK_DELAY = 1.75  # seconds before checking grayscale
 NO_LINE_OUTSIDE_PWM = [30, 30]
 NO_LINE_INNER_PWM = [30, 15]  # Speed of the inner wheel (reverse) to help pivot in place!
 NO_LINE_OUTSIDE_TIME = [3.0, 3.0]
-NO_LINE_PRE_STOP_DELAY = [0.3, 0.0, 0.3]  # Delay (s) before stopping [left_1, right, left_2]. Allows crossing the line slightly.
+NO_LINE_PRE_STOP_DELAY = [0.2, 0.0, 0.3]  # Delay (s) before stopping [left_1, right, left_2]. Allows crossing the line slightly.
 
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
