@@ -100,6 +100,7 @@ PIVOT_ALIGN_MIN_HITS = 2  # Consecutive alignment detections required to finish 
 PIVOT_ALIGN_SENSOR_THRESHOLD = 0.72
 
 # --- ROUNDABOUT TUNING ---
+ROUNDABOUT_TURN_LINE_CHECK_DELAY = 1.0  # seconds before checking grayscale
 # Entry Blind Turn
 ROUNDABOUT_ENTRY_PIVOT_ENABLE = True
 ROUNDABOUT_ENTRY_PIVOT_DIRECTION = "right"  # "left" or "right"

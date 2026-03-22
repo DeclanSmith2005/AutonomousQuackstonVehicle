@@ -556,11 +556,13 @@ def main():
                 px.set_motor_speed(2, 0)
                 px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
                 
-                raw = px.get_grayscale_data()
-                on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
-                if on_line:
-                    line_found = True
-                    break
+                elapsed_turn = time.time() - start_t - paused_total
+                if elapsed_turn >= getattr(config, "ROUNDABOUT_TURN_LINE_CHECK_DELAY", 1.0):
+                    raw = px.get_grayscale_data()
+                    on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+                    if on_line:
+                        line_found = True
+                        break
                     
                 time.sleep(config.TURN_SCAN_INTERVAL)
                 
@@ -695,11 +697,13 @@ def main():
             px.set_motor_speed(2, 0)
             px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
             
-            raw = px.get_grayscale_data()
-            on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
-            if on_line:
-                line_found = True
-                break
+            elapsed_turn = time.time() - start_t - paused_total
+            if elapsed_turn >= getattr(config, "ROUNDABOUT_TURN_LINE_CHECK_DELAY", 1.0):
+                raw = px.get_grayscale_data()
+                on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+                if on_line:
+                    line_found = True
+                    break
                 
             time.sleep(config.TURN_SCAN_INTERVAL)
             
