@@ -23,6 +23,7 @@ class PIDController:
         self.last_error = 0.0
         self.integral = 0.0
         self.last_output = 0.0
+        self.filtered_derivative = 0.0
         
     def update(self, error, dt):
         """
@@ -50,9 +51,16 @@ class PIDController:
         self.integral += error * dt
         I = self.ki * self.integral
         
-        # Derivative term
-        derivative = (error - self.last_error) / dt
-        D = self.kd * derivative
+        # Derivative term with low-pass filter to suppress noise spikes
+        raw_derivative = (error - self.last_error) / dt
+        alpha = 0.3  # Lower = smoother but laggier
+        self.filtered_derivative = alpha * raw_derivative + (1 - alpha) * self.filtered_derivative
+        
+        # Cap the filtered derivative to prevent saturation spikes from dominating
+        max_deriv = 200.0
+        self.filtered_derivative = max(-max_deriv, min(max_deriv, self.filtered_derivative))
+        
+        D = self.kd * self.filtered_derivative
         
         # Calculate combined output
         output = P + I + D
@@ -72,3 +80,4 @@ class PIDController:
         self.last_error = 0.0
         self.integral = 0.0
         self.last_output = 0.0
+        self.filtered_derivative = 0.0

@@ -8,7 +8,7 @@ class LineSensor:
     Handles grayscale sensor signal processing and pattern detection.
     """
     # Detection threshold (fraction of calibrated range)
-    LOGIC_DETECT = 0.5
+    LOGIC_DETECT = 0.55
     WHITE_DETECT = 0.90
 
     def __init__(self, offsets):
@@ -69,7 +69,7 @@ class LineSensor:
         """Return count of sensors currently above the threshold."""
         return sum(self.active_sensor_mask(raw, threshold))
 
-    def analyze_pattern(self, raw):
+    def analyze_pattern(self, raw, update_history=True):
         """
         Analyze the 3-sensor array to detect specific track patterns.
 
@@ -82,9 +82,14 @@ class LineSensor:
             'NONE' otherwise.
         """
         signals = self.get_signals(raw)
+        current_mask = [s > self.LOGIC_DETECT for s in signals]
 
-        # All three sensors detect line = intersection or stop.
-        if all(s > self.LOGIC_DETECT for s in signals):
+        left_active = current_mask[0]
+        center_active = current_mask[1]
+        right_active = current_mask[2]
+
+        # All three sensors detect line recently = intersection or stop.
+        if left_active and center_active and right_active:
             return "CROSS"
 
         # At least one sensor detects white boundary (high reflectance)
@@ -92,14 +97,14 @@ class LineSensor:
             return "BOUNDARY"
 
         # At least one sensor detects regular line
-        if any(s > self.LOGIC_DETECT for s in signals):
+        if any(current_mask):
             return "LINE"
         
         return "NONE"
 
     def is_full_cross(self, raw):
         """Check if all three sensors are above the detection threshold."""
-        return self.analyze_pattern(raw) == "CROSS"
+        return self.analyze_pattern(raw, update_history=False) == "CROSS"
 
     def compute_error(self, raw):
         """
@@ -116,7 +121,7 @@ class LineSensor:
         signals = self.get_signals(raw)
         left, center, right = signals
         
-        pattern = self.analyze_pattern(raw)
+        pattern = self.analyze_pattern(raw, update_history=False)
         stop_detected = (pattern == "CROSS")
         
         # Check if any sensor sees the line

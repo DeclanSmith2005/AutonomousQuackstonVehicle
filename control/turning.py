@@ -5,22 +5,30 @@ import config
 from mission_manager import RobotState
 
 
+def _get_turn_idx(direction):
+    if direction == "right": return 1
+    elif direction == "left_2": return 2
+    return 0
+
+def _get_config_val(val_or_list, direction):
+    if not isinstance(val_or_list, (list, tuple)):
+        return val_or_list
+    idx = _get_turn_idx(direction)
+    if idx < len(val_or_list):
+        return val_or_list[idx]
+    return val_or_list[0]
+
 def get_turn_pwm(direction):
     """Retrieve the correct base PWM for the turn direction from config."""
-    idx = 1 if direction == "right" else 0
-    return config.TURN_PWM[idx] if isinstance(config.TURN_PWM, (list, tuple)) else config.TURN_PWM
+    return _get_config_val(config.TURN_PWM, direction)
 
 
 def apply_turn_pwm(px, direction):
     """Apply differential PWM for turning based on direction."""
-    idx = 1 if direction == "right" else 0
     base_pwm = get_turn_pwm(direction)
     
-    outer_mult = getattr(config, 'TURN_OUTER_PWM_MULT', 1.0)
-    outer_mult = outer_mult[idx] if isinstance(outer_mult, (list, tuple)) else outer_mult
-    
-    inner_mult = getattr(config, 'TURN_INNER_PWM_MULT', 1.0)
-    inner_mult = inner_mult[idx] if isinstance(inner_mult, (list, tuple)) else inner_mult
+    outer_mult = _get_config_val(getattr(config, 'TURN_OUTER_PWM_MULT', 1.0), direction)
+    inner_mult = _get_config_val(getattr(config, 'TURN_INNER_PWM_MULT', 1.0), direction)
 
     outer_pwm = int(base_pwm * outer_mult)
     inner_pwm = int(base_pwm * inner_mult)
@@ -181,7 +189,8 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         turn_profile = [(dist - start_distance_cm, cte) for dist, cte in snapshot_trajectory]
 
         # 4) Follow the snapshot trajectory on a fixed timeline.
-        profile_duration = max(config.TURN_PROFILE_DURATION, 0.01)
+        prof_dur_cfg = _get_config_val(config.TURN_PROFILE_DURATION, direction)
+        profile_duration = max(float(prof_dur_cfg), 0.01)
         profile_span = turn_profile[-1][0] if turn_profile else 0.0
         snapshot_max_abs_cte = max((abs(cte) for _, cte in turn_profile), default=1.0)
         if snapshot_max_abs_cte <= 0.0:
@@ -190,7 +199,8 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         turn_start = time.time()
         smoothed_steering = 0.0
         # Guarantee we complete the planned profile before attempting grayscale recovery.
-        min_turn_runtime = max(float(config.TURN_CAMERA_TIMEOUT), float(profile_duration))
+        cam_timeout_cfg = _get_config_val(config.TURN_CAMERA_TIMEOUT, direction)
+        min_turn_runtime = max(float(cam_timeout_cfg), float(profile_duration))
         paused_total_turn = 0.0
 
         while (time.time() - turn_start - paused_total_turn) < min_turn_runtime:
@@ -276,6 +286,55 @@ def execute_turn_with_camera(px, eyes, direction, pid, mission, server, current_
         px.set_cam_tilt_angle(0)
 
 
+def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_speed, stopped, estop_sleep, estop_pause_if_needed, io_components=None):
+    """
+    Outside-wheel only turn, triggered by no-line cross detection.
+    """
+    print(f"Executing outside-wheel-only {direction} turn...")
+
+    if estop_sleep(getattr(config, "NO_LINE_PRE_STOP_DELAY", 0.2)):
+        estop_pause_if_needed(px)
+
+    # 1) Stop before turning
+    px.stop()
+    stopped = True
+    current_motor_speed = 0
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
+    if estop_sleep(config.TURN_STOP_HOLD_TIME):
+        estop_pause_if_needed(px)
+
+    # 2) Manual outer-wheel turn
+    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+    pwm_raw = getattr(config, "NO_LINE_OUTSIDE_PWM", 20)
+    duration_raw = getattr(config, "NO_LINE_OUTSIDE_TIME", 0.5)
+    pwm = _get_config_val(pwm_raw, direction)
+    duration = _get_config_val(duration_raw, direction)
+
+    start_t = time.time()
+    paused_total = 0.0
+    while (time.time() - start_t - paused_total) < duration:
+        paused_total += estop_pause_if_needed(px)
+        if direction == "right":
+            px.set_motor_speed(1, pwm)
+            px.set_motor_speed(2, 0)
+        else:
+            px.set_motor_speed(1, 0)
+            px.set_motor_speed(2, -pwm)
+        time.sleep(config.TURN_SCAN_INTERVAL)
+
+    px.stop()
+    current_motor_speed = 0
+    if io_components:
+        io_components.update_brakes(current_motor_speed)
+
+    # 3) Scan for line re-acquisition
+    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
+    if success:
+        stopped = False
+    return success, current_motor_speed, stopped
+
+
 def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components=None):
     """
     Classic timed turn: steer at max angle for a fixed duration, 
@@ -286,6 +345,7 @@ def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, estop_s
     # 1) Stop before turning
     current_motor_speed = 0
     px.stop()
+    px.set_dir_servo_angle(0)
     if io_components:
         io_components.update_brakes(current_motor_speed)
     if estop_sleep(config.TURN_STOP_HOLD_TIME):
@@ -293,8 +353,8 @@ def execute_turn(px, eyes, direction, pid, mission, current_motor_speed, estop_s
 
     # 2) Manual turn
     steer = config.MAX_STEER if direction == "right" else -config.MAX_STEER
-    apply_turn_pwm(px, direction)
     px.set_dir_servo_angle(steer)
+    apply_turn_pwm(px, direction)
     current_motor_speed = get_turn_pwm(direction)
     if io_components:
         io_components.update_brakes(current_motor_speed)
