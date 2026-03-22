@@ -313,7 +313,10 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
 
     start_t = time.time()
     paused_total = 0.0
-    while (time.time() - start_t - paused_total) < duration:
+    line_found = False
+    
+    # We use a 5.0 second max timeout, similar to the roundabout fallback logic
+    while (time.time() - start_t - paused_total) < 5.0:
         paused_total += estop_pause_if_needed(px)
         if direction == "right":
             px.set_motor_speed(1, pwm)
@@ -321,6 +324,15 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
         else:
             px.set_motor_speed(1, 0)
             px.set_motor_speed(2, -pwm)
+            
+        elapsed_turn = time.time() - start_t - paused_total
+        if elapsed_turn >= getattr(config, "NO_LINE_TURN_LINE_CHECK_DELAY", 1.0):
+            raw = px.get_grayscale_data()
+            on_line = any(eyes.color_signal(raw[i], i) > eyes.LOGIC_DETECT for i in range(3))
+            if on_line:
+                line_found = True
+                break
+                
         time.sleep(config.TURN_SCAN_INTERVAL)
 
     px.stop()
@@ -328,10 +340,24 @@ def execute_outside_wheel_turn(px, eyes, direction, pid, mission, current_motor_
     if io_components:
         io_components.update_brakes(current_motor_speed)
 
-    # 3) Scan for line re-acquisition
-    success, current_motor_speed = scan_for_line_fallback(px, eyes, mission, pid, current_motor_speed, estop_sleep, estop_pause_if_needed, io_components)
-    if success:
+    # 3) Handle line re-acquisition results
+    if line_found:
+        print(f"Line re-acquired by grayscale during outside-wheel {direction} turn.")
+        mission.current_state = RobotState.STRAIGHT
+        px.forward(config.BASE_SPEED)
+        current_motor_speed = config.BASE_SPEED
+        if io_components:
+            io_components.update_brakes(current_motor_speed)
+        pid.reset()
+        success = True
         stopped = False
+    else:
+        print(f"Outside-wheel {direction} turn failed to find the line.")
+        pid.reset()
+        mission.current_state = RobotState.IDLE
+        success = False
+        stopped = True
+
     return success, current_motor_speed, stopped
 
 
