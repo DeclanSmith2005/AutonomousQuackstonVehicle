@@ -26,6 +26,7 @@ _no_line_lock = threading.Lock()  # guards no_line_turn and no_line_arm_time
 io_components = None
 emergency_stop_active = False
 estop_resume_state = None  # state to restore when resuming from e-stop
+manual_signal_active = False  # manual toggle for hazards+horn
 
 
 def estop_sleep(duration):
@@ -186,7 +187,7 @@ def key_listener(mission):
     fl: toggle forced line lost (simulates sensor failure)
     wiggle: run wiggle calibration
     """
-    global stop_flag, force_line_lost, run_calibration_flag, no_line_turn, no_line_arm_time, emergency_stop_active
+    global stop_flag, force_line_lost, run_calibration_flag, no_line_turn, no_line_arm_time, emergency_stop_active, manual_signal_active
     print("Keyboard listener active.")
     print("Commands: e=e-stop, s=start/resume, q=quit, st=straight, a=approach_stop, l1/l2=left, r=right, idle=idle, cal=calibrate")
     print("          rbe/rbc/rbp/rbx=roundabout entry/circulate/exit_prep/exit_commit")
@@ -212,6 +213,9 @@ def key_listener(mission):
                 if emergency_stop_active:
                     emergency_stop_active = False
                     print("Resuming from emergency stop.")
+            elif cmd == "h":
+                manual_signal_active = not manual_signal_active
+                print(f"Manual Signal Mode: {'ACTIVE' if manual_signal_active else 'OFF'}")
             elif cmd == "st":
                 mission.current_state = RobotState.STRAIGHT
                 mission.crossings_seen = 0
@@ -319,7 +323,7 @@ def stop_at_line(px, base_speed):
         current_motor_speed = base_speed
 
 def main():
-    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active, estop_resume_state
+    global stop_flag, current_motor_speed, force_line_lost, run_calibration_flag, no_line_turn, stopped, no_line_arm_time, emergency_stop_active, estop_resume_state, manual_signal_active
 
     global io_components
     # --- SENSORS & ACTUATORS ---
@@ -435,13 +439,15 @@ def main():
                 current_motor_speed = 0
                 stopped = True
                 if io_components:
-                    io_components.update_brakes(0)
-                # One-shot horn on transition False -> True.
-                if horn_player is not None:
-                    try:
-                        horn_player.sound_play(horn_file, volume=100)
-                    except Exception as e:
-                        print(f"Horn playback failed: {e}")
+                    io_components.signal_all()
+                # Periodic horn logic: Honk every 3 seconds while stopped
+                if (time.time() - mission.last_horn_time) > 3.0:
+                    if horn_player is not None:
+                        try:
+                            horn_player.sound_play(horn_file, volume=100)
+                            mission.last_horn_time = time.time()
+                        except Exception as e:
+                            print(f"Horn playback failed: {e}")
             else:
                 # Keep applying stop while the duck remains visible.
                 px.stop()
@@ -973,30 +979,43 @@ def main():
                     last_valid_line_time = time.time()
                     print(f"E-stop released, restoring state: {mission.current_state}")
 
-            # --- DUCK PICK-UP/DROP-OFF LOGIC ---
+            # --- DUCK PICK-UP/DROP-OFF & MANUAL SIGNAL LOGIC ---
             pathing_stop = server.receive_stop_the_car()
-            if pathing_stop:
+            if pathing_stop or manual_signal_active:
                 px.stop()
                 current_motor_speed = 0
                 stopped = True
                 if io_components:
                     io_components.signal_all()
-                limit_pressed = io_components and io_components.is_limit_switch_pressed()
-                if limit_pressed:
-                    if not getattr(mission, "limit_switch_wait_done", False):
-                        if getattr(mission, "_limit_press_time", 0.0) == 0.0:
-                            mission._limit_press_time = time.time()
-                            print("Limit switch pressed! Waiting 5s...")
-                        elif (time.time() - mission._limit_press_time) >= 5.0:
-                            mission.limit_switch_wait_done = True
-                            print("5s elapsed, publishing duck_ready=True")
-                    if getattr(mission, "limit_switch_wait_done", False):
-                        server.publish_duck_ready(True)
+                
+                # Periodic horn logic: Honk every 3 seconds while stopped
+                if (time.time() - mission.last_horn_time) > 3.0:
+                    if horn_player is not None:
+                        try:
+                            horn_player.sound_play(horn_file, volume=100)
+                            mission.last_horn_time = time.time()
+                        except Exception as e:
+                            print(f"Horn playback failed: {e}")
+                
+                # Only process limit switch logic for arrival stops
+                if pathing_stop:
+                    limit_pressed = io_components and io_components.is_limit_switch_pressed()
+                    if limit_pressed:
+                        if not getattr(mission, "limit_switch_wait_done", False):
+                            if getattr(mission, "_limit_press_time", 0.0) == 0.0:
+                                mission._limit_press_time = time.time()
+                                print("Limit switch pressed! Waiting 5s...")
+                            elif (time.time() - mission._limit_press_time) >= 5.0:
+                                mission.limit_switch_wait_done = True
+                                print("5s elapsed, publishing duck_ready=True")
+                        if getattr(mission, "limit_switch_wait_done", False):
+                            server.publish_duck_ready(True)
+                        else:
+                            server.publish_duck_ready(False)
                     else:
+                        mission._limit_press_time = 0.0
                         server.publish_duck_ready(False)
-                else:
-                    mission._limit_press_time = 0.0
-                    server.publish_duck_ready(False)
+                
                 time.sleep(config.LOOP_INTERVAL)
                 continue
             else:
@@ -1057,9 +1076,24 @@ def main():
             filtered_distance = sorted_buffer[len(sorted_buffer) // 2]
 
             if filtered_distance < config.OBSTACLE_THRESHOLD:
-                print(f"!!! EMERGENCY STOP: Obstacle detected at {filtered_distance:.1f}cm (raw: {raw_distance:.1f}cm) !!!")
-                stop_flag = True
-                break
+                print(f"!!! EMERGENCY STOP: Obstacle detected at {filtered_distance:.1f}cm !!!")
+                px.stop()
+                current_motor_speed = 0
+                stopped = True
+                if io_components:
+                    io_components.signal_all()
+                
+                # Periodic horn logic: Honk every 3 seconds while obstacle is present
+                if (time.time() - mission.last_horn_time) > 3.0:
+                    if horn_player is not None:
+                        try:
+                            horn_player.sound_play(horn_file, volume=100)
+                            mission.last_horn_time = time.time()
+                        except Exception as e:
+                            print(f"Horn playback failed: {e}")
+                
+                time.sleep(config.LOOP_INTERVAL)
+                continue
 
             # 2) Fail-safe & Simulation logic
             if force_line_lost:

@@ -36,6 +36,9 @@ class MissionManager:
         self.no_line_turn = False
         self.mission_step_requested = threading.Event()
         
+        # Periodic horn signaling state
+        self.last_horn_time = 0.0
+        
         # Preload first stage if mission not empty
         self.advance_mission()
 
