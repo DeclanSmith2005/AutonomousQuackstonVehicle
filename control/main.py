@@ -943,13 +943,13 @@ def main():
     try:
         while not stop_flag:
             loop_start = time.time()
-            estop_resume_state = mission.current_state
 
             # Process all incoming ZMQ messages once per loop
             server.process_incoming_messages()
 
             if emergency_stop_active:
-                # Save current state for resumption (unless already saved)
+                # Capture current state the first time e-stop fires so we can
+                # restore it exactly once when e-stop is released.
                 if estop_resume_state is None and mission.current_state != RobotState.IDLE:
                     estop_resume_state = mission.current_state
                 px.stop()
@@ -961,7 +961,7 @@ def main():
                 estop_sleep(0.05)
                 continue
             else:
-                # Restore state after e-stop release
+                # Restore state exactly once after e-stop is released.
                 if estop_resume_state is not None:
                     mission.current_state = estop_resume_state
                     estop_resume_state = None
@@ -1092,12 +1092,12 @@ def main():
             latest_queue = server.receive_mission_queue()
             if latest_queue is not None:
                 print(f"Received new mission queue from pathing: {latest_queue}")
-                # Override the mission queue with pathing's fresh instructions
-                # If no queue is received, the default 'initial_mission' remains unaffected
+                # Override the mission queue with pathing's fresh instructions.
+                # The queue from pathing represents ALL remaining steps including
+                # the current one, so we immediately advance into the first step.
                 mission.mission_queue = list(latest_queue)
-                # Kickstart the new mission if the car was sitting in IDLE
-                if mission.current_state == RobotState.IDLE and len(mission.mission_queue) > 0:
-                    print("New mission received while IDLE. Starting mission.")
+                if len(mission.mission_queue) > 0:
+                    print("Applying new mission queue from pathing.")
                     mission.advance_mission()
 
             if mission.check_step_requested():
