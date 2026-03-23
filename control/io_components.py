@@ -1,6 +1,7 @@
 from robot_hat import PWM
 from gpiozero import LED, Button
 import time
+import threading
 
 class IOComponents:
     def __init__(self):
@@ -12,6 +13,10 @@ class IOComponents:
         
         # Setup Brake Light
         self.brake_light = LED(17) # D0 -> GPIO17
+        
+        # Brake blink state (for signal_all)
+        self._brake_blink_active = False
+        self._brake_blink_thread = None
         
         # Setup Limit Switch
         self.limit_switch = Button(4, pull_up=True, bounce_time=0.05)
@@ -59,3 +64,31 @@ class IOComponents:
             self.brake_on()
         else:
             self.brake_off()
+
+    # All-lights blinking (for pickup/dropoff stops)
+    def signal_all(self):
+        """Blink both blinkers AND brake light together."""
+        self.p8.pulse_width_percent(50)
+        self.p9.pulse_width_percent(50)
+        if not self._brake_blink_active:
+            self._brake_blink_active = True
+            self._brake_blink_thread = threading.Thread(
+                target=self._brake_blink_loop, daemon=True
+            )
+            self._brake_blink_thread.start()
+
+    def _brake_blink_loop(self):
+        """Background thread: toggle brake LED at ~2 Hz to match blinkers."""
+        while self._brake_blink_active:
+            self.brake_light.on()
+            time.sleep(0.25)
+            if not self._brake_blink_active:
+                break
+            self.brake_light.off()
+            time.sleep(0.25)
+
+    def signal_all_off(self):
+        """Stop all-lights blinking mode."""
+        self._brake_blink_active = False
+        self.signal_off()
+        self.brake_off()

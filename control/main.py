@@ -978,7 +978,7 @@ def main():
                 current_motor_speed = 0
                 stopped = True
                 if io_components:
-                    io_components.update_brakes(0)
+                    io_components.signal_all()  # Blink ALL lights at pickup/dropoff
                 
                 # 2. Check limit switch
                 if io_components and io_components.is_limit_switch_pressed():
@@ -996,7 +996,9 @@ def main():
                 time.sleep(config.LOOP_INTERVAL)
                 continue
             else:
-                # pathing_stop is False
+                # pathing_stop is False — stop all-lights blinking if it was active
+                if io_components:
+                    io_components.signal_all_off()
                 if getattr(mission, "limit_switch_wait_done", False) or (io_components and io_components.is_limit_switch_pressed()):
                     if io_components:
                         io_components.clear_limit_switch_flag()
@@ -1013,9 +1015,8 @@ def main():
             if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2) or \
                (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] in (RobotState.LEFT_1, RobotState.LEFT_2)):
                 io_components.signal_left()
-            elif mission.current_state == RobotState.RIGHT or \
-                (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] == RobotState.RIGHT) or \
-                mission.current_state == RobotState.ROUNDABOUT_ENTRY:
+            elif mission.current_state in (RobotState.RIGHT, RobotState.ROUNDABOUT_ENTRY, RobotState.ROUNDABOUT_CIRCULATE, RobotState.ROUNDABOUT_EXIT) or \
+                (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] == RobotState.RIGHT):
                 io_components.signal_right()
             else:
                 io_components.signal_off()
@@ -1091,14 +1092,17 @@ def main():
             # 3) Handle Mission Stages
             latest_queue = server.receive_mission_queue()
             if latest_queue is not None:
-                print(f"Received new mission queue from pathing: {latest_queue}")
-                # Override the mission queue with pathing's fresh instructions.
-                # The queue from pathing represents ALL remaining steps including
-                # the current one, so we immediately advance into the first step.
-                mission.mission_queue = list(latest_queue)
-                if len(mission.mission_queue) > 0:
-                    print("Applying new mission queue from pathing.")
-                    mission.advance_mission()
+                # Build what the current effective queue looks like so we can
+                # detect whether pathing actually sent something new.
+                effective_current = [mission.current_state] + list(mission.mission_queue)
+                incoming = list(latest_queue)
+
+                if incoming != effective_current:
+                    print(f"Received NEW mission queue from pathing: {incoming}")
+                    mission.mission_queue = incoming
+                    if len(mission.mission_queue) > 0:
+                        print("Applying new mission queue from pathing.")
+                        mission.advance_mission()
 
             if mission.check_step_requested():
                 print(f"Advancing mission. New state: {mission.current_state}")
