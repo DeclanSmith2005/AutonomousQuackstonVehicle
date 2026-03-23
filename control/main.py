@@ -1274,14 +1274,14 @@ def main():
         server.close()
 
         # Save Logs
-        if history:
-            os.makedirs("logs", exist_ok=True)
-            log_name = f"logs/run_log_{time.strftime('%Y%m%d_%H%M%S')}.csv"
-            with open(log_name, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["time_s", "state", "error", "steer", "speed"])
-                writer.writerows(history)
-            print(f"Log saved to {log_name}")
+        # if history:
+        #     os.makedirs("logs", exist_ok=True)
+        #     log_name = f"logs/run_log_{time.strftime('%Y%m%d_%H%M%S')}.csv"
+        #     with open(log_name, "w", newline="") as f:
+        #         writer = csv.writer(f)
+        #         writer.writerow(["time_s", "state", "error", "steer", "speed"])
+        #         writer.writerows(history)
+        #     print(f"Log saved to {log_name}")
 
 if __name__ == "__main__":
     main()
