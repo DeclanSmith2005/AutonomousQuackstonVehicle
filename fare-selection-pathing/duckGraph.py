@@ -15,8 +15,6 @@ import duckAPI
 - COMPLETE INTEGRATION W RAPH
 """
 
-
-
 @dataclass
 class NavGraph:
     heading: float =  field(default_factory=float)
@@ -385,7 +383,6 @@ class NavGraph:
 
     def convertToDirections(self, pathNodes: list, tempMap: dict) -> list:
         res= []
-        print("path nodes", pathNodes)
         for i in range(len(pathNodes)-2):
             curr, nxt, w = pathNodes[i], pathNodes[i+1], pathNodes[i+2]
             if nxt in self.ignore:

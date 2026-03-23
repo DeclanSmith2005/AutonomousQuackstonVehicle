@@ -17,12 +17,11 @@ sub_socket = context.socket(zmq.SUB)
 sub_socket.bind(f"tcp://*:{SUBPORT}")
 sub_socket.subscribe("")  # Subscribe to all topics
 
-def sendDirs(path, distToNextNode=0.0):
+def sendDirs(path):
     try:
         msg = {
             "topic": "DIRECTIONS",
             "dirs" : path,
-            "distToNextNode": distToNextNode,
             "time" : time.time()
         }
         pub_socket.send_json(msg)
@@ -60,30 +59,33 @@ def main():
     resp = duckAPI.getMatchInfo()
     while resp['inMatch'] and resp['timeRemain'] > 0:
         stopped(False)
+        print("getting best fare")
         while True:
-            bestFare_res = g.getBestFare()
-            fareID = bestFare_res[0]
-            srcX, srcY, destX, destY, score, p1, p2, nextDist1, nextDist2 = bestFare_res[1]
-            if duckAPI.claimFare(fareID):
+            fareID, info = g.getBestFare()
+            srcX, srcY, destX, destY, score, p1, p2, points1, points2 = info
+            if duckAPI.claimFare(fareID) == True:
+                print("claimed best fare")
                 break
-        sendDirs(p1, nextDist1)
-        
+        sendDirs(p1)
+        print("navigating to pickup")
         while math.sqrt((g.carX - srcX)**2 + (g.carY - srcY)**2) > 15:
             g.updatePosition()
-            dirs, dist, h, p = g.navigate(g.carX, g.carY, srcX, srcY)
+            dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, srcX, srcY)
             sendDirs(dirs)
         stopped(True)
-
+        print("arrived at pickup")
         while not duckReady() and duckAPI.checkCurrFare()['pickedUp']:
             time.sleep(0.5)
         stopped(False)
+        print("picked up, navigating to drop off")
 
         sendDirs(p2, nextDist2)
         while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
             g.updatePosition()
-            dirs, dist, h, p = g.navigate(g.carX, g.carY, destX, destY)
+            dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             sendDirs(dirs)
         stopped(True)
+        print("arrived at drop off")
 
         while not duckReady() and duckAPI.checkCurrFare()['completed']:
             time.sleep(0.5)
