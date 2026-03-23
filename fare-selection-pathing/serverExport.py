@@ -13,9 +13,6 @@ g.readGraph("graph.txt", "adj.txt")
 context = zmq.Context()
 pub_socket = context.socket(zmq.PUB)
 pub_socket.bind(f"tcp://*:{PUBPORT}")
-sub_socket = context.socket(zmq.SUB)
-sub_socket.connect(f"tcp://127.0.0.1:5559")
-sub_socket.subscribe("")
 
 def sendDirs(path):
     try:
@@ -24,18 +21,6 @@ def sendDirs(path):
     except Exception as e:
         print(f"[ZMQ] Error publishing directions: {e}")
 
-def duckReady():
-    try:
-        while True:
-            msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
-            if msg.get("topic") == "DUCK_READY" and msg.get("ready", False):
-                return True
-    except zmq.Again:
-        pass
-    except Exception as e:
-        print(f"Issue getting ready status: {e}")
-    return False
-
 def stopped(ans):
     try:
         msg = {"topic": "STOP", "stopTheCar": ans, "time": time.time()}
@@ -43,20 +28,32 @@ def stopped(ans):
     except Exception as e:
         print(f"[ZMQ] Error publishing stop state: {e}")
 
-def close():
-    pub_socket.close()
-    sub_socket.close()
-    print("[ZMQ] Sockets closed")
-
-def wait_for_duck_ready(fareID, timeout=60):
+def wait_for_fare_status(fareID, field, timeout=60):
+    """Poll checkCurrFare until fare[field] is True, or timeout and drop fare."""
     start = time.time()
-    while not duckReady():
+    last_stop_send = 0
+    while True:
         if time.time() - start > timeout:
-            print("WARNING: duck_ready timeout, dropping fare and continuing")
+            print(f"WARNING: timeout waiting for fare '{field}', dropping fare")
             duckAPI.dropFare(fareID)
             return False
-        time.sleep(0.5)
-    return True
+        fare_resp = duckAPI.checkCurrFare()
+        fare = fare_resp.get('fare') if fare_resp else None
+        if fare is None:
+            print("WARNING: no active fare found while waiting")
+            time.sleep(0.5)
+            continue
+        # Send stopped(True) heartbeat while waiting
+        if time.time() - last_stop_send > 0.5:
+            stopped(True)
+            last_stop_send = time.time()
+        if fare.get(field, False):
+            return True
+        time.sleep(0.2)
+
+def close():
+    pub_socket.close()
+    print("[ZMQ] Sockets closed")
 
 def main():
     resp = duckAPI.getMatchInfo()
@@ -79,18 +76,20 @@ def main():
             sendDirs(dirs)
             time.sleep(0.2)
 
-        while not duckAPI.checkCurrFare()['pickedUp']:
-            time.sleep(0.1)
+        print("Near pickup — waiting for inPosition confirmation...")
+        if not wait_for_fare_status(fareID, 'inPosition'):
+            resp = duckAPI.getMatchInfo()
+            continue
 
-        # Arrived at pickup — send stop on heartbeat
-        print("Arrived at pickup")
-        last_stop_send = 0
+        print("In position — waiting for pickup confirmation...")
+        if not wait_for_fare_status(fareID, 'pickedUp'):
+            resp = duckAPI.getMatchInfo()
+            continue
 
-        # Resume — send stopped(False) a few times to ensure delivery
+        print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
             stopped(False)
             time.sleep(0.05)
-        print("Picked up, navigating to drop off...")
 
         sendDirs(p2)
         g.updatePosition()
@@ -100,9 +99,17 @@ def main():
             sendDirs(dirs)
             time.sleep(0.2)
 
-        while not duckAPI.checkCurrFare()['completed']:
-            time.sleep(0.1)
+        print("Near dropoff — waiting for inPosition confirmation...")
+        if not wait_for_fare_status(fareID, 'inPosition'):
+            resp = duckAPI.getMatchInfo()
+            continue
 
+        print("In position — waiting for dropoff completion...")
+        if not wait_for_fare_status(fareID, 'completed'):
+            resp = duckAPI.getMatchInfo()
+            continue
+
+        print("Fare completed!")
         for _ in range(3):
             stopped(False)
             time.sleep(0.05)
