@@ -5,6 +5,8 @@ STARTUP_INTERSECTION_GUARD_SEC = 0.8  # Ignore intersection handling briefly aft
 STRAIGHT_INTERSECTION_DEBOUNCE_FRAMES = 2  # Require this many consecutive CROSS frames before STRAIGHT intersection handling.
 STRAIGHT_INTERSECTION_COOLDOWN_S = 0.5  # Minimum time between STRAIGHT intersection events.
 
+DUCK_WAIT = 5
+
 # --- VEHICLE GEOMETRY ---
 WHEELBASE_CM = 9.5  # Wheelbase length for bicycle model (cm)
 STRAIGHT_ANGLE = 0  # Servo angle for driving straight

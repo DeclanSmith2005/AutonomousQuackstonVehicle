@@ -448,6 +448,7 @@ def main():
                             mission.last_horn_time = time.time()
                         except Exception as e:
                             print(f"Horn playback failed: {e}")
+                time.sleep(config.DUCK_WAIT)
             else:
                 # Keep applying stop while the duck remains visible.
                 px.stop()
@@ -1165,8 +1166,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            # if _handle_duck_override():
-            #     continue
+            if _handle_duck_override():
+                continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):
