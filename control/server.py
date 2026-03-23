@@ -119,9 +119,9 @@ class ServerManager:
         self.pathing_socket.connect("tcp://127.0.0.1:5557")
         self.pathing_socket.subscribe("")
 
-        # PUB Socket: Sends DUCK_READY state to pathing (Port 5558)
+        # PUB Socket: Sends DUCK_READY state to pathing (Port 5559)
         self.duck_ready_socket = self.context.socket(zmq.PUB)
-        self.duck_ready_socket.connect("tcp://127.0.0.1:5558")
+        self.duck_ready_socket.bind("tcp://*:5559")   # control binds, pathing connects
 
         self.last_pathing_timestamp = 0.0
         self.latest_mission_queue = []

@@ -926,6 +926,9 @@ def main():
             RobotState.LEFT_2,
             RobotState.RIGHT,
             RobotState.ROUNDABOUT_ENTRY,
+            RobotState.RIGHT_NO_LINE,   # slow down for no-line turns too
+            RobotState.LEFT1_NO_LINE,
+            RobotState.LEFT2_NO_LINE,
         ):
             turn_trigger_mode = str(config.TURN_TRIGGER_MODE).strip().lower()
             if turn_trigger_mode == "camera":
@@ -973,36 +976,38 @@ def main():
             # --- DUCK PICK-UP/DROP-OFF LOGIC ---
             pathing_stop = server.receive_stop_the_car()
             if pathing_stop:
-                # 1. Stop the car
                 px.stop()
                 current_motor_speed = 0
                 stopped = True
                 if io_components:
-                    io_components.signal_all()  # Blink ALL lights at pickup/dropoff
-                
-                # 2. Check limit switch
-                if io_components and io_components.is_limit_switch_pressed():
+                    io_components.signal_all()
+                limit_pressed = io_components and io_components.is_limit_switch_pressed()
+                if limit_pressed:
                     if not getattr(mission, "limit_switch_wait_done", False):
-                        print("Limit switch pressed! Waiting 5 seconds before confirming...")
-                        # non-blocking wait regarding estop
-                        estop_sleep(5.0)
-                        mission.limit_switch_wait_done = True
-                    
-                    server.publish_duck_ready(True)
+                        if getattr(mission, "_limit_press_time", 0.0) == 0.0:
+                            mission._limit_press_time = time.time()
+                            print("Limit switch pressed! Waiting 5s...")
+                        elif (time.time() - mission._limit_press_time) >= 5.0:
+                            mission.limit_switch_wait_done = True
+                            print("5s elapsed, publishing duck_ready=True")
+                    if getattr(mission, "limit_switch_wait_done", False):
+                        server.publish_duck_ready(True)
+                    else:
+                        server.publish_duck_ready(False)
                 else:
-                    mission.limit_switch_wait_done = False
+                    mission._limit_press_time = 0.0
                     server.publish_duck_ready(False)
-                
                 time.sleep(config.LOOP_INTERVAL)
                 continue
             else:
-                # pathing_stop is False — stop all-lights blinking if it was active
                 if io_components:
                     io_components.signal_all_off()
-                if getattr(mission, "limit_switch_wait_done", False) or (io_components and io_components.is_limit_switch_pressed()):
+                if getattr(mission, "limit_switch_wait_done", False) or \
+                (io_components and io_components.is_limit_switch_pressed()):
                     if io_components:
                         io_components.clear_limit_switch_flag()
                     mission.limit_switch_wait_done = False
+                    mission._limit_press_time = 0.0
                     server.publish_duck_ready(False)
 
             # Check for calibration request

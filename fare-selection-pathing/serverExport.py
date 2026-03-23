@@ -14,8 +14,8 @@ context = zmq.Context()
 pub_socket = context.socket(zmq.PUB)
 pub_socket.bind(f"tcp://*:{PUBPORT}")
 sub_socket = context.socket(zmq.SUB)
-sub_socket.bind(f"tcp://*:{SUBPORT}")
-sub_socket.subscribe("")  # Subscribe to all topics
+sub_socket.connect(f"tcp://127.0.0.1:5559")
+sub_socket.subscribe("")
 
 def sendDirs(path):
     try:
@@ -30,12 +30,13 @@ def sendDirs(path):
 
 def duckReady():
     try:
-        msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
-        topic = msg.get("topic")
-        if topic == "DUCK_READY":
-            return msg.get("ready", False)
+        while True:
+            msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
+            topic = msg.get("topic")
+            if topic == "DUCK_READY" and msg.get("ready", False):
+                return True
     except zmq.Again:
-        pass  # No message available yet
+        pass
     except Exception as e:
         print(f" issue getting ready status: {e}")
     return False
