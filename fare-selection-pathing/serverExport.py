@@ -86,9 +86,6 @@ def main():
         print("Arrived at pickup")
         last_stop_send = 0
         while not duckReady():
-            if time.time() - last_stop_send > 0.5:
-                stopped(True)
-                last_stop_send = time.time()
             if time.time() - last_stop_send > 60:
                 print("WARNING: duck_ready timeout, dropping fare")
                 duckAPI.dropFare(fareID)
@@ -111,19 +108,14 @@ def main():
 
         while not duckAPI.checkCurrFare()['completed']:
             time.sleep(0.1)
-
-        # Arrived at dropoff
-        print("Arrived at drop off")
-        last_stop_send = 0
+        
         while not duckReady():
-            if time.time() - last_stop_send > 0.5:
-                stopped(True)
-                last_stop_send = time.time()
             if time.time() - last_stop_send > 60:
-                print("WARNING: duck_ready timeout at dropoff")
+                print("WARNING: duck_ready timeout, dropping fare")
                 duckAPI.dropFare(fareID)
                 break
             time.sleep(0.1)
+
 
         for _ in range(3):
             stopped(False)
