@@ -79,6 +79,9 @@ def main():
             sendDirs(dirs)
             time.sleep(0.2)
 
+        while not duckAPI.checkCurrFare()['pickedUp']:
+            time.sleep(0.1)
+
         # Arrived at pickup — send stop on heartbeat
         print("Arrived at pickup")
         last_stop_send = 0
@@ -105,6 +108,9 @@ def main():
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             sendDirs(dirs)
             time.sleep(0.2)
+
+        while not duckAPI.checkCurrFare()['completed']:
+            time.sleep(0.1)
 
         # Arrived at dropoff
         print("Arrived at drop off")
