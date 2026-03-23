@@ -31,7 +31,7 @@ def sendDirs(path):
 def duckReady():
     try:
         msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
-        topic = msg.get("topic")
+        topic = msg.get("DUCK_READY")
         if topic == "DUCK_READY":
             return msg.get("ready")
             
