@@ -31,12 +31,14 @@ def sendDirs(path):
 def duckReady():
     try:
         msg = sub_socket.recv_json(flags=zmq.NOBLOCK)
-        topic = msg.get("DUCK_READY")
+        topic = msg.get("topic")
         if topic == "DUCK_READY":
-            return msg.get("ready")
-            
+            return msg.get("ready", False)
+    except zmq.Again:
+        pass  # No message available yet
     except Exception as e:
-        print(" issue getting ready status")
+        print(f" issue getting ready status: {e}")
+    return False
 
 def stopped(ans):
     try:
@@ -74,12 +76,12 @@ def main():
             sendDirs(dirs)
         stopped(True)
         print("arrived at pickup")
-        while not duckReady() and duckAPI.checkCurrFare()['pickedUp']:
+        while not duckReady():
             time.sleep(0.5)
         stopped(False)
         print("picked up, navigating to drop off")
 
-        sendDirs(p2, nextDist2)
+        sendDirs(p2)
         while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
@@ -87,7 +89,7 @@ def main():
         stopped(True)
         print("arrived at drop off")
 
-        while not duckReady() and duckAPI.checkCurrFare()['completed']:
+        while not duckReady():
             time.sleep(0.5)
 
         resp = duckAPI.getMatchInfo()
