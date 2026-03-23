@@ -1131,15 +1131,14 @@ def main():
             # 3) Handle Mission Stages
             latest_queue = server.receive_mission_queue()
             if latest_queue is not None:
-                # Build what the current effective queue looks like so we can
-                # detect whether pathing actually sent something new.
                 effective_current = [mission.current_state] + list(mission.mission_queue)
                 incoming = list(latest_queue)
 
                 if incoming != effective_current:
                     print(f"Received NEW mission queue from pathing: {incoming}")
                     mission.mission_queue = incoming
-                    if len(mission.mission_queue) > 0:
+                    safe_to_apply = mission.current_state in (RobotState.STRAIGHT, RobotState.IDLE)
+                    if len(mission.mission_queue) > 0 and safe_to_apply:
                         print("Applying new mission queue from pathing.")
                         mission.advance_mission()
 
@@ -1154,7 +1153,6 @@ def main():
                         no_line_turn = True
                         no_line_arm_time = time.time()
                         print("Dynamic turn rule active: Setting no_line_turn = True")
-                # Clear the flag so we don't continuously reset no_line_arm_time
                 mission.no_line_turn = False
 
             # --- PUBLISH MISSION STATE ON CHANGE ---
