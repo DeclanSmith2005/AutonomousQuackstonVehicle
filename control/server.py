@@ -116,12 +116,12 @@ class ServerManager:
         
         # SUB Socket: Receives mission queue from pathing (Port 5557)
         self.pathing_socket = self.context.socket(zmq.SUB)
-        self.pathing_socket.connect("tcp://127.0.0.1:5557")
+        self.pathing_socket.connect("tcp://127.0.0.1:5560")
         self.pathing_socket.subscribe("")
 
         # PUB Socket: Sends DUCK_READY state to pathing (Port 5559)
         self.duck_ready_socket = self.context.socket(zmq.PUB)
-        self.duck_ready_socket.bind("tcp://*:5559")   # control binds, pathing connects
+        self.duck_ready_socket.bind("tcp://*:5561")   # control binds, pathing connects
 
         self.last_pathing_timestamp = 0.0
         self.latest_mission_queue = []
@@ -240,7 +240,7 @@ class ServerManager:
                             self.latest_mission_queue = [_translate_pathing_dir(d) for d in raw_dirs]
                             self.latest_dist_to_next_node = msg.get("distToNextNode", 0.0)
                             self.new_mission_available = True
-                            print(f"[ZMQ] Pathing dirs (raw): {raw_dirs}")
+                            # print(f"[ZMQ] Pathing dirs (raw): {raw_dirs}")
                             print(f"[ZMQ] Pathing dirs (translated): {self.latest_mission_queue}")
                     elif topic == "STOP":
                         self.pathing_stop = msg.get("stopTheCar", False)

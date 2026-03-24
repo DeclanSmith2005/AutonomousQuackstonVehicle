@@ -4,8 +4,8 @@ import zmq
 import time
 import math
 
-PUBPORT = 5557
-SUBPORT = 5558
+PUBPORT = 5560
+SUBPORT = 5561
 
 g = duckGraph.NavGraph()
 g.readGraph("graph.txt", "adj.txt")
@@ -53,6 +53,7 @@ def wait_for_fare_status(fareID, field, timeout=60):
 
 def close():
     pub_socket.close()
+    context.term()
     print("[ZMQ] Sockets closed")
 
 def main():
@@ -74,17 +75,27 @@ def main():
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, srcX, srcY)
             sendDirs(dirs)
-            time.sleep(0.2)
+            time.sleep(1.0)
+
+        print("Picked up — resuming, navigating to drop off...")
+        for _ in range(3):
+            stopped(True)
+            time.sleep(0.1)
 
         print("Near pickup — waiting for inPosition confirmation...")
         if not wait_for_fare_status(fareID, 'inPosition'):
             resp = duckAPI.getMatchInfo()
             continue
 
+        print("In position — waiting for pickup confirmation...")
+        if not wait_for_fare_status(fareID, 'pickedUp'):
+            resp = duckAPI.getMatchInfo()
+            continue
+
         print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
             stopped(False)
-            time.sleep(0.05)
+            time.sleep(0.1)
 
         sendDirs(p2)
         g.updatePosition()
@@ -92,7 +103,17 @@ def main():
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             sendDirs(dirs)
-            time.sleep(0.2)
+            time.sleep(1.0)
+
+        print("Picked up — resuming, navigating to drop off...")
+        for _ in range(3):
+            stopped(True)
+            time.sleep(0.1)
+
+        print("Near dropoff — waiting for inPosition confirmation...")
+        if not wait_for_fare_status(fareID, 'inPosition'):
+            resp = duckAPI.getMatchInfo()
+            continue
 
         print("In position — waiting for dropoff completion...")
         if not wait_for_fare_status(fareID, 'completed'):
@@ -102,7 +123,7 @@ def main():
         print("Fare completed!")
         for _ in range(3):
             stopped(False)
-            time.sleep(0.05)
+            time.sleep(0.1)
 
         resp = duckAPI.getMatchInfo()
     close()

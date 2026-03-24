@@ -420,10 +420,10 @@ def main():
         # RobotState.LEFT1_NO_LINE,
         # RobotState.STRAIGHT,
         # RobotState.RIGHT_NO_LINE,
-        RobotState.IDLE,
-        RobotState.ROUNDABOUT_EXIT,
-        RobotState.RIGHT_NO_LINE,
-        RobotState.RIGHT_NO_LINE,
+        RobotState.RIGHT,
+        RobotState.STRAIGHT,
+        RobotState.STRAIGHT,
+        RobotState.STRAIGHT,
         RobotState.RIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
@@ -617,6 +617,7 @@ def main():
     def _intersection_approach_stop(base_speed, _start_time):
         print("STOP LINE reached.")
         stop_at_line(px, base_speed)
+        mission.advance_mission()
         return True
 
     def _intersection_roundabout_entry(base_speed, _start_time):
@@ -1249,8 +1250,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            if _handle_duck_override():
-                continue
+            # if _handle_duck_override():
+            #     continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):

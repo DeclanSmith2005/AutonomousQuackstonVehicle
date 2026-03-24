@@ -45,7 +45,7 @@ ULTRASONIC_BUFFER_LEN = 3  # Number of recent distance values to keep for median
 APPROACH_SPEED = 3
 STOP_HOLD_TIME = 2.0
 STOP_CLEAR_TIME = 0.5
-PASS_TIME = 0.35
+PASS_TIME = 0.1
 STOP_DELAY = 0.25
 
 # --- TURN TUNING (Common) ---
@@ -58,7 +58,7 @@ MAX_TURN_PROXIMITY = 15
 
 TURN_PWM = [27, 20, 27]  # [left_1, right, left_2]
 TURN_OUTER_PWM_MULT = [1.3, 1.9, 1.1]
-TURN_INNER_PWM_MULT = [0.6, 0.1, 0.7]
+TURN_INNER_PWM_MULT = [0.6, 0.1, 1.0]
 TURN_ENTRY_SPEED = 7
 TURN_POST_SPEED = 5
 TURN_STOP_HOLD_TIME = 3.0
@@ -71,17 +71,17 @@ TURN_ENTRY_TIMEOUT = 5.0
 
 # --- NO-LINE OUTSIDE WHEEL TURN TUNING ---
 NO_LINE_TURN_LINE_CHECK_DELAY = 1.75  # seconds before checking grayscale
-NO_LINE_OUTSIDE_PWM = [30, 30]
-NO_LINE_INNER_PWM = [30, 15]  # Speed of the inner wheel (reverse) to help pivot in place!
-NO_LINE_OUTSIDE_TIME = [3.0, 3.0]
+NO_LINE_OUTSIDE_PWM = [60, 80]
+NO_LINE_INNER_PWM = [30, 10]  # Speed of the inner wheel (reverse) to help pivot in place!
+NO_LINE_OUTSIDE_TIME = [2.0, 2.0]
 NO_LINE_PRE_STOP_DELAY = [0.2, 0.0, 0.3]  # Delay (s) before stopping [left_1, right, left_2]. Allows crossing the line slightly.
 
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
 TURN_LOOKAHEAD_MIN_CM = 18  # Minimum y_ref used by bicycle model to avoid steering saturation
-TURN_CAMERA_TIMEOUT = [1.85, 1.65, 1.5]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
+TURN_CAMERA_TIMEOUT = [1.85, 1.65, 1.0]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
 TURN_INITIAL_ROTATION_TIME = 0.3  # Brief initial rotation to point toward exit lane
-TURN_PROFILE_DURATION = [1.85, 1.65, 1.5]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
+TURN_PROFILE_DURATION = [1.85, 1.65, 1.0]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
 TURN_MIN_LINE_CHECK_TIME = 1.1  # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3  # Freshness window for trajectory points (s)
 TURN_TRAJECTORY_MAX_AGE = 0.5  # Max acceptable age of trajectory samples during trajectory turns (s)
