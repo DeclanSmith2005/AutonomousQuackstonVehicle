@@ -4,8 +4,8 @@ import zmq
 import time
 import math
 
-PUBPORT = 5560
-SUBPORT = 5561
+PUBPORT = 5557
+SUBPORT = 5558
 
 g = duckGraph.NavGraph()
 g.readGraph("graph.txt", "adj.txt")
@@ -58,15 +58,32 @@ def close():
 
 def main():
     resp = duckAPI.getMatchInfo()
-    while resp['inMatch'] and resp['timeRemain'] > 0:
+    if resp is None:
+        print("[ZMQ] Error: Could not get match info. Exiting.")
+        return
+
+    while resp.get('inMatch') and resp.get('timeRemain', 0) > 0:
         stopped(False)
         print("Getting best fare...")
         while True:
-            fareID, info = g.getBestFare()
-            srcX, srcY, destX, destY, score, p1, p2, points1, points2 = info
-            if duckAPI.claimFare(fareID):
-                print("Claimed best fare")
-                break
+            try:
+                best_fare_info = g.getBestFare()
+                if best_fare_info is None:
+                    print("[ZMQ] No fares available, retrying...")
+                    time.sleep(2.0)
+                    continue
+                
+                fareID, info = best_fare_info
+                srcX, srcY, destX, destY, score, p1, p2, points1, points2 = info
+                if duckAPI.claimFare(fareID):
+                    print(f"Claimed best fare: {fareID}")
+                    break
+                else:
+                    print(f"Failed to claim fare {fareID}, retrying...")
+            except Exception as e:
+                print(f"[ZMQ] Error in fare selection loop: {e}")
+            
+            time.sleep(1.0)  # Rate limit the search if no fare is claimed
 
         sendDirs(p1)
         print("Navigating to pickup...")
@@ -75,27 +92,24 @@ def main():
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, srcX, srcY)
             sendDirs(dirs)
-            time.sleep(1.0)
-
-        print("Picked up — resuming, navigating to drop off...")
-        for _ in range(3):
-            stopped(True)
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         print("Near pickup — waiting for inPosition confirmation...")
         if not wait_for_fare_status(fareID, 'inPosition'):
             resp = duckAPI.getMatchInfo()
+            if resp is None: break
             continue
 
         print("In position — waiting for pickup confirmation...")
         if not wait_for_fare_status(fareID, 'pickedUp'):
             resp = duckAPI.getMatchInfo()
+            if resp is None: break
             continue
 
         print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
             stopped(False)
-            time.sleep(0.1)
+            time.sleep(0.05)
 
         sendDirs(p2)
         g.updatePosition()
@@ -103,30 +117,32 @@ def main():
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             sendDirs(dirs)
-            time.sleep(1.0)
-
-        print("Picked up — resuming, navigating to drop off...")
-        for _ in range(3):
-            stopped(True)
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         print("Near dropoff — waiting for inPosition confirmation...")
         if not wait_for_fare_status(fareID, 'inPosition'):
             resp = duckAPI.getMatchInfo()
+            if resp is None: break
             continue
 
         print("In position — waiting for dropoff completion...")
         if not wait_for_fare_status(fareID, 'completed'):
             resp = duckAPI.getMatchInfo()
+            if resp is None: break
             continue
 
         print("Fare completed!")
         for _ in range(3):
             stopped(False)
-            time.sleep(0.1)
+            time.sleep(0.05)
 
         resp = duckAPI.getMatchInfo()
-    close()
+        if resp is None: break
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n[ZMQ] Interrupt received, shutting down...")
+    finally:
+        close()
