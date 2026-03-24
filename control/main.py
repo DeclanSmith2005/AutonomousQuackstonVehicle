@@ -2,8 +2,10 @@ import csv
 import os
 import threading
 import time
+
 from picarx import Picarx
 from robot_hat import Music
+from collections import deque
 
 import config
 from pid_controller import PIDController
@@ -13,6 +15,7 @@ from server import ServerManager
 from calibration import load_calibration, run_wiggle_calibration
 from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, scan_for_line_fallback, execute_outside_wheel_turn
 from io_components import IOComponents
+
 
 # --- GLOBALS ---
 stop_flag = False
@@ -58,6 +61,85 @@ def estop_pause_if_needed(px):
     print(f"Resumed after {pause_duration:.1f}s pause.")
     return pause_duration
 
+def prune_motion_history(motion_history, history_sec):
+    now = time.time()
+    while motion_history and (now - motion_history[0]["t"]) > history_sec:
+        motion_history.popleft()
+
+def record_motion_sample(motion_history, speed, steering, line_seen):
+    motion_history.append({
+        "t": time.time(),
+        "speed": float(speed),
+        "steering": float(steering),
+        "line_seen": bool(line_seen),
+    })
+    prune_motion_history(motion_history, config.RECOVERY_HISTORY_SEC)
+
+def recover_by_retracing(px, eyes, motion_history, pid, estop_sleep, estop_pause_if_needed):
+    if len(motion_history) < config.RECOVERY_MIN_SAMPLES:
+        print("Recovery skipped: not enough motion history.")
+        return False
+
+    samples = list(motion_history)
+
+    last_good_idx = None
+    for i in range(len(samples) - 1, -1, -1):
+        if samples[i]["line_seen"]:
+            last_good_idx = i
+            break
+
+    if last_good_idx is None:
+        print("Recovery skipped: no valid recent line-seen sample.")
+        return False
+
+    px.stop()
+    pid.reset()
+    if estop_sleep(config.RECOVERY_SETTLE_TIME):
+        estop_pause_if_needed(px)
+
+    reacquire_streak = 0
+
+    for i in range(len(samples) - 1, max(0, last_good_idx), -1):
+        curr = samples[i]
+        prev = samples[i - 1]
+
+        dt = max(0.01, curr["t"] - prev["t"])
+        reverse_speed = min(
+            abs(curr["speed"]) * config.RECOVERY_REVERSE_SPEED_SCALE,
+            config.RECOVERY_MAX_REVERSE_SPEED
+        )
+        reverse_steering = curr["steering"] * config.RECOVERY_STEER_MULTIPLIER
+        reverse_steering = max(-config.MAX_STEER, min(config.MAX_STEER, reverse_steering))
+
+        px.set_dir_servo_angle(reverse_steering)
+        px.backward(reverse_speed)
+
+        step_start = time.time()
+        paused = 0.0
+        while (time.time() - step_start - paused) < dt:
+            paused += estop_pause_if_needed(px)
+            raw = px.get_grayscale_data()
+            eyes.analyze_pattern(raw)
+
+            if eyes.last_line_seen:
+                reacquire_streak += 1
+            else:
+                reacquire_streak = 0
+
+            if reacquire_streak >= config.RECOVERY_LINE_REACQUIRE_FRAMES:
+                px.stop()
+                px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+                pid.reset()
+                print("Recovery success: line reacquired.")
+                return True
+
+            time.sleep(0.01)
+
+    px.stop()
+    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+    pid.reset()
+    print("Recovery failed: line not found.")
+    return False
 
 def _signed_heading_delta_deg(new_heading_deg, old_heading_deg):
     """Return wrapped heading delta in degrees in [-180, 180]."""
@@ -395,6 +477,8 @@ def main():
     error_buffer_seeded = False
     ultrasonic_buffer = []
     history = []
+    motion_history = deque()
+    last_recovery_time = 0.0
     start_time = time.time()
     def _turn_allowed():
         """Return True when startup grace period (1s) has elapsed."""
@@ -1177,9 +1261,23 @@ def main():
                 continue
             
             _set_cam_tilt(0)
+
             # Line Lost Failsafe
             if not eyes.last_line_seen:
-                if (time.time() - last_valid_line_time) > config.LOST_LINE_TIMEOUT:
+                lost_duration = time.time() - last_valid_line_time
+                recovery_allowed = (
+                    config.RECOVERY_ENABLED and
+                    (time.time() - last_recovery_time) >= config.RECOVERY_COOLDOWN_SEC and
+                    not no_line_turn
+                )
+                if lost_duration > config.RECOVERY_TRIGGER_TIMEOUT and recovery_allowed:
+                    print(f"Line lost for {lost_duration:.2f}s. Attempting retrace recovery...")
+                    recovered = recover_by_retracing(px, eyes, motion_history, pid, estop_sleep, estop_pause_if_needed)
+                    last_recovery_time = time.time()
+                    if recovered:
+                        last_valid_line_time = time.time()
+                        continue
+                if lost_duration > config.LOST_LINE_TIMEOUT:
                     print(f"!!! FAILSAFE: Line lost for > {config.LOST_LINE_TIMEOUT}s !!!")
                     stop_flag = True
                     break
@@ -1250,6 +1348,9 @@ def main():
             # Transmit commands to the motors and steering servo
             px.forward(current_speed)
             px.set_dir_servo_angle(steering)
+
+            record_motion_sample(motion_history, current_speed, steering, eyes.last_line_seen)
+
             stopped = False
 
             # 7) LOGGING & TELEMETRY

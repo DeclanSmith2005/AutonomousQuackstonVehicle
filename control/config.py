@@ -147,9 +147,9 @@ NO_LINE_TIMEOUT = 10
 # --- RECOVERY PARAMETERS ---
 RECOVERY_ENABLED = True
 # Only attempt recovery after line has been lost this long
-RECOVERY_TRIGGER_TIMEOUT = 0.25   # seconds
+RECOVERY_TRIGGER_TIMEOUT = 1.0   # seconds
 # How much recent motion to remember
-RECOVERY_HISTORY_SEC = 1.25
+RECOVERY_HISTORY_SEC = 3.0
 RECOVERY_MIN_SAMPLES = 6
 # Reverse motion tuning
 RECOVERY_REVERSE_SPEED_SCALE = 0.75
