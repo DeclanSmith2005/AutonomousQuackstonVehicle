@@ -123,14 +123,15 @@ def main():
             if wait_for_fare_status(fareID, 'pickedUp'):
                 break
 
+
+        sendDirs(p2)
+        g.updatePosition()
+        
         print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
             stopped(False)
             time.sleep(0.05)
 
-        sendDirs(p2)
-        g.updatePosition()
-        
         while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
             distance_thingy = math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) < 50
             if (distance_thingy):

@@ -429,17 +429,17 @@ def main():
     initial_mission = [
         #RobotState.STRAIGHT,
         #RobotState.RIGHT_NO_LINE,
-        RobotState.LEFT_2,
-	RobotState.CROSSWALK,
-        RobotState.LEFT_2,
-        RobotState.LEFT_2,
+        RobotState.STRAIGHT,
+	    # RobotState.CROSSWALK,
+        # RobotState.LEFT_2,
+        # RobotState.LEFT_2,
         #RobotState.STRAIGHT,
-        RobotState.LEFT_2,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.RIGHT
+        # RobotState.LEFT_2,
+        # RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
+        # RobotState.RIGHT
     ]
     mission = MissionManager(initial_mission)
 
