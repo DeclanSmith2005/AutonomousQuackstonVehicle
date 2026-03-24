@@ -63,7 +63,7 @@ def main():
         return
 
     while resp.get('inMatch') and resp.get('timeRemain', 0) > 0:
-        stopped(False)
+        # stopped(False)
         print("Getting best fare...")
         while True:
             try:
@@ -94,10 +94,10 @@ def main():
             sendDirs(dirs)
             time.sleep(0.2)
 
-        print("Picked up — resuming, navigating to drop off...")
-        for _ in range(3):
-            stopped(True)
-            time.sleep(0.05)
+        # print("Picked up — resuming, navigating to drop off...")
+        # for _ in range(3):
+        #     stopped(True)
+        #     time.sleep(0.05)
 
         print("Near pickup — waiting for inPosition confirmation...")
         if not wait_for_fare_status(fareID, 'inPosition'):

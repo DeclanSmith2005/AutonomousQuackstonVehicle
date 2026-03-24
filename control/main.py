@@ -1083,23 +1083,23 @@ def main():
                             print(f"Horn playback failed: {e}")
                 
                 # Only process limit switch logic for arrival stops
-                if pathing_stop:
-                    limit_pressed = io_components and io_components.is_limit_switch_pressed()
-                    if limit_pressed:
-                        if not getattr(mission, "limit_switch_wait_done", False):
-                            if getattr(mission, "_limit_press_time", 0.0) == 0.0:
-                                mission._limit_press_time = time.time()
-                                print("Limit switch pressed! Waiting 5s...")
-                            elif (time.time() - mission._limit_press_time) >= 5.0:
-                                mission.limit_switch_wait_done = True
-                                print("5s elapsed, publishing duck_ready=True")
-                        if getattr(mission, "limit_switch_wait_done", False):
-                            server.publish_duck_ready(True)
-                        else:
-                            server.publish_duck_ready(False)
-                    else:
-                        mission._limit_press_time = 0.0
-                        server.publish_duck_ready(False)
+                # if pathing_stop:
+                #     limit_pressed = io_components and io_components.is_limit_switch_pressed()
+                #     if limit_pressed:
+                #         if not getattr(mission, "limit_switch_wait_done", False):
+                #             if getattr(mission, "_limit_press_time", 0.0) == 0.0:
+                #                 mission._limit_press_time = time.time()
+                #                 print("Limit switch pressed! Waiting 5s...")
+                #             elif (time.time() - mission._limit_press_time) >= 5.0:
+                #                 mission.limit_switch_wait_done = True
+                #                 print("5s elapsed, publishing duck_ready=True")
+                #         if getattr(mission, "limit_switch_wait_done", False):
+                #             server.publish_duck_ready(True)
+                #         else:
+                #             server.publish_duck_ready(False)
+                #     else:
+                #         mission._limit_press_time = 0.0
+                #         server.publish_duck_ready(False)
                 
                 time.sleep(config.LOOP_INTERVAL)
                 continue
@@ -1121,11 +1121,10 @@ def main():
                 continue
 
             # Evaluate Turn Signals
-            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2) or \
-               (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] in (RobotState.LEFT_1, RobotState.LEFT_2)):
+            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2) or
+               (mission.current_state == RobotState.APPROACH_STOP and mission.mission_queue[0] in (RobotState.LEFT_1, RobotState.LEFT_2)):
                 io_components.signal_left()
-            elif mission.current_state in (RobotState.RIGHT, RobotState.ROUNDABOUT_ENTRY, RobotState.ROUNDABOUT_CIRCULATE, RobotState.ROUNDABOUT_EXIT) or \
-                (mission.current_state == RobotState.APPROACH_STOP and len(mission.mission_queue) > 0 and mission.mission_queue[0] == RobotState.RIGHT):
+            elif mission.current_state in (RobotState.RIGHT, RobotState.ROUNDABOUT_ENTRY, RobotState.ROUNDABOUT_CIRCULATE, RobotState.ROUNDABOUT_EXIT):
                 io_components.signal_right()
             else:
                 io_components.signal_off()
@@ -1181,18 +1180,18 @@ def main():
                 continue
 
             # 2) Fail-safe & Simulation logic
-            if force_line_lost:
-                # Simulate no line detected
-                raw = [4095, 4095, 4095] 
+            # if force_line_lost:
+            #     # Simulate no line detected
+            #     raw = [4095, 4095, 4095] 
 
             pattern = eyes.analyze_pattern(raw)
-            line_distance_cm = server.receive_intersection_distance()
-            localization = server.receive_localization()
+            # line_distance_cm = server.receive_intersection_distance()
+            # localization = server.receive_localization()
             error, _ = eyes.compute_error(raw)
-            if mission.current_state == RobotState.ROUNDABOUT_CIRCULATE:
-                base_speed = getattr(config, "ROUNDABOUT_CIRCULATE_SPEED", config.BASE_SPEED)
-            else:
-                base_speed = config.BASE_SPEED
+            # if mission.current_state == RobotState.ROUNDABOUT_CIRCULATE:
+            #     base_speed = getattr(config, "ROUNDABOUT_CIRCULATE_SPEED", config.BASE_SPEED)
+            # else:
+            #     base_speed = config.BASE_SPEED
 
             if not error_buffer_seeded and eyes.last_line_seen:
                 error_buffer = [error] * max(1, config.ERROR_BUFFER_LEN)
@@ -1207,23 +1206,21 @@ def main():
                 straight_cross_streak = 0
 
             # Determine how we will exit the roundabout this run
-            roundabout_exit_mode = str(config.ROUNDABOUT_EXIT_TRIGGER_MODE).strip().lower()
+            # roundabout_exit_mode = str(config.ROUNDABOUT_EXIT_TRIGGER_MODE).strip().lower()
 
-            # Update transition-dependent timers and heading tracking state.
-            _update_state_transition_trackers(roundabout_exit_mode)
-            _update_roundabout_heading_accum(roundabout_exit_mode, localization)
+            # # Update transition-dependent timers and heading tracking state.
+            # _update_state_transition_trackers(roundabout_exit_mode)
+            # _update_roundabout_heading_accum(roundabout_exit_mode, localization)
 
             # 3) Handle Mission Stages
             latest_queue = server.receive_mission_queue()
             if latest_queue is not None:
                 effective_current = [mission.current_state] + list(mission.mission_queue)
                 incoming = list(latest_queue)
-
                 if incoming != effective_current:
                     print(f"Received NEW mission queue from pathing: {incoming}")
                     mission.mission_queue = incoming
-                    safe_to_apply = mission.current_state in (RobotState.STRAIGHT, RobotState.IDLE)
-                    if len(mission.mission_queue) > 0 and safe_to_apply:
+                    if len(mission.mission_queue) > 0:
                         print("Applying new mission queue from pathing.")
                         mission.advance_mission()
 
@@ -1250,8 +1247,8 @@ def main():
 
             # Highest-priority perception safety override.
             # While a duck is visible, stop, honk once on entry, and skip control actions.
-            # if _handle_duck_override():
-            #     continue
+            if _handle_duck_override():
+                continue
 
             # 4) State-machine prechecks (idle/calibrate/approach behavior)
             if _handle_state_prechecks(raw, pattern):
