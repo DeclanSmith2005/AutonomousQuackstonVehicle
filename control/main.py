@@ -428,8 +428,8 @@ def main():
     # Current active mission
     initial_mission = [
         #RobotState.STRAIGHT,
-        # RobotState.RIGHT_NO_LINE,
-        RobotState.LEFT1_NO_LINE,
+        #RobotState.RIGHT_NO_LINE,
+        RobotState.LEFT_2,
 	RobotState.CROSSWALK,
         RobotState.LEFT_2,
         RobotState.LEFT_2,

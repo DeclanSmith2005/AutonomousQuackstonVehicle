@@ -411,7 +411,11 @@ class NavGraph:
 
             # intentionnaly do this part before the stop signs because stops are accounted for in these directions
             if (lookup_curr, nxt, lookup_w) in self.specifiedTurns:
-                res.append(self.specifiedTurns[(lookup_curr, nxt, lookup_w)])
+                if (self.specifiedTurns[(lookup_curr, nxt, lookup_w)] == 'L0'):
+                    res.append(self.specifiedTurns[(lookup_curr, nxt, lookup_w)])
+                    res.append("STRAIGHT")
+                else:
+                    res.append(self.specifiedTurns[(lookup_curr, nxt, lookup_w)])
                 continue
 
             # curr angle
@@ -443,7 +447,7 @@ class NavGraph:
             if dirs[w] == 'STRAIGHT':
                 if (lookup_curr, nxt) in self.stop_edges:
                     res.append("STOP")
-                if(lookup_curr, next) in self.crossWalks_path:
+                if(lookup_curr, nxt) in self.crossWalks_path:
                     res.append("CROSSWALK")
                     continue
                 if(lookup_curr, nxt) in self.paths_with_one_straight_command_for_central_node or nxt in self.crossWalks:
