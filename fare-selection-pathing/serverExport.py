@@ -81,11 +81,6 @@ def main():
             resp = duckAPI.getMatchInfo()
             continue
 
-        print("In position — waiting for pickup confirmation...")
-        if not wait_for_fare_status(fareID, 'pickedUp'):
-            resp = duckAPI.getMatchInfo()
-            continue
-
         print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
             stopped(False)
@@ -98,11 +93,6 @@ def main():
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             sendDirs(dirs)
             time.sleep(0.2)
-
-        print("Near dropoff — waiting for inPosition confirmation...")
-        if not wait_for_fare_status(fareID, 'inPosition'):
-            resp = duckAPI.getMatchInfo()
-            continue
 
         print("In position — waiting for dropoff completion...")
         if not wait_for_fare_status(fareID, 'completed'):
