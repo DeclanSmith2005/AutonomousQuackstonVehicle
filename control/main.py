@@ -687,8 +687,8 @@ def main():
                 stopped = True
                 mission.advance_mission()
         else:
-            print(f"Skipping intersection {mission.crossings_seen}/2")
-            ignore_intersection(px, base_speed)
+            print(f"Stopping at first intersection {mission.crossings_seen}/2")
+            stop_at_line(px, base_speed)
         return True
 
     def _intersection_left_1(_base_speed, _start_time):
@@ -740,8 +740,8 @@ def main():
                 no_line_turn = False
                 mission.advance_mission()
         else:
-            print(f"Skipping intersection {mission.crossings_seen}/2")
-            ignore_intersection(px, base_speed)
+            print(f"Stopping at first intersection {mission.crossings_seen}/2")
+            stop_at_line(px, base_speed)
         return True
 
     def _intersection_right(base_speed, _start_time):
