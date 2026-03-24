@@ -383,11 +383,21 @@ def ignore_intersection(px, speed):
         px.forward(speed)
         current_motor_speed = speed
 
+def ignore_crosswalk(px, speed):
+    global current_motor_speed
+    px.forward(speed)
+    px.set_dir_servo_angle(config.STRAIGHT_ANGLE)
+    current_motor_speed = speed
+    if estop_sleep(config.CROSSWALK_TIME):
+        estop_pause_if_needed(px)
+        px.forward(speed)
+        current_motor_speed = speed
+
 def stop_at_line(px, base_speed):
     """Stop at a stop line, hold, then drive forward to clear it."""
     global current_motor_speed, io_components
-    if estop_sleep(config.STOP_DELAY):
-        estop_pause_if_needed(px)
+    #if estop_sleep(config.STOP_DELAY):
+     #   estop_pause_if_needed(px)
     px.stop()
     current_motor_speed = 0
     if io_components:
@@ -417,14 +427,14 @@ def main():
     # --- MISSION ---
     # Current active mission
     initial_mission = [
-        # RobotState.LEFT1_NO_LINE,
-        # RobotState.STRAIGHT,
+        #RobotState.STRAIGHT,
         # RobotState.RIGHT_NO_LINE,
-        RobotState.RIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.RIGHT,
+        RobotState.LEFT1_NO_LINE,
+	RobotState.CROSSWALK,
+        RobotState.LEFT_2,
+        RobotState.LEFT_2,
+        #RobotState.STRAIGHT,
+        RobotState.LEFT_2,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
         RobotState.STRAIGHT,
@@ -608,6 +618,19 @@ def main():
         if not startup_guard_active:
             print("Ignoring full intersection (STRAIGHT mode).")
             ignore_intersection(px, base_speed)
+            last_straight_intersection_time = time.time()
+            straight_cross_streak = 0
+            mission.advance_mission()
+            return True
+        return False
+
+    def _crosswalk_straight(base_speed, start_time):
+        nonlocal straight_cross_streak, last_straight_intersection_time
+        startup_guard_s = float(config.STARTUP_INTERSECTION_GUARD_SEC)
+        startup_guard_active = (time.time() - start_time) < startup_guard_s
+        if not startup_guard_active:
+            print("Ignoring full intersection (STRAIGHT mode).")
+            ignore_crosswalk(px, base_speed)
             last_straight_intersection_time = time.time()
             straight_cross_streak = 0
             mission.advance_mission()
@@ -852,6 +875,7 @@ def main():
             RobotState.LEFT_2: _intersection_left_2,
             RobotState.RIGHT: _intersection_right,
             RobotState.ROUNDABOUT_EXIT: _intersection_roundabout_exit,
+	    RobotState.CROSSWALK: _crosswalk_straight
         }
         handler = state_handlers.get(mission.current_state)
         if handler is None:
@@ -902,7 +926,8 @@ def main():
                 with _no_line_lock:
                     no_line_turn = False
             return False
-
+	
+	
         no_line_turn = False
         _set_cam_tilt(-30)        
         
@@ -1121,7 +1146,7 @@ def main():
                 continue
 
             # Evaluate Turn Signals
-            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2) or
+            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2) or \
                (mission.current_state == RobotState.APPROACH_STOP and mission.mission_queue[0] in (RobotState.LEFT_1, RobotState.LEFT_2)):
                 io_components.signal_left()
             elif mission.current_state in (RobotState.RIGHT, RobotState.ROUNDABOUT_ENTRY, RobotState.ROUNDABOUT_CIRCULATE, RobotState.ROUNDABOUT_EXIT):
@@ -1145,39 +1170,41 @@ def main():
 
             # 1) Get Hardware Data
             raw = px.get_grayscale_data()
-            
-            # Distance check (Obstacle avoidance failsafe)
-            raw_distance = px.ultrasonic.read()
-            # Treat invalid readings (<=0) as a large distance
-            effective_distance = raw_distance if raw_distance > 0 else 999.0
-            
-            ultrasonic_buffer.append(effective_distance)
-            if len(ultrasonic_buffer) > getattr(config, 'ULTRASONIC_BUFFER_LEN', 3):
-                ultrasonic_buffer.pop(0)
 
-            # Use median filter to reject spikes
-            sorted_buffer = sorted(ultrasonic_buffer)
-            filtered_distance = sorted_buffer[len(sorted_buffer) // 2]
+            while(True):
+                # Distance check (Obstacle avoidance failsafe)
+                raw_distance = px.ultrasonic.read()
+                # Treat invalid readings (<=0) as a large distance
+                effective_distance = raw_distance if raw_distance > 0 else 999.0
+                
+                ultrasonic_buffer.append(effective_distance)
+                if len(ultrasonic_buffer) > getattr(config, 'ULTRASONIC_BUFFER_LEN', 3):
+                    ultrasonic_buffer.pop(0)
 
-            if filtered_distance < config.OBSTACLE_THRESHOLD:
-                print(f"!!! EMERGENCY STOP: Obstacle detected at {filtered_distance:.1f}cm !!!")
-                px.stop()
-                current_motor_speed = 0
-                stopped = True
-                if io_components:
-                    io_components.signal_all()
-                
-                # Periodic horn logic: Honk every 3 seconds while obstacle is present
-                if (time.time() - mission.last_horn_time) > 3.0:
-                    if horn_player is not None:
-                        try:
-                            horn_player.sound_play(horn_file, volume=100)
-                            mission.last_horn_time = time.time()
-                        except Exception as e:
-                            print(f"Horn playback failed: {e}")
-                
-                time.sleep(config.LOOP_INTERVAL)
-                continue
+                # Use median filter to reject spikes
+                sorted_buffer = sorted(ultrasonic_buffer)
+                filtered_distance = sorted_buffer[len(sorted_buffer) // 2]
+                if (filtered_distance < config.OBSTACLE_THRESHOLD):
+                    print(f"!!! EMERGENCY STOP: Obstacle detected at {filtered_distance:.1f}cm !!!")
+                    px.stop()
+                    current_motor_speed = 0
+                    stopped = True
+                    if io_components:
+                        io_components.signal_all()
+                    
+                    # Periodic horn logic: Honk every 3 seconds while obstacle is present
+                    if (time.time() - mission.last_horn_time) > 3.0:
+                        if horn_player is not None:
+                            try:
+                                horn_player.sound_play(horn_file, volume=100)
+                                mission.last_horn_time = time.time()
+                            except Exception as e:
+                                print(f"Horn playback failed: {e}")
+                    
+                    time.sleep(config.LOOP_INTERVAL)
+                    continue    
+                break
+            stopped = False
 
             # 2) Fail-safe & Simulation logic
             # if force_line_lost:
@@ -1236,7 +1263,10 @@ def main():
                         no_line_arm_time = time.time()
                         print("Dynamic turn rule active: Setting no_line_turn = True")
                 mission.no_line_turn = False
-
+            #if (time.time() - no_line_arm_time) < config.NO_LINE_SETTLE and mission.current_state == RobotState.LEFT1_NO_LINE:
+             #   no_line_turn = True
+            #else:
+             #   no_line_turn = False
             # --- PUBLISH MISSION STATE ON CHANGE ---
             should_heartbeat_publish = (time.time() - last_mission_publish_time) >= config.MISSION_STATE_HEARTBEAT
             if mission.current_state != last_published_state or no_line_turn != last_published_no_line_turn or should_heartbeat_publish:
@@ -1254,6 +1284,7 @@ def main():
             if _handle_state_prechecks(raw, pattern):
                 continue
 
+            line_distance_cm = 0
             # No-stop-line mode: arm and execute the pending turn when trigger/timeout occurs.
             if _handle_no_line_turn(grayscale_turn_triggered, line_distance_cm):
                 continue
@@ -1282,18 +1313,18 @@ def main():
             else:
                 last_valid_line_time = time.time()
 
-            if _handle_roundabout_circulate(
-                roundabout_exit_mode,
-                full_cross_triggered,
-                line_distance_cm,
-                roundabout_heading_accum_deg,
-            ):
-                continue
+            # if _handle_roundabout_circulate(
+            #     roundabout_exit_mode,
+            #     full_cross_triggered,
+            #     line_distance_cm,
+            #     roundabout_heading_accum_deg,
+            # ):
+            #     continue
 
             # Roundabout PREP/COMMIT states have been removed
 
             # 5) Handle intersections (event dispatch by current mission state)
-            if _handle_intersection_event(base_speed, start_time, full_cross_triggered):
+            if _handle_intersection_event(config.BASE_SPEED, start_time, full_cross_triggered):
                 continue
                     
             # 6) PID CONTROL
@@ -1308,10 +1339,6 @@ def main():
 
             # Shift PID target toward an edge while approaching turn states.
             target_error = 0.0
-            if mission.current_state in (RobotState.LEFT_1, RobotState.LEFT_2):
-                target_error = float(config.EDGE_OFFSET_LEFT_TURN)
-            elif mission.current_state == RobotState.RIGHT:
-                target_error = float(config.EDGE_OFFSET_RIGHT_TURN)
 
             tracking_error = target_error - smooth_error
 
@@ -1341,7 +1368,7 @@ def main():
 
             # Dynamically reduce speed based on severity of the turn to maintain stability
             speed_drop = abs(steering) * config.SPEED_DROP_GAIN
-            current_speed = max(base_speed - speed_drop, config.MIN_DRIVE_SPEED)
+            current_speed = max(config.BASE_SPEED - speed_drop, config.MIN_DRIVE_SPEED)
 
             # Transmit commands to the motors and steering servo
             px.forward(current_speed)

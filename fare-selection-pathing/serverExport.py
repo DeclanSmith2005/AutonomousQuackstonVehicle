@@ -18,6 +18,7 @@ def sendDirs(path):
     try:
         msg = {"topic": "DIRECTIONS", "dirs": path, "time": time.time()}
         pub_socket.send_json(msg)
+        print("sent directions to server")
     except Exception as e:
         print(f"[ZMQ] Error publishing directions: {e}")
 
@@ -100,16 +101,18 @@ def main():
         #     time.sleep(0.05)
 
         print("Near pickup — waiting for inPosition confirmation...")
-        if not wait_for_fare_status(fareID, 'inPosition'):
-            resp = duckAPI.getMatchInfo()
-            if resp is None: break
-            continue
+        while (True):
+            if wait_for_fare_status(fareID, 'inPosition'):
+                break
+
+        for _ in range(3):
+            stopped(True)
+            time.sleep(0.05)
 
         print("In position — waiting for pickup confirmation...")
-        if not wait_for_fare_status(fareID, 'pickedUp'):
-            resp = duckAPI.getMatchInfo()
-            if resp is None: break
-            continue
+        while (True):
+            if wait_for_fare_status(fareID, 'pickedUp'):
+                break
 
         print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
@@ -124,30 +127,34 @@ def main():
             sendDirs(dirs)
             time.sleep(0.2)
 
-        print("Picked up — resuming, navigating to drop off...")
-        for _ in range(3):
+        # print("Picked up — resuming, navigating to drop off...")
+        # for _ in range(3):
+        #     stopped(True)
+        #     time.sleep(0.05)
+
+        print("Near dropoff — waiting for inPosition confirmation...")
+        while (True):
+            if wait_for_fare_status(fareID, 'inPosition'):
+                break
+
+        for _ in range(3): # Wait at the Dropoff for a bit so we can get the position ping
             stopped(True)
             time.sleep(0.05)
 
-        print("Near dropoff — waiting for inPosition confirmation...")
-        if not wait_for_fare_status(fareID, 'inPosition'):
-            resp = duckAPI.getMatchInfo()
-            if resp is None: break
-            continue
-
         print("In position — waiting for dropoff completion...")
-        if not wait_for_fare_status(fareID, 'completed'):
-            resp = duckAPI.getMatchInfo()
-            if resp is None: break
-            continue
+
+        while(True):
+            if wait_for_fare_status(fareID, 'completed'):
+                break
+
+        for _ in range(3):
+            stopped(False)
+            time.sleep(0.05)
 
         print("Fare completed!")
         for _ in range(3):
             stopped(False)
             time.sleep(0.05)
-
-        resp = duckAPI.getMatchInfo()
-        if resp is None: break
 
 if __name__ == "__main__":
     try:

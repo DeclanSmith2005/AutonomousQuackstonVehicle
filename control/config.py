@@ -38,7 +38,7 @@ EDGE_OFFSET_RIGHT_TURN = 0.0
 OFFSETS = [111, 95, 100]  # Per-sensor grayscale offsets [left, center, right].
 LOST_LINE_TIMEOUT = 5.0
 CALIBRATION_TIMEOUT = 8.0
-OBSTACLE_THRESHOLD = 3.0  # Stop if obstacle closer than 3cm
+OBSTACLE_THRESHOLD = 10  # Stop if obstacle closer than 3cm
 ULTRASONIC_BUFFER_LEN = 3  # Number of recent distance values to keep for median filtering
 
 # --- APPROACH & STOP TUNING ---
@@ -57,12 +57,12 @@ TURN_TRIGGER_MODE = "grayscale"
 MAX_TURN_PROXIMITY = 15
 
 TURN_PWM = [27, 20, 27]  # [left_1, right, left_2]
-TURN_OUTER_PWM_MULT = [1.3, 1.9, 1.1]
-TURN_INNER_PWM_MULT = [0.6, 0.1, 1.0]
+TURN_OUTER_PWM_MULT = [1, 1.9, 0.9]
+TURN_INNER_PWM_MULT = [0.8, 0.3, 1.0]
 TURN_ENTRY_SPEED = 2
 TURN_POST_SPEED = 5
 TURN_STOP_HOLD_TIME = 3.0
-TURN_BLIND_TIME = 0.5
+TURN_BLIND_TIME = 1.5
 TURN_SCAN_TIMEOUT = 5.0
 TURN_SCAN_INTERVAL = 0.01
 TURN_RECOVERY_PWM = 10
@@ -79,9 +79,9 @@ NO_LINE_PRE_STOP_DELAY = [0.2, 0.0, 0.3]  # Delay (s) before stopping [left_1, r
 # --- CAMERA-GUIDED TURN TUNING (Trajectory-based) ---
 SNAPSHOT_WAIT_TIMEOUT = 1.0  # Max time to wait for trajectory snapshot (s)
 TURN_LOOKAHEAD_MIN_CM = 18  # Minimum y_ref used by bicycle model to avoid steering saturation
-TURN_CAMERA_TIMEOUT = [1.85, 1.65, 1.0]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
+TURN_CAMERA_TIMEOUT = [1.75, 1.80, 1.80]  # Max turn duration before fallback [left_turn, right_turn, left_2] (s)
 TURN_INITIAL_ROTATION_TIME = 0.3  # Brief initial rotation to point toward exit lane
-TURN_PROFILE_DURATION = [1.85, 1.65, 1.0]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
+TURN_PROFILE_DURATION = [1.75, 1.80, 1.80]  # Time to walk through the captured turn profile [left_turn, right_turn, left_2] (s)
 TURN_MIN_LINE_CHECK_TIME = 1.1  # Delay before grayscale can end the turn (s)
 TRAJECTORY_TIMEOUT = 0.3  # Freshness window for trajectory points (s)
 TURN_TRAJECTORY_MAX_AGE = 0.5  # Max acceptable age of trajectory samples during trajectory turns (s)
@@ -149,7 +149,7 @@ RECOVERY_ENABLED = True
 # Only attempt recovery after line has been lost this long
 RECOVERY_TRIGGER_TIMEOUT = 1.0   # seconds
 # How much recent motion to remember
-RECOVERY_HISTORY_SEC = 3.0
+RECOVERY_HISTORY_SEC = 4.5
 RECOVERY_MIN_SAMPLES = 6
 # Reverse motion tuning
 RECOVERY_REVERSE_SPEED_SCALE = 0.75
@@ -161,3 +161,6 @@ RECOVERY_SETTLE_TIME = 0.15
 RECOVERY_LINE_REACQUIRE_FRAMES = 2
 # Prevent repeated rapid recovery loops
 RECOVERY_COOLDOWN_SEC = 1.0
+
+CROSSWALK_TIME = 0.8
+NO_LINE_SETTLE = 6.0

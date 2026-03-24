@@ -15,6 +15,7 @@ class RobotState:
     ROUNDABOUT_EXIT = "RB_EXIT"
     CALIBRATE = "CAL"
     IDLE = "IDLE"
+    CROSSWALK = "CROSSWALK"
 
 class MissionManager:
     """

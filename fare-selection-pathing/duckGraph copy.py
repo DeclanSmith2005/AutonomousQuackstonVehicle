@@ -29,14 +29,6 @@ class NavGraph:
 
     ignore = {29, 30, 31, 32, 33, 34, 35, 36, 38, 39, 40, 41} # nodes that we shouldn't put directions at
     crossWalks = {37, 43, 42}
-
-    crossWalks_path = [
-        (4, 43),
-        (0, 43),
-        (5, 37),
-        (13 ,42),
-        (19, 42),
-    ]
     paths_with_one_straight_command_for_central_node = [
     (41,5),
     (35,5),
@@ -443,12 +435,10 @@ class NavGraph:
             if dirs[w] == 'STRAIGHT':
                 if (lookup_curr, nxt) in self.stop_edges:
                     res.append("STOP")
-                if(lookup_curr, next) in self.crossWalks_path:
-                    res.append("CROSSWALK")
-                    continue
                 if(lookup_curr, nxt) in self.paths_with_one_straight_command_for_central_node or nxt in self.crossWalks:
                     res.append("STRAIGHT")
                     continue
+                res.append('STRAIGHT')
             res.append(dirs[w])
         return res
     

@@ -54,6 +54,11 @@ def dropFare(fareIndex):
 def main():
     print(getMatchInfo())
     print(getCurrentLocation())
+    
+    print("CHECKING CURRENT FARE")
+    curr = checkCurrFare()
+    print(curr)
+
     if checkCurrFare()['fare']['id']:
         print(checkCurrFare()['fare']['id'])
         dropFare(checkCurrFare()['fare']['id'])

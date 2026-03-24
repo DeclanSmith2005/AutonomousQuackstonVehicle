@@ -116,7 +116,7 @@ class ServerManager:
         
         # SUB Socket: Receives mission queue from pathing (Port 5557)
         self.pathing_socket = self.context.socket(zmq.SUB)
-        self.pathing_socket.connect("tcp://127.0.0.1:5560")
+        self.pathing_socket.connect("tcp://127.0.0.1:5557")
         self.pathing_socket.subscribe("")
 
         # PUB Socket: Sends DUCK_READY state to pathing (Port 5559)
