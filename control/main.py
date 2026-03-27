@@ -1,4 +1,3 @@
-import csv
 import os
 import threading
 import time
@@ -13,7 +12,7 @@ from line_sensor import LineSensor
 from mission_manager import MissionManager, RobotState
 from server import ServerManager
 from calibration import load_calibration, run_wiggle_calibration
-from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, scan_for_line_fallback, execute_outside_wheel_turn
+from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, execute_outside_wheel_turn
 from io_components import IOComponents
 
 

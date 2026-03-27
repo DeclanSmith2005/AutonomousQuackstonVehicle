@@ -2,22 +2,6 @@ import time
 import zmq
 import config
 
-
-def _parse_bool(value):
-    """Best-effort conversion of common boolean encodings."""
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        lowered = value.strip().lower()
-        if lowered in {"1", "true", "yes", "y", "on", "visible"}:
-            return True
-        if lowered in {"0", "false", "no", "n", "off", "hidden", "not_visible"}:
-            return False
-    return None
-
-
 def _is_duck_label(value):
     """Return True when a label/class/name value refers to a duck."""
     if value is None:
