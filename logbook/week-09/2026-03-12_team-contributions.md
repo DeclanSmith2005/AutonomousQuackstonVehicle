@@ -96,34 +96,37 @@ To be completed.
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD  
+**Time:** 14:30-16:30 (team session), Mar 12 follow-up testing  
+**Activity Type:** Testing Control
+**Status:** Completed  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 
-- To be completed.
+- Tested right turns around the provided track
+- Tested left turns around the track
+- These turns were conducted to better refine the Pulse Width Modulation(PWM) values for each turn, as well as the optimale steering angle that will allow the car to make all of those types of turns.
+- 
 
 ### Decisions
-
-- To be completed.
+- From the testing we selected a base steering angle of about 20 for the left and right turns
+- also settled on a PWM for the right turns of 7
+- there is still more testing that needs to be done for the left turns for a decision to be made
+- This was important because vehicle speed directly affected the turning radius: lower PWM values produced tighter turns, while higher PWM values produced wider turns. From our testing, we observed that left turns tended to be wider, while right turns were generally sharper, so these differences informed our parameter choices.
 
 ### Issues Encountered
-
-- To be completed.
+- Inconsistency in car's behaviour even at the same steering angle or PWM
+- Sometimes the car would complete the turn reliably in a row multiple times but when testing later it would for some reason fail.
+- It seems as though the wheels are turning but the car isn't moving in its directions, leading us to believe that it is linked to a power problem
+- Battery charge level decreasing over time could affect the power delivered to the motors and make previously tuned pwm and steering values incorrect.
 
 ### Next Steps
 
-- [ ] To be completed.
-
-### References
-
-- To be completed.
+- repeat testing with a plugged in battery pack, so we get consistent results that can be ttested under the same conditions each time.
 
 ### Reflection
 
-To be completed.
+Today was really eye opening, as it revealed a lot of the core problems that the team was having with turning. A lot of the time it felt like we constantly had to re-tune and re-tune even when the car realistically should have been working. It goes to show how many factors need to be considered in an engineering setting and how something so small can create large adverse effects on testing. I learned that inconsistency in results does not always mean the parameters themselves are wrong, but can instead point to hardware-related factors such as battery level. This reinforced the importance of controlling external variables during testing so that the team can make decisions based on reliable results.
 
 ---
 
@@ -166,7 +169,7 @@ To be completed.
 | -------- | ------- | -------- | ------------------ |
 | Rafael Costa | 3.0 h | ✅ | Control-path cleanup, pivot-turning update, motion tuning, test-log collection, duck safety stop/horn |
 | Ishaan Grewal | TBD | TBD | To be completed |
-| Nolan Su-Hackett | TBD | TBD | To be completed |
+| Nolan Su-Hackett | 2.0H | ✅ | Turn Testing, Debugging |
 | Declan Smith | TBD | TBD | To be completed |
 
 ---
