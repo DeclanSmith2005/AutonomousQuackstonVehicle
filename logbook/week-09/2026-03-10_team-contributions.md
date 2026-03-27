@@ -96,34 +96,33 @@ To be completed.
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD  
+**Time:** 14:30-17:30 (team session), Mar 11 follow-up commits  
+**Activity Type:** Consulting, Brainstorming, Tweaking  
+**Status:** Completed  
+**Estimated Effort:** 3.0 h   
 
 ### Work Performed
 
-- To be completed.
+- Spoke with Professor Paulo about issues detecting the duck, he mentioned that the object detection model is a bit of a black box but he still offered some pointers: he told us to reconsider the objects that we are training the model on and whether we need them because if not, then the model may be unnecessary clogged by useless information. After deciding which objects we really needed, he said if there still remains a problem, then maybe it could be beneficial to train separate models to be good at detecting certain classes and multiplex the models between an interval of frames.
+- Spoke with Professor Matthew also about duck detection and I showed him our images, he said there were too many similar images and suggested taking more with widely different background and also to decrease the work of taking images he suggested taking a bunch, then inverting them to double the image count.
+- Aiding Rafael with debugging control + CTE integration problems, like server delay, incosistent trajectory, etc.
 
 ### Decisions
+- After taking the professors advice into account, we realized that the duck class is the only one that is both critical and has the potential to be reliably detectable. The perception team dropped the car class because it would be hard to classify the wheels correctly, if both our car and others are moving, and there is always the large riske of misclassification which could cause random stops. While the same can be said for ducks, they arem uch more critical because there are more ducks and there is a higher change that our car would run into them without ultrasonic detection due to their small size.
+- The signs on the road were unimportant as well, since this is information that can be encoded into our graph with 100% accuracy.
 
-- To be completed.
 
 ### Issues Encountered
-
-- To be completed.
+- duck classification unreliable
 
 ### Next Steps
 
-- [ ] To be completed.
-
-### References
-
-- To be completed.
+- Annotate the extra 60 duck images
+- train a model with only ducks then evaluate it performance
 
 ### Reflection
 
-To be completed.
+This session made me reflect on the importance of critically evaluating a design problem so that we aren't doing unnecessary work, which can overcomplicate the process. After speaking with Professor Paulo and Professor Matthew, we realized that our duck detection issues were not just about model performance, but also about the way we had defined the perception task and collected data. Their feedback helped us recognize that trying to detect too many unnecessary classes was likely hurting the model, and that our duck dataset needed more variety rather than just more of the same images. I think the team made a strong decision by narrowing the model to focus only on ducks, since duck detection is both more critical to safety and more realistically achievable than detecting cars or road signs.
 
 ---
 
@@ -166,7 +165,7 @@ To be completed.
 | -------- | ------- | -------- | ------------------ |
 | Rafael Costa | 3.0 h | ✅ | Stopped-state integration, mock perception testing, snapshot-based turn refactor |
 | Ishaan Grewal | TBD | TBD | To be completed |
-| Nolan Su-Hackett | TBD | TBD | To be completed |
+| Nolan Su-Hackett | 3.0 h | ✅ | Duck Images, Consulting with professors|
 | Declan Smith | TBD | TBD | To be completed |
 
 ---
