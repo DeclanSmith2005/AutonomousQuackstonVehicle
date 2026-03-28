@@ -78,10 +78,10 @@ Mar 20 consolidated many control and perception ideas into an initial, runnable 
 
 ## Entry - Nolan Su-Hackett
 
-**Time: 14:00-17:00 (team session)
-**Activity Type:** Testing Control, Testing Duck Detection, Testing Integration
-**Status:** Completed  
-**Estimated Effort:** 3.0 h  
+**Time:** 14:00-17:00
+**Activity Type:** Implementation, Integration, Configuration  
+**Status:** Completed
+**Estimated Effort:** 3.0h
 
 ### Work Performed
 - Created LED Circuit for brake lights and turn signal indicators
