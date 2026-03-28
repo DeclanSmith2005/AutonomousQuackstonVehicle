@@ -96,7 +96,7 @@ To be completed.
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** 14:30-16:30 (team session), Mar 12 follow-up testing  
+**Time:** 14:30-16:30 (team session), Mar 12 follow-up testing
 **Activity Type:** Testing Control
 **Status:** Completed  
 **Estimated Effort:** 2.0 h  
