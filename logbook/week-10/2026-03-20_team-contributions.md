@@ -78,16 +78,39 @@ Mar 20 consolidated many control and perception ideas into an initial, runnable 
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD
+**Time:** 14:00-17:00 (team session)
+**Activity Type:** Testing Control, Testing Duck Detection, Testing Integration
+**Status:** Completed  
+**Estimated Effort:** 3.0 h  
 
 ### Work Performed
+- Created LED Circuit for brake lights and turn signal indicators
+- Attempted setting up button for emergency stop
+- Set up Limit switch
+- Tested code to turn on LED circuits using certain state assertions like a Braked state boolean and a turn state left/right boolean.
+- Consulted with other teams on how to solve some issues, further discussed in issues encountered
+### Issues Encountered
+- There are only two exposed digital pins, this would cause problems with how we were planning on implementing our circuitry as we planned to pin a button, a limit switch, a left turn indicator, a right turn indicator, and brake lights (can share one pin). This would total to 5 digital pins that we would need
+- We brainstormed solutions and thought to use a multiplexing circuit that could allow us to use the two signals to select 4 actions, but this still wouldn't be enough and we didn't have an multiplexer IC anyways which would take weeks to arrive, time we didnt have.
+- Instead we consulted with other groups to see how they are implementing their hardware and found that PWM can be used for the turn indicators as they need to blink at a set rate, this is a perfect application for PWM.
+### Decisions
+- Disposing of using a button for an emergency stop and defaulting to a software/terminal emergency stop
+- Using PWM for the indicators
+- using a digital pin for the limit switch, and a digital pin for the brake lights.
+-  Stop using the find line detectoin as green tape was added to the mats allowing the grayscale to detect the intersection. Due to this addition we are switching to pivoting in those scenarios where there is no line beforehand from which we usually make our curved turn.
+### Next Steps
+- Finalize and test the PWM-based turn indicator implementation.
+- Test the limit switch and brake light circuits together during driving.
+- Verify that the software emergency stop works reliably in practice.
+- Test the new pivot-based turning approach in intersections and compare its consistency to the previous method.
 
-- To be completed.
+### Reflection
+
+This session showed the importance of attempting solutions and when a wall is hit to consult with other teams who are likely dealing with similar problems. Consulting with other teams changed the understanding of the problem and opened up other possiblilities that our team did not originally consider, in this case being the use of the PWM pins. This solution was much more realistiic than our aformentioned multiplexer implementation. In the future we should start with our implementation constraints, instead of having to rely on other teams to guide us later. This digital pin problem is something that could have been diagnosed early in the process and we could have planned around this by looking for other solutions or ordering parts that we would have needed like a multiplexer IC that could have made our selection solution viable. Ultimately, the other team was able to help us out with the information that we needed but in the case that they also planned to use a selection circuit with a multiplexer, our group would not have had enough time to get those parts.
 
 ---
+
+
 
 ## Entry - Declan Smith
 
