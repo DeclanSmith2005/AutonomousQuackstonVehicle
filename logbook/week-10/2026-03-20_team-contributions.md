@@ -78,7 +78,7 @@ Mar 20 consolidated many control and perception ideas into an initial, runnable 
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** 14:00-17:00 (team session)
+**Time: 14:00-17:00 (team session)
 **Activity Type:** Testing Control, Testing Duck Detection, Testing Integration
 **Status:** Completed  
 **Estimated Effort:** 3.0 h  
