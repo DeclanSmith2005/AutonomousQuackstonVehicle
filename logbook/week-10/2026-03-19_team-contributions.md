@@ -68,14 +68,21 @@ The Mar 19–20 work established the initial, centralized control surface and mi
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD
+**Time:** 14:30-16:30 (team session)
+**Activity Type:** Testing Control, Testing Duck Detection, Testing Integration
+**Status:** Completed  
+**Estimated Effort:** 2.0 h  
 
 ### Work Performed
 
-- To be completed.
+### Issues Encountered
+
+### Decisions
+
+### Next Steps
+
+
+### Reflection
 
 ---
 
