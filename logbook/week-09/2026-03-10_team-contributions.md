@@ -128,34 +128,35 @@ This session made me reflect on the importance of critically evaluating a design
 
 ## Entry - Declan Smith
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD  
+**Time:**   14:30-17:30 (team session)
+**Activity Type:** Code Writing, Clarification with Teaching Team
+**Status:** In-Progress  
+**Estimated Effort:** 3 hrs  
 
 ### Work Performed
-
-- To be completed.
+- Discussed with one of the TA's what was going wrong with VPFS. We discovered that I needed to use the team number 0 in order for the dummy VPFS simulation to work, which I hadn't understood from the previously provided documentation. Furthermore, I needed some clarification as to whether we should be using 2 (duclair-2) for our team number, or 11 (our kit number). Between these new pieces of information and the teaching team's work to finalize VPFS, I was able to get a simulation of a fare working.
+- While the intermediate nodes between the start and end locations were correct for the fare simulation, I found that sometimes it was inaccurately modelling the start and end locations properly, so some time was spent debugging the path-finding code and trying to make it more accurate.
+- Furthermore, and more concerning than the previous step, the algorithm wasn't always correctly categorizing turns properly, so I need to look at the algorithm in more depth and correct it. 
 
 ### Decisions
-
-- To be completed.
+- started using vectors in the "navigate" function to determine the heading of the car to eliminate nodes as options in the adjacency matrix directly behind the heading of the car. 
 
 ### Issues Encountered
 
-- To be completed.
+- Inaccurate turn classification
+- Incorrect starting nodes
 
 ### Next Steps
 
-- [ ] To be completed.
+- [ ] Now that the VPFS simulation is working correctly, need to continue to test and refine algorithms to get them right
 
 ### References
 
-- To be completed.
+- NA.
 
 ### Reflection
 
-To be completed.
+The bottleneck coming from issues related to getting VPFS simulations working has been lifted, meaning I have the opportunity to invest as much time as necessary into perfecting my code. It seems to be working most of the way so far, but it no doubt needs lots of tweaking to get it just right. The final step will be making sure that I'm correctly sending off directions to Raphael so that the car itself takes the right path. 
 
 ---
 
@@ -166,7 +167,7 @@ To be completed.
 | Rafael Costa | 3.0 h | ✅ | Stopped-state integration, mock perception testing, snapshot-based turn refactor |
 | Ishaan Grewal | TBD | TBD | To be completed |
 | Nolan Su-Hackett | 3.0 h | ✅ | Duck Images, Consulting with professors|
-| Declan Smith | TBD | TBD | To be completed |
+| Declan Smith | 3.0h | In-Progress | Continued to improve turn classification and path finding |
 
 ---
 
@@ -176,4 +177,4 @@ Rafael's control-side work in this session centered on making perception-driven 
 
 ---
 
-**Entry completed**: 2026-03-12
+**Entry completed**: 2026-03-29
