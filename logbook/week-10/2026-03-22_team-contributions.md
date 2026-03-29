@@ -108,6 +108,7 @@ Mar 22 was a heavy integration day — a lot of core control and comms infrastru
 - bounding boxes were being drawn over small areas that contained no ducks, this was resolved using the yellow colour ratio to filter these false positives.
 ### Decisions
 - Not relying on object detection for signs, this was something that came up when realising that control needed to know when it would soon see a stop sign. A solution that was suggested was using the model to detect signs, and this would append a stop instruction to the currentlylist of instructions that the control had. the only problem wiht this is that the stop sign detection was unreliable, and one mistake would irreversibly mess up the array of instructions that control had at that moment. So instead, the team decided to hard code these places in the map.
+- after speaking with the professor we realised that we can turn the wheels at different speed, so turning the inner wheel slower and turning the outer one faster would make for a more robust curved turn.
 
 ### Next Steps
 - Update the map so straight instructions correctly distinguish between cases that require one intersection count and cases that require two.
