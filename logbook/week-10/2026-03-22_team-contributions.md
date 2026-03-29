@@ -77,27 +77,49 @@ Mar 22 was a heavy integration day — a lot of core control and comms infrastru
 
 ## Entry - Nolan Su-Hackett
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD
+**Time:** 10:00-23:30
+**Activity Type:** Implementation, Integration, Configuration  
+**Status:** Completed
+**Estimated Effort:** 3.0h
 
 ### Work Performed
 
-- To be completed.
+- Worked on tuning the PID parameters
+- spoke with professor Matthew about issues that we were having with turning
+- Worked on labels for certain edges of the map, labelling cases like r0, l0, l1 turns. These each are turn types that we have designed for an
+- R0: right hand turn where there is no stop sign, must use pivot.
+- L0: left hand turn when there is no stop line and there is a one way intersecting the street, meaning that there will be a pivot on the first intersection cross it sees
+- L1: No stop line but there are two intersecting lines, which means it will stop at the first line it sees then perform a curved arc onto the second intersecting line
+- Verified labelling for stop signs
+- Realised that there are some other information we need to encode in the map like cross walks
+- took 150 more pictures of ducks on the crosswalks and road
+- annotated all the pictures
+- retrained the model with additional pictures
+- created a colour map filter that will reject a bounding box detection if it doesnt contain atleast 30% yellow
+- Helped Ishaan create the bounding box area filter that would stop the model from detecting really large things that aren't ducks, this will help filter things that aren't rejected from the colour Ratio filtering.
+- Created the Care box
+- Tested integration with newly added map information in our graph
 
----
+### Issues Encountered
+- the map only passed a single straight, when going through a node that it wants to go straight on, this is a problem because the way control is working is that it counts intersecting lines using the grayscale to decide when to do something. The problem with only passing one straight is that at a normal decision point with two intersecting lanes where both lanes are two ways, two intersections need to be counted, this means that two straights must be passed. This is of course only for a normal street, but if a one way is intersecting that node then it is fine to pass just one straight.
+- The map did not have information for when ti would have to make certain types of turns, this meant that control had no way of knowing when to perform a pivot turn or a curved turn, etc.
+- The Control did not know when to stop, so stop line edges needed to be integrated into the map aswell so that control knew at what line to stop at using the counting algorithm mentioned earlier.
+- large bounding boxes were being drawn around random objects, this was solved using the bbounding box area filter
+- bounding boxes were being drawn over small areas that contained no ducks, this was resolved using the yellow colour ratio to filter these false positives.
+### Decisions
+- Not relying on object detection for signs, this was something that came up when realising that control needed to know when it would soon see a stop sign. A solution that was suggested was using the model to detect signs, and this would append a stop instruction to the currentlylist of instructions that the control had. the only problem wiht this is that the stop sign detection was unreliable, and one mistake would irreversibly mess up the array of instructions that control had at that moment. So instead, the team decided to hard code these places in the map.
 
-## Entry - Declan Smith
+### Next Steps
+- Update the map so straight instructions correctly distinguish between cases that require one intersection count and cases that require two.
+- Continue integrating added map details such as crosswalks and stop-related information into control testing.
+- Test the new turn labels (r0, l0, l1) further to verify that pivot and curved turn behaviors trigger correctly.
+- Keep refining duck detection with the new yellow ratio and bounding box area filters during integration tests.
+- Validate the retrained duck model on track conditions to see whether the added images improved real performance.
+### Reflection
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD
+This session highlighted that there were a lot of things that needed to be taken into consideration earlier that only came to light when we started testing n the real track. Some of these things are unavoidable as it is a 
 
-### Work Performed
-
-- To be completed.
+This work showed that reliable control depends on the map carrying enough information for control to make the right decision at the right time. A key realization was that passing only a single straight instruction was not enough for many normal intersection cases, because control depends on counting intersecting lines and some situations require two counts rather than one. That changed the approach from treating the map as a simple path description to treating it as a source of decision-specific behavior, including turn type labels and stop line information. It also revealed a gap in the earlier design process, since some of the control requirements, like knowing when to pivot, when to curve, and when to stop, had not yet been fully encoded in the map structure. The perception work led to a similar lesson: adding more duck images and retraining helped, but the false positive problem showed that model performance alone was not enough, so practical filtering methods like yellow ratio checks and bounding box area limits became necessary. Going forward, future work should place more focus on defining the information control needs upfront, encoding that clearly in the map, and pairing model improvements with rule-based filtering so that integration is more reliable.
 
 ---
 
