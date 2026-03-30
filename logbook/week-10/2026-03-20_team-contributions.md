@@ -114,14 +114,31 @@ This session showed the importance of attempting solutions and when a wall is hi
 
 ## Entry - Declan Smith
 
-**Time:** TBD  
-**Activity Type:** TBD  
-**Status:** TBD  
-**Estimated Effort:** TBD
+**Time:** 13:00-23:50 (work spanning Mar 19–20 commits)  
+**Activity Type:** Finalizing Turn Classification and Path Finding 
+**Status:** Completed (initial implementation)  
+**Estimated Effort:** 2.0 h
 
 ### Work Performed
+- Wrote serverExport.py to send directions to the subsystem responsible for locomotion. The file uses zmq to transfer information over a preset port. We are sending the directions as a JSON packet.
+- Moved main loop logic to constantly calculate the optimal route to the next target to the file that writes to the server for better readability
+---
 
-- To be completed.
+### Decisions
+- Decided that my code would constantly determine the next pickup/drop-off location accordingly, while Raphael would accept directions by reading from the server and issue instructions to the car.
+
+### Issues Encountered
+- Outputting the turns had relatively few issues. Raphael's code was able to read them after making just a few changes to ensure both parties were working on the appropriate ports, the car was running on the correct wifi network etc.
+  
+### Next Steps
+
+- None! After this point my responsibilities are basically fufilled, I just need to help out my teamates if they have questions about my code and provide support if they're struggling with their responsibilities. 
+
+### References (commits from Mar 19 + Mar 20)
+NA
+
+### Reflection ###
+It's super exciting to have successfully completed my contribution to the teams final product. I'm proud that my code seems to correctly output the directions to the car 100% of the time, and really happy with how the work turned out. I'm hopeful that we'll be able to have a final product that scores well in the competition, but regardless, I'm 100% satisified with my contribution to the team!
 
 ---
 
@@ -132,7 +149,7 @@ This session showed the importance of attempting solutions and when a wall is hi
 | Rafael Costa | 6.0 h | ✅ | Perception & control integration, MissionManager, config |
 | Ishaan Grewal | TBD | TBD | To be completed |
 | Nolan Su-Hackett | TBD | TBD | To be completed |
-| Declan Smith | TBD | TBD | To be completed |
+| Declan Smith | 2.0 | ✅ | Outputting directions through the server|
 
 ---
 
