@@ -92,7 +92,7 @@ Mar 23 was a refinement/tuning pass that made sensible conservative changes to r
 ### Issues Encountered
 - Car was not stopping when it was at the dropoff
 - car would not stop to begin with at either pickkup or dropoff (this was fixed)
-- the ROI filtering would cut out too much of the lane, and had trouble finding the yellow dotted lines which would make the left side filter fit poorly (this was fixed by simplifying the code and just filtering for the white border at the top
+- the ROI filtering would cut out too much of the lane, and had trouble finding the yellow dotted lines which would make the left side filter fit poorly (this was fixed by simplifying the code and just filtering for the white border at the top)
 - car still was not turning consistently
 - due to the amount of cars online at the same time, the ssh would consistently disconnect
 - When car completes the mission state, all functionality stopped and stopped receiving instruction from planning even though it should constantly keep receiving directions
