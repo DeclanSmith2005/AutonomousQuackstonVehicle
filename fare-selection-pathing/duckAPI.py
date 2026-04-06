@@ -1,11 +1,11 @@
 import requests
 
 s = requests.Session()
-#BASEURL = 'http://localhost:5000'
+BASEURL = 'http://localhost:5000'
 #TEAM_NUMBER = '0'
 authKey = 'df5c5d634ec16bbe1639a91cddc177de'
-TEAM_NUMBER = '11'
-BASEURL = 'http://192.168.0.100:5000'
+TEAM_NUMBER = '0'
+#BASEURL = 'http://192.168.0.100:5000'
 #BASEURL = baseurl for comp
 
 def getMatchInfo():

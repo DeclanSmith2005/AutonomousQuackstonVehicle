@@ -453,7 +453,7 @@ class NavGraph:
         return res
     
     def getBestFare(self):
-        self.updatePosition()
+        #self.updatePosition()
         """uncomment"""
 
         fareInfo = {} # {fareId : [score, pathTostart, pathtoFinishFromStart]}
@@ -461,7 +461,7 @@ class NavGraph:
         bestFare, bestScore = -1, -1
 
         """****"""
-        #self.carX, self.carY = 357,413 
+        self.carX, self.carY = 357,413 
         """^^^ remove after testing """
 
         for fare in fares:
