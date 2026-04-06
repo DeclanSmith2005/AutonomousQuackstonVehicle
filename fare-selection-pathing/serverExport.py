@@ -101,7 +101,11 @@ def main():
         #     time.sleep(0.05)
 
         print("Near pickup — waiting for inPosition confirmation...")
+        start_wait_for_inpos0 = time.time()
         while (True):
+            if (time.time() - start_wait_for_inpos0 > 20):
+                print("Take too long waiting for inposition conf 0")
+                break
             if wait_for_fare_status(fareID, 'inPosition'):
                 break
 
@@ -110,18 +114,28 @@ def main():
             time.sleep(0.05)
 
         print("In position — waiting for pickup confirmation...")
+        start_wait_for_pickup_conf = time.time()
+
         while (True):
+            if (time.time() - start_wait_for_pickup_conf > 20):
+                print("Take too long waiting for pickup confirm dog")
+                break
             if wait_for_fare_status(fareID, 'pickedUp'):
                 break
 
+
+        sendDirs(p2)
+        g.updatePosition()
+        
         print("Picked up — resuming, navigating to drop off...")
         for _ in range(3):
             stopped(False)
             time.sleep(0.05)
 
-        sendDirs(p2)
-        g.updatePosition()
         while math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) > 15:
+            distance_thingy = math.sqrt((g.carX - destX)**2 + (g.carY - destY)**2) < 50
+            if (distance_thingy):
+                print(distance_thingy)
             g.updatePosition()
             dirs, dist, h, p = g.navigate(g.heading, g.carX, g.carY, destX, destY)
             sendDirs(dirs)
@@ -133,7 +147,11 @@ def main():
         #     time.sleep(0.05)
 
         print("Near dropoff — waiting for inPosition confirmation...")
+        start_wait_for_inpos = time.time()
         while (True):
+            if (time.time() - start_wait_for_inpos > 20):
+                print("Take too long waiting for inpos dog")
+                break
             if wait_for_fare_status(fareID, 'inPosition'):
                 break
 
@@ -142,9 +160,14 @@ def main():
             time.sleep(0.05)
 
         print("In position — waiting for dropoff completion...")
+        start_drop_off_time = time.time()
 
         while(True):
+            if (time.time() - start_drop_off_time > 20):
+                print("Take too long waiting dropoff complete dog")
+                break
             if wait_for_fare_status(fareID, 'completed'):
+
                 break
 
         for _ in range(3):

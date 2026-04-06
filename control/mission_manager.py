@@ -58,8 +58,9 @@ class MissionManager:
                 self.no_line_turn = False
             print(f"MISSION UPDATE: Switched to {self.current_state} (no_line_turn={self.no_line_turn})")
         else:
-            print("MISSION COMPLETE")
-            self.current_state = RobotState.IDLE
+            if self.current_state != RobotState.IDLE:
+                print("MISSION COMPLETE: Entering IDLE state.")
+                self.current_state = RobotState.IDLE
             self.no_line_turn = False
         
         self.crossings_seen = 0

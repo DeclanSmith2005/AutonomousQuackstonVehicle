@@ -57,7 +57,7 @@ TURN_TRIGGER_MODE = "grayscale"
 MAX_TURN_PROXIMITY = 15
 
 TURN_PWM = [27, 20, 27]  # [left_1, right, left_2]
-TURN_OUTER_PWM_MULT = [1, 1.9, 0.9]
+TURN_OUTER_PWM_MULT = [1, 1.9, 1.1]
 TURN_INNER_PWM_MULT = [0.8, 0.3, 1.0]
 TURN_ENTRY_SPEED = 2
 TURN_POST_SPEED = 5
@@ -71,7 +71,7 @@ TURN_ENTRY_TIMEOUT = 5.0
 
 # --- NO-LINE OUTSIDE WHEEL TURN TUNING ---
 NO_LINE_TURN_LINE_CHECK_DELAY = 1.75  # seconds before checking grayscale
-NO_LINE_OUTSIDE_PWM = [60, 80]
+NO_LINE_OUTSIDE_PWM = [60, 60]
 NO_LINE_INNER_PWM = [30, 10]  # Speed of the inner wheel (reverse) to help pivot in place!
 NO_LINE_OUTSIDE_TIME = [2.0, 2.0]
 NO_LINE_PRE_STOP_DELAY = [0.2, 0.0, 0.3]  # Delay (s) before stopping [left_1, right, left_2]. Allows crossing the line slightly.

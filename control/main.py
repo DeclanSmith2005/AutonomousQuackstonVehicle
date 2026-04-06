@@ -1,4 +1,3 @@
-import csv
 import os
 import threading
 import time
@@ -13,7 +12,7 @@ from line_sensor import LineSensor
 from mission_manager import MissionManager, RobotState
 from server import ServerManager
 from calibration import load_calibration, run_wiggle_calibration
-from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, scan_for_line_fallback, execute_outside_wheel_turn
+from turning import execute_pivot_turn, execute_turn, execute_turn_with_camera, execute_outside_wheel_turn
 from io_components import IOComponents
 
 
@@ -428,18 +427,18 @@ def main():
     # Current active mission
     initial_mission = [
         #RobotState.STRAIGHT,
-        # RobotState.RIGHT_NO_LINE,
-        RobotState.LEFT1_NO_LINE,
-	RobotState.CROSSWALK,
-        RobotState.LEFT_2,
-        RobotState.LEFT_2,
+        #RobotState.RIGHT_NO_LINE,
+        RobotState.STRAIGHT,
+	    # RobotState.CROSSWALK,
+        # RobotState.LEFT_2,
+        # RobotState.LEFT_2,
         #RobotState.STRAIGHT,
-        RobotState.LEFT_2,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.STRAIGHT,
-        RobotState.RIGHT
+        # RobotState.LEFT_2,
+        # RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
+        # RobotState.STRAIGHT,
+        # RobotState.RIGHT
     ]
     mission = MissionManager(initial_mission)
 
@@ -1242,14 +1241,42 @@ def main():
             # 3) Handle Mission Stages
             latest_queue = server.receive_mission_queue()
             if latest_queue is not None:
-                effective_current = [mission.current_state] + list(mission.mission_queue)
                 incoming = list(latest_queue)
-                if incoming != effective_current:
-                    print(f"Received NEW mission queue from pathing: {incoming}")
-                    mission.mission_queue = incoming
-                    if len(mission.mission_queue) > 0:
-                        print("Applying new mission queue from pathing.")
+                if len(incoming) > 0:
+                    first_incoming = incoming[0]
+                    # If we are currently IDLE, we must advance to the first state of the new mission
+                    if mission.current_state == RobotState.IDLE:
+                        print(f"Received mission queue while IDLE: {incoming}. Resuming...")
+                        mission.mission_queue = incoming
                         mission.advance_mission()
+                    else:
+                        # If we are already active, check if the first item of the new mission 
+                        # matches what we are currently doing.
+                        if first_incoming == mission.current_state:
+                            # Just update the "future" part of the mission (the queue)
+                            new_tail = incoming[1:]
+                            if new_tail != mission.mission_queue:
+                                print(f"Updating mission queue tail: {new_tail}")
+                                mission.mission_queue = new_tail
+                        else:
+                            # The pathing team has sent a completely different direction
+                            print(f"Received NEW mission queue (switching from {mission.current_state}): {incoming}")
+                            mission.mission_queue = incoming
+                            mission.advance_mission()
+                    
+                    # # Receiving a new mission queue should clear the pathing stop flag,
+                    # # as it implies the robot should proceed with the new directions.
+                    # if server.pathing_stop:
+                    #     print("New mission received: clearing pathing stop override.")
+                    #     server.pathing_stop = False
+                else:
+                    # Incoming mission is empty. If we aren't already IDLE, clear the queue.
+                    # Note: We don't call advance_mission here to avoid an immediate stop 
+                    # if we were just about to receive a non-empty queue. 
+                    # The next intersection will trigger IDLE if the queue remains empty.
+                    if len(mission.mission_queue) > 0:
+                        print("Pathing cleared the mission queue.")
+                        mission.mission_queue = []
 
             if mission.check_step_requested():
                 print(f"Advancing mission. New state: {mission.current_state}")
